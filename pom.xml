@@ -4,14 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.enderryno</groupId>
+    <groupId>com.EnderRyno</groupId>
     <artifactId>NuclearCraft</artifactId>
     <version>1.0</version>
     <packaging>jar</packaging>
 
     <name>NuclearCraft</name>
 
-    <description>This plugin adds the nuclear energy, with all of his benefits and dangers</description>
+    <description>A plugin that adds nuclear energy, along with his advantages and dangers</description>
     <properties>
         <java.version>1.8</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -67,7 +67,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.destroystokyo.paper</groupId>
+            <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
             <version>1.18.1-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
