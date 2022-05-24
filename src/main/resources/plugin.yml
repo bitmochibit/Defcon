@@ -1,0 +1,7 @@
+name: NuclearCraft
+version: ${project.version}
+main: com.enderryno.nuclearcraft.NuclearCraft
+api-version: 1.18
+authors: [ Rynoooo, Corvinoo ]
+description: This plugin adds the nuclear energy, with all of his benefits and dangers
+website: http://rynotechblog.altervista.org/
