@@ -3,28 +3,32 @@
 
 # item-name: The name of the item.
 # item-description: The description of the item.
-# item-id: The minecraft item id.
+# item-id: The unique custom id.
+# item-minecraft-id: The minecraft id of the item.
 
 # item-data-model-id: The id of the data model of the item.
 
+# custom-block-id: Let the system know that this item is a custom block too.
 
 # is-usable: If true, the item can be used to consume other items.
 # is-equipable: If true, the item can be equipped.
 # is-droppable: If true, the item can be dropped.
-# is-stackable: If true, the item can be stacked.
+# max-stack-size: Number of how much stacks this item can compose.
 # is-transportable: If true, the item can be carried in the inventory.
 
 #------------------------------------------------------------------------------
 # SPECIFIC ITEMS FUNCTION
 #------------------------------------------------------------------------------
-# is-geiger: If true, the item is a Geiger counter.
-# is-radiation-inhibitor: If true, the item is a radiation inhibitor (slows the rad/s).
-# is-gas-mask: If true, the item is a gas mask.
-# is-gas-mask-filter: If true, the item is a gas mask filter.
+# event-type: The function of the item.
+
+# geiger | The item is a Geiger counter.
+# radiation-inhibitor | The item is a radiation inhibitor (slows the rad/s).
+# gas-mask | The item is a gas mask.
+# gas-mask-filter | The item is a gas mask filter.
 #
 
 enabled-items:
-  - geiger
+  - geiger-counter
   - radiation-inhibitor
   - gas-mask
   - gas-mask-filter
@@ -39,5 +43,6 @@ geiger:
   item-id: 349
   item-data-model-id: 1
   is-geiger: true
+  functionality: geiger-counter
 
 

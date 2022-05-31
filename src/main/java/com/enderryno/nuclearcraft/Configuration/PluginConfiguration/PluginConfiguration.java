@@ -23,11 +23,11 @@ public class PluginConfiguration {
 
 
 
-    public PluginConfiguration(JavaPlugin plugin, String filePath, ConfigurationStorages configurationStorage) {
+    public PluginConfiguration(JavaPlugin plugin, ConfigurationStorages configurationStorage) {
         this.plugin = plugin;
         this.configType = configurationStorage;
 
-        this.filePath = filePath;
+        this.filePath = configType.getStoragePath();
         this.fileName = configType.getStorageFileName() + ".yml";
 
         this.configurationFilePath = new File(plugin.getDataFolder(), filePath);
@@ -70,6 +70,7 @@ public class PluginConfiguration {
         if (!this.configurationFilePath.exists()) {
             if (!this.configurationFilePath.mkdirs()) {
                 plugin.getLogger().log(Level.WARNING, "Could not create the directory!");
+                return;
             }
         }
 
