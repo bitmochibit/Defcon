@@ -1,0 +1,43 @@
+# This file configuration stores all the items and their behaviours.
+# Every item has a specific utility and usage, and it can be defined with some booleans (see below).
+
+# item-name: The name of the item.
+# item-description: The description of the item.
+# item-id: The minecraft item id.
+
+# item-data-model-id: The id of the data model of the item.
+
+
+# is-usable: If true, the item can be used to consume other items.
+# is-equipable: If true, the item can be equipped.
+# is-droppable: If true, the item can be dropped.
+# is-stackable: If true, the item can be stacked.
+# is-transportable: If true, the item can be carried in the inventory.
+
+#------------------------------------------------------------------------------
+# SPECIFIC ITEMS FUNCTION
+#------------------------------------------------------------------------------
+# is-geiger: If true, the item is a Geiger counter.
+# is-radiation-inhibitor: If true, the item is a radiation inhibitor (slows the rad/s).
+# is-gas-mask: If true, the item is a gas mask.
+# is-gas-mask-filter: If true, the item is a gas mask filter.
+#
+
+enabled-items:
+  - geiger
+  - radiation-inhibitor
+  - gas-mask
+  - gas-mask-filter
+
+
+#------------------------------------------------------------------------------
+# ITEMS
+#------------------------------------------------------------------------------
+geiger:
+  item-name: Geiger Counter
+  item-description: A Geiger counter.
+  item-id: 349
+  item-data-model-id: 1
+  is-geiger: true
+
+
