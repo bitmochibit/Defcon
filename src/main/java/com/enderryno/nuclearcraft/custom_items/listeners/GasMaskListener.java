@@ -1,4 +1,4 @@
-package com.enderryno.nuclearcraft.CustomItems.ItemListeners;
+package com.enderryno.nuclearcraft.custom_items.listeners;
 
 import org.bukkit.event.Listener;
 

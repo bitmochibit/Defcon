@@ -1,11 +1,14 @@
-package com.enderryno.nuclearcraft.Configuration.Enums;
-
-import com.enderryno.nuclearcraft.CustomItems.ItemInterfaces.GenericItem;
+package com.enderryno.nuclearcraft.configuration.enums;
 
 public enum ConfigurationStorages {
 
     items("items"),
     blocks("blocks"),
+    config("config"),
+
+    playerStructures("player_structures"),
+    playerBlocks("player_blocks"),
+
     ;
 
 
@@ -19,7 +22,7 @@ public enum ConfigurationStorages {
     }
 
     ConfigurationStorages(String storageFileName){
-        this(storageFileName, "/");
+        this(storageFileName, "");
     }
 
 

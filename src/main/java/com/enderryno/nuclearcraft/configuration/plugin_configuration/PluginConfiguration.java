@@ -1,6 +1,6 @@
-package com.enderryno.nuclearcraft.Configuration.PluginConfiguration;
+package com.enderryno.nuclearcraft.configuration.plugin_configuration;
 
-import com.enderryno.nuclearcraft.Configuration.Enums.ConfigurationStorages;
+import com.enderryno.nuclearcraft.configuration.enums.ConfigurationStorages;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;

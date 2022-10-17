@@ -1,6 +1,6 @@
-package com.enderryno.nuclearcraft.CustomItems.ItemRegister.Enums;
+package com.enderryno.nuclearcraft.custom_items.register.enums;
 
-import com.enderryno.nuclearcraft.CustomItems.ItemInterfaces.GenericItem;
+import com.enderryno.nuclearcraft.custom_items.interfaces.GenericItem;
 
 
 public enum BaseItem {

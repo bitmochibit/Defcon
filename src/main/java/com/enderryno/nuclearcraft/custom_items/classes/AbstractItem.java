@@ -1,10 +1,8 @@
-package com.enderryno.nuclearcraft.CustomItems.ItemClasses;
+package com.enderryno.nuclearcraft.custom_items.classes;
 
 
-import com.enderryno.nuclearcraft.CustomItems.ItemInterfaces.GenericItem;
+import com.enderryno.nuclearcraft.custom_items.interfaces.GenericItem;
 import com.enderryno.nuclearcraft.NuclearCraft;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.event.Listener;

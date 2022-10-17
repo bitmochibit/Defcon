@@ -1,4 +1,4 @@
-package com.enderryno.nuclearcraft.CustomItems.ItemRegister.Exceptions;
+package com.enderryno.nuclearcraft.custom_items.register.exceptions;
 
 public class ItemNotRegisteredException extends Exception{
     public ItemNotRegisteredException(String errorMessage) {

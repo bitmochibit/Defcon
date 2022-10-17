@@ -1,6 +1,7 @@
-package com.enderryno.nuclearcraft.CustomItems.ItemInterfaces;
+package com.enderryno.nuclearcraft.custom_items.interfaces;
 
 import org.bukkit.event.Listener;
+import org.bukkit.inventory.ItemStack;
 
 public interface GenericItem {
 
@@ -17,6 +18,7 @@ public interface GenericItem {
     public String getMinecraftId();
 
 
+    public ItemStack getItemStack();
 
     // Characteristics
 

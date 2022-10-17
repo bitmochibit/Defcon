@@ -5,3 +5,9 @@ api-version: 1.18
 authors: [ Rynoooo, Corvinoo ]
 description: A plugin that adds nuclear energy, along with his advantages and dangers
 website: http://rynotechblog.altervista.org/
+commands:
+  give:
+    description: Give a nuclear craft item
+    permission: nuclearcraft.admin
+    permission-message: You do not have permission!
+    usage: /<command> [id]
