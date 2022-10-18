@@ -8,7 +8,7 @@ import com.enderryno.nuclearcraft.custom_items.register.exceptions.ItemNotRegist
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
-@CommandInfo(name="give", permission = "nuclearcraft.admin", requiresPlayer = true)
+@CommandInfo(name="ncgive", permission = "nuclearcraft.admin", requiresPlayer = true)
 public class GiveCommand extends GenericCommand {
     @Override
     public void execute(Player player, String[] args) {
@@ -29,7 +29,8 @@ public class GiveCommand extends GenericCommand {
         try {
             item = ItemRegister.getRegisteredItems().get(itemId);
         } catch (ItemNotRegisteredException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
+            return;
         }
         if (item == null) {
             player.sendMessage(ChatColor.RED + "This item is invalid");
@@ -42,7 +43,7 @@ public class GiveCommand extends GenericCommand {
             e.printStackTrace();
             return;
         }
-        player.sendMessage(ChatColor.GREEN + "Gave the player a " + item.getName());
+        player.sendMessage(ChatColor.GREEN + "Gave the player a " + item.getDisplayName());
 
     }
 }

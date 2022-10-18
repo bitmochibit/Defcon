@@ -6,7 +6,7 @@ authors: [ Rynoooo, Corvinoo ]
 description: A plugin that adds nuclear energy, along with his advantages and dangers
 website: http://rynotechblog.altervista.org/
 commands:
-  give:
+  ncgive:
     description: Give a nuclear craft item
     permission: nuclearcraft.admin
     permission-message: You do not have permission!

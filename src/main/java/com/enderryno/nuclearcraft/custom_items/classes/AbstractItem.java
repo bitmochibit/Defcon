@@ -3,6 +3,7 @@ package com.enderryno.nuclearcraft.custom_items.classes;
 
 import com.enderryno.nuclearcraft.custom_items.interfaces.GenericItem;
 import com.enderryno.nuclearcraft.NuclearCraft;
+import com.enderryno.nuclearcraft.utils.ColorParser;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.event.Listener;
@@ -54,8 +55,8 @@ public class AbstractItem implements GenericItem {
 
         /* Meta assignment */
         ItemMeta itemMeta = customItem.getItemMeta();
-        itemMeta.setDisplayName(this.name);
-        itemMeta.setLore(Arrays.asList(this.description.split("\n")));
+        itemMeta.setDisplayName(ColorParser.parseColor(this.name));
+        itemMeta.setLore(ColorParser.parseColor(Arrays.asList(this.description.split("\n"))));
 
 
         itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "id"), PersistentDataType.INTEGER, this.id);
@@ -120,6 +121,12 @@ public class AbstractItem implements GenericItem {
     public String getName() {
         return this.name;
     }
+
+    @Override
+    public String getDisplayName() {
+        return ColorParser.parseColor(this.name);
+    }
+
 
     @Override
     public String getDescription() {

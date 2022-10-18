@@ -13,6 +13,7 @@ public interface GenericItem {
     public GenericItem setMinecraftId(String minecraftId);
 
     public String getName();
+    public String getDisplayName();
     public String getDescription();
     public int getID();
     public String getMinecraftId();
