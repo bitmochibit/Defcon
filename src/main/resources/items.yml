@@ -7,7 +7,7 @@
 
 # item-minecraft-id: The minecraft id of the item.
 # item-data-model-id: The id of the data model of the item.
-# custom-block-id: Let the system know that this item is a custom block too.
+# custom-block-id: Let the system know that this item is a custom block.
 
 # is-usable: If true, the item can be used to consume other items.
 # is-equipable: If true, the item can be equipped.
@@ -18,12 +18,15 @@
 #------------------------------------------------------------------------------
 # SPECIFIC ITEMS FUNCTION
 #------------------------------------------------------------------------------
-# event-type: The function of the item.
+# Notice: Every item that has a custom block id will be treated as a block.
 
-# geiger | The item is a Geiger counter.
-# radiation-inhibitor | The item is a radiation inhibitor (slows the rad/s).
-# gas-mask | The item is a gas mask.
-# gas-mask-filter | The item is a gas mask filter.
+# behaviour: The function of the item. DEFAULT: Generic (Minecraft events)
+
+
+# geiger_counter | The item is a Geiger counter.
+# radiation_inhibitor | The item is a radiation inhibitor (slows the rad/s).
+# gas_mask | The item is a gas mask.
+# gas_mask_filter | The item is a gas mask filter.
 #
 
 enabled-items:
@@ -47,5 +50,20 @@ geiger:
   is-droppable: true
   max-stack-size: 1
   is-transportable: true
+  behaviour: "geiger_counter"
 
-
+#------------------------------------------------------------------------------
+# BLOCK ITEMS
+#------------------------------------------------------------------------------
+bomb-casing:
+  item-id: 1
+  item-name: "Bomb casing"
+  item-description: "&eThis item is a bomb casing and used to create a complex bomb"
+  item-minecraft-id: IRON_BLOCK
+  item-data-model-id: 1000
+  is-usable: true
+  is-equipable: true
+  is-droppable: true
+  is-transportable: true
+  max-stack-size: 64
+  custom-block-id: 1

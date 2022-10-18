@@ -4,7 +4,7 @@ import com.enderryno.nuclearcraft.configuration.enums.ConfigurationStorages;
 import com.enderryno.nuclearcraft.configuration.plugin_configuration.PluginConfiguration;
 import com.enderryno.nuclearcraft.custom_items.classes.AbstractItem;
 import com.enderryno.nuclearcraft.custom_items.interfaces.GenericItem;
-import com.enderryno.nuclearcraft.custom_items.listeners.*;
+import com.enderryno.nuclearcraft.custom_items.register.enums.ItemBehaviour;
 import com.enderryno.nuclearcraft.custom_items.register.exceptions.ItemNotRegisteredException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -82,18 +82,12 @@ public class ItemRegister {
             customItem.setUsable(itemUsable);
             customItem.setTransportable(itemTrasportable);
 
-            String eventType = itemConfig.getString(item + ".event-type");
+            String eventType = itemConfig.getString(item + ".behaviour");
             if (eventType == null) {
                 eventType = "generic";
             }
 
-            switch (eventType) {
-                case "gas-mask" -> customItem.setEventListener(new GasMaskListener());
-                case "gas-mask-filter" -> customItem.setEventListener(new GasMaskFilterListener());
-                case "radiation-inhibitor" -> customItem.setEventListener(new RadiationInhibitorListener());
-                case "geiger-counter" -> customItem.setEventListener(new GeigerCounterListener());
-                default -> customItem.setEventListener(new GenericListener());
-            }
+            customItem.setBehaviour(ItemBehaviour.fromString(eventType));
 
 
 

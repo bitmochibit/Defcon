@@ -12,16 +12,6 @@ public class ItemEventRegister {
 
     JavaPlugin plugin = null;
 
-    public static Listener[] eventsToRegister = {
-        new GasMaskListener(),
-        new GasMaskFilterListener(),
-        new GeigerCounterListener(),
-        new RadiationInhibitorListener(),
-
-        new GenericListener(),
-    };
-
-
     public ItemEventRegister(JavaPlugin plugin) {
         this.plugin = plugin;
     }

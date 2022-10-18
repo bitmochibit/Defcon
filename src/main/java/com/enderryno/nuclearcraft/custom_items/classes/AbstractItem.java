@@ -3,6 +3,7 @@ package com.enderryno.nuclearcraft.custom_items.classes;
 
 import com.enderryno.nuclearcraft.custom_items.interfaces.GenericItem;
 import com.enderryno.nuclearcraft.NuclearCraft;
+import com.enderryno.nuclearcraft.custom_items.register.enums.ItemBehaviour;
 import com.enderryno.nuclearcraft.utils.ColorParser;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -38,7 +39,7 @@ public class AbstractItem implements GenericItem {
 
     private int modelId;
     private int customBlockId;
-    private Listener listener;
+    private ItemBehaviour behaviour;
 
     private String minecraftId;
 
@@ -214,19 +215,19 @@ public class AbstractItem implements GenericItem {
         return this.transportable;
     }
 
-
-    /* Event Listener */
+    /*Behaviours*/
 
     @Override
-    public GenericItem setEventListener(Listener listener) {
-        this.listener = listener;
+    public GenericItem setBehaviour(ItemBehaviour behaviour) {
+        this.behaviour = behaviour;
         return this;
     }
 
     @Override
-    public Listener getEventListener() {
-        return this.listener;
+    public ItemBehaviour getBehaviour() {
+        return this.behaviour;
     }
+
 
 
 }
