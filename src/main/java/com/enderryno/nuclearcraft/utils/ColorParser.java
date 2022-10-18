@@ -21,10 +21,10 @@ public class ColorParser {
     public static String parseColor(String inputString) {
         // Try to parse RGB colors
         Matcher match = rgbPattern.matcher(inputString);
+        // Test &#cbfb09G&#cff408e&#d3ed08i&#d8e607g&#dcdf06e&#e0d805r
         while(match.find()) {
-            String color = inputString.substring(match.start(), match.end());
-            inputString = inputString.replace("&", "");
-            inputString = inputString.replace(color, ChatColor.of(color) + "");
+            String color = inputString.substring(match.start(), match.end()); //Color: &#cbfb09G
+            inputString = inputString.replace(color, ChatColor.of(color.replace("&", "")) + "");
             match = rgbPattern.matcher(inputString);
         }
 
