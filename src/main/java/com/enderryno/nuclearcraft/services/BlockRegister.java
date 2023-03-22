@@ -2,7 +2,7 @@ package com.enderryno.nuclearcraft.services;
 
 import com.enderryno.nuclearcraft.classes.PluginConfiguration;
 import com.enderryno.nuclearcraft.enums.ConfigurationStorages;
-import com.enderryno.nuclearcraft.classes.AbstractBlock;
+import com.enderryno.nuclearcraft.classes.CustomBlock;
 import com.enderryno.nuclearcraft.interfaces.PluginBlock;
 import com.enderryno.nuclearcraft.exceptions.BlockNotRegisteredException;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -45,7 +45,7 @@ public class BlockRegister {
 
         blockConfig.getList("enabled-blocks").forEach(item -> {
 
-            PluginBlock customBlock = new AbstractBlock();
+            PluginBlock customBlock = new CustomBlock();
 
             int blockId = blockConfig.getInt(item + ".block-id");
             if (blockId == 0 || registeredBlocks.get(blockId) != null) return;

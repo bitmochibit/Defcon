@@ -11,7 +11,7 @@ import com.enderryno.nuclearcraft.enums.ItemBehaviour;
  * Since it's unsafe to explicitly extend ItemStack class,
  * this class has a getter for both the ItemStack instance and this plugin item class.
  */
-public class AbstractBlock implements PluginBlock {
+public class CustomBlock implements PluginBlock {
 
 
     @Override
