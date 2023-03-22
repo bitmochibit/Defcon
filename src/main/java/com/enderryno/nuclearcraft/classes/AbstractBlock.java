@@ -1,8 +1,8 @@
 package com.enderryno.nuclearcraft.classes;
 
 
-import com.enderryno.nuclearcraft.interfaces.GenericBlock;
-import com.enderryno.nuclearcraft.interfaces.GenericItem;
+import com.enderryno.nuclearcraft.interfaces.PluginBlock;
+import com.enderryno.nuclearcraft.interfaces.PluginItem;
 import com.enderryno.nuclearcraft.enums.ItemBehaviour;
 
 /**
@@ -11,11 +11,11 @@ import com.enderryno.nuclearcraft.enums.ItemBehaviour;
  * Since it's unsafe to explicitly extend ItemStack class,
  * this class has a getter for both the ItemStack instance and this plugin item class.
  */
-public class AbstractBlock implements GenericBlock {
+public class AbstractBlock implements PluginBlock {
 
 
     @Override
-    public GenericItem setID(int id) {
+    public PluginItem setID(int id) {
         return null;
     }
 
@@ -25,7 +25,7 @@ public class AbstractBlock implements GenericBlock {
     }
 
     @Override
-    public GenericItem setMinecraftId(String minecraftId) {
+    public PluginItem setMinecraftId(String minecraftId) {
         return null;
     }
 
@@ -35,7 +35,7 @@ public class AbstractBlock implements GenericBlock {
     }
 
     @Override
-    public GenericItem setCustomBlockId(int customBlockId) {
+    public PluginItem setCustomBlockId(int customBlockId) {
         return null;
     }
 
@@ -55,7 +55,7 @@ public class AbstractBlock implements GenericBlock {
     }
 
     @Override
-    public GenericItem setBehaviour(ItemBehaviour behaviour) {
+    public PluginItem setBehaviour(ItemBehaviour behaviour) {
         return null;
     }
 

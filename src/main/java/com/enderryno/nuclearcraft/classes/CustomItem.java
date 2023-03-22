@@ -1,7 +1,7 @@
 package com.enderryno.nuclearcraft.classes;
 
 
-import com.enderryno.nuclearcraft.interfaces.GenericItem;
+import com.enderryno.nuclearcraft.interfaces.PluginItem;
 import com.enderryno.nuclearcraft.NuclearCraft;
 import com.enderryno.nuclearcraft.enums.ItemBehaviour;
 import com.enderryno.nuclearcraft.utils.ColorParser;
@@ -20,7 +20,7 @@ import java.util.Arrays;
  * Since it's unsafe to explicitly extend ItemStack class,
  * this class has a getter for both the ItemStack instance and this plugin item class.
  */
-public class AbstractItem implements GenericItem {
+public class CustomItem implements PluginItem {
 
     /*Getting instance of the minecraft plugin (in theory O(1) complexity) */
     private final JavaPlugin plugin = JavaPlugin.getPlugin(NuclearCraft.class);
@@ -81,25 +81,25 @@ public class AbstractItem implements GenericItem {
     /* Setters/Getters */
 
     @Override
-    public GenericItem setName(String name) {
+    public PluginItem setName(String name) {
         this.name = name;
         return this;
     }
 
     @Override
-    public GenericItem setMinecraftId(String minecraftId) {
+    public PluginItem setMinecraftId(String minecraftId) {
         this.minecraftId = minecraftId;
         return this;
     }
 
     @Override
-    public GenericItem setDescription(String description) {
+    public PluginItem setDescription(String description) {
         this.description = description;
         return this;
     }
 
     @Override
-    public GenericItem setID(int id) {
+    public PluginItem setID(int id) {
         this.id = id;
         return this;
     }
@@ -135,43 +135,43 @@ public class AbstractItem implements GenericItem {
     /*Characteristic properties*/
 
     @Override
-    public GenericItem setModelId(int modelId) {
+    public PluginItem setModelId(int modelId) {
         this.modelId = modelId;
         return this;
     }
 
     @Override
-    public GenericItem setCustomBlockId(int customBlockId) {
+    public PluginItem setCustomBlockId(int customBlockId) {
         this.customBlockId = customBlockId;
         return this;
     }
 
     @Override
-    public GenericItem setUsable(boolean usable) {
+    public PluginItem setUsable(boolean usable) {
         this.usable = usable;
         return this;
     }
 
     @Override
-    public GenericItem setEquipable(boolean equipable) {
+    public PluginItem setEquipable(boolean equipable) {
         this.equipable = equipable;
         return this;
     }
 
     @Override
-    public GenericItem setDroppable(boolean droppable) {
+    public PluginItem setDroppable(boolean droppable) {
         this.droppable = droppable;
         return this;
     }
 
     @Override
-    public GenericItem setStackSize(int stackSize) {
+    public PluginItem setStackSize(int stackSize) {
         this.stackSize = stackSize;
         return this;
     }
 
     @Override
-    public GenericItem setTransportable(boolean transportable) {
+    public PluginItem setTransportable(boolean transportable) {
         this.transportable = transportable;
         return this;
     }
@@ -214,7 +214,7 @@ public class AbstractItem implements GenericItem {
     /*Behaviours*/
 
     @Override
-    public GenericItem setBehaviour(ItemBehaviour behaviour) {
+    public PluginItem setBehaviour(ItemBehaviour behaviour) {
         this.behaviour = behaviour;
         return this;
     }
@@ -223,7 +223,6 @@ public class AbstractItem implements GenericItem {
     public ItemBehaviour getBehaviour() {
         return this.behaviour;
     }
-
 
 
 }

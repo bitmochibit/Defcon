@@ -2,7 +2,7 @@ package com.enderryno.nuclearcraft.commands;
 
 import com.enderryno.nuclearcraft.abstracts.GenericCommand;
 import com.enderryno.nuclearcraft.annotations.CommandInfo;
-import com.enderryno.nuclearcraft.interfaces.GenericItem;
+import com.enderryno.nuclearcraft.interfaces.PluginItem;
 import com.enderryno.nuclearcraft.services.ItemRegister;
 import com.enderryno.nuclearcraft.exceptions.ItemNotRegisteredException;
 import org.bukkit.ChatColor;
@@ -13,7 +13,7 @@ public class GiveCommand extends GenericCommand {
     @Override
     public void execute(Player player, String[] args) {
         int itemId;
-        GenericItem item;
+        PluginItem item;
 
         if (args.length < 1) {
             player.sendMessage(ChatColor.RED + "The second parameter must be a NuclearCraft ID");

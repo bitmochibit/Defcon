@@ -3,19 +3,26 @@ package com.enderryno.nuclearcraft.interfaces;
 import com.enderryno.nuclearcraft.enums.ItemBehaviour;
 import org.bukkit.inventory.ItemStack;
 
-public interface GenericItem {
+public interface PluginItem {
 
     // Base properties
 
-    GenericItem setName(String name);
-    GenericItem setDescription(String description);
-    GenericItem setID(int id);
-    GenericItem setMinecraftId(String minecraftId);
+    PluginItem setName(String name);
+
+    PluginItem setDescription(String description);
+
+    PluginItem setID(int id);
+
+    PluginItem setMinecraftId(String minecraftId);
 
     String getName();
+
     String getDisplayName();
+
     String getDescription();
+
     int getID();
+
     String getMinecraftId();
 
 
@@ -23,27 +30,38 @@ public interface GenericItem {
 
     // Characteristics
 
-    GenericItem setModelId(int modelId);
-    GenericItem setCustomBlockId(int customBlockId);
+    PluginItem setModelId(int modelId);
 
-    GenericItem setUsable(boolean usable);
-    GenericItem setEquipable(boolean equipable);
-    GenericItem setDroppable(boolean droppable);
-    GenericItem setStackSize(int stackSize);
-    GenericItem setTransportable(boolean transportable);
+    PluginItem setCustomBlockId(int customBlockId);
+
+    PluginItem setUsable(boolean usable);
+
+    PluginItem setEquipable(boolean equipable);
+
+    PluginItem setDroppable(boolean droppable);
+
+    PluginItem setStackSize(int stackSize);
+
+    PluginItem setTransportable(boolean transportable);
 
 
     int getModelId();
+
     int getCustomBlockId();
 
     boolean isUsable();
+
     boolean isEquipable();
+
     boolean isDroppable();
+
     int getStackSize();
+
     boolean isTransportable();
 
     /*Behaviour type*/
-    GenericItem setBehaviour(ItemBehaviour behaviour);
+    PluginItem setBehaviour(ItemBehaviour behaviour);
+
     ItemBehaviour getBehaviour();
 
 

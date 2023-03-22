@@ -3,7 +3,7 @@ package com.enderryno.nuclearcraft.services;
 import com.enderryno.nuclearcraft.classes.PluginConfiguration;
 import com.enderryno.nuclearcraft.enums.ConfigurationStorages;
 import com.enderryno.nuclearcraft.classes.AbstractBlock;
-import com.enderryno.nuclearcraft.interfaces.GenericBlock;
+import com.enderryno.nuclearcraft.interfaces.PluginBlock;
 import com.enderryno.nuclearcraft.exceptions.BlockNotRegisteredException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -20,7 +20,7 @@ public class BlockRegister {
     /**
      * Static member to access the registered items
      */
-    private static HashMap<Integer, GenericBlock> registeredBlocks = null;
+    private static HashMap<Integer, PluginBlock> registeredBlocks = null;
 
     private JavaPlugin pluginInstance = null;
 
@@ -45,7 +45,7 @@ public class BlockRegister {
 
         blockConfig.getList("enabled-blocks").forEach(item -> {
 
-            GenericBlock customBlock = new AbstractBlock();
+            PluginBlock customBlock = new AbstractBlock();
 
             int blockId = blockConfig.getInt(item + ".block-id");
             if (blockId == 0 || registeredBlocks.get(blockId) != null) return;
@@ -77,7 +77,7 @@ public class BlockRegister {
 
 
     /* Registered items getter */
-    public static HashMap<Integer, GenericBlock> getRegisteredItems() throws BlockNotRegisteredException {
+    public static HashMap<Integer, PluginBlock> getRegisteredItems() throws BlockNotRegisteredException {
         if (registeredBlocks == null) {
             throw new BlockNotRegisteredException("Block not registered for some reason. Verify the initialization");
         }

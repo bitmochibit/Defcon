@@ -2,15 +2,14 @@ package com.enderryno.nuclearcraft.services;
 
 import com.enderryno.nuclearcraft.classes.PluginConfiguration;
 import com.enderryno.nuclearcraft.enums.ConfigurationStorages;
-import com.enderryno.nuclearcraft.classes.AbstractItem;
-import com.enderryno.nuclearcraft.interfaces.GenericItem;
+import com.enderryno.nuclearcraft.classes.CustomItem;
+import com.enderryno.nuclearcraft.interfaces.PluginItem;
 import com.enderryno.nuclearcraft.enums.ItemBehaviour;
 import com.enderryno.nuclearcraft.exceptions.ItemNotRegisteredException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
-import java.util.Objects;
 
 /**
  * This class handles the registration of the custom items
@@ -25,7 +24,7 @@ public class ItemRegister {
     /**
      * Static member to access the registered items
      */
-    private static HashMap<Integer, GenericItem> registeredItems = null;
+    private static HashMap<Integer, PluginItem> registeredItems = null;
 
     private JavaPlugin pluginInstance = null;
 
@@ -58,7 +57,7 @@ public class ItemRegister {
 
         itemConfig.getList("enabled-items").forEach(item -> {
 
-            GenericItem customItem = new AbstractItem();
+            PluginItem customItem = new CustomItem();
 
             int itemId = itemConfig.getInt(item + ".item-id");
             if (itemId == 0 || registeredItems.get(itemId) != null) return;
@@ -112,7 +111,7 @@ public class ItemRegister {
 
 
     /* Registered items getter */
-    public static HashMap<Integer, GenericItem> getRegisteredItems() throws ItemNotRegisteredException {
+    public static HashMap<Integer, PluginItem> getRegisteredItems() throws ItemNotRegisteredException {
         if (registeredItems == null) {
             throw new ItemNotRegisteredException("Item were not registered! Verify the initialization");
         }
