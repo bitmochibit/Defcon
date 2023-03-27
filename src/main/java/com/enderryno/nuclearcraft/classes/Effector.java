@@ -22,7 +22,7 @@ public class Effector {
      */
     public static void generateRadiationField(Location center, int maxRange) {
         BlockVector3 corner1 = BlockVector3.at(center.getBlockX(), center.getBlockY(), center.getBlockZ());
-        BlockVector3 corner2= BlockVector3.at(center.getBlockX(), center.getBlockY(), center.getBlockZ());
+        BlockVector3 corner2 = BlockVector3.at(center.getBlockX(), center.getBlockY(), center.getBlockZ());
         // Corner 1 calculation
         // Get the max depths in each positive direction of the axis (corner 1); The max is determined by the maxRange or if the block is solid
         // The loop must stop when the block is solid, otherwise if the maxRange is too big, it will go out of bounds
