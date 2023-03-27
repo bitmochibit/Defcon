@@ -2,13 +2,17 @@ package com.enderryno.nuclearcraft;
 
 import com.enderryno.nuclearcraft.services.CommandRegister;
 import com.enderryno.nuclearcraft.services.BlockRegister;
-import com.enderryno.nuclearcraft.events.ItemEventRegister;
+import com.enderryno.nuclearcraft.services.ItemEventRegister;
 import com.enderryno.nuclearcraft.services.ItemRegister;
 import org.bukkit.plugin.java.JavaPlugin;
 public final class NuclearCraft extends JavaPlugin {
+    public static NuclearCraft instance = null;
 
     @Override
     public void onEnable() {
+        if (NuclearCraft.instance == null)
+            NuclearCraft.instance = this;
+
         this.getLogger().info("[NuclearCraft] has been enabled!");
         /* Register all plugin's events */
         new ItemEventRegister(this).register();

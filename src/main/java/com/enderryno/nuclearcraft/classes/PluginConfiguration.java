@@ -33,7 +33,6 @@ public class PluginConfiguration {
         this.configurationFilePath = new File(plugin.getDataFolder(), filePath);
         this.configurationFile = new File(configurationFilePath, fileName);
 
-
         // Initialization of the default if it doesn't exist
         saveDefaultConfig();
     }
