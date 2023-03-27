@@ -34,7 +34,7 @@ public class Effector {
         for (int y = 0; y < maxRange; y++) {
             for (int z = 0; z < maxRange; z++) {
                 for (int x = 0; x < maxRange; x++) {
-                    if (center.getBlock().getRelative(x, y, z).getType().isSolid() || x == maxRange - 1) {
+                    if (center.getBlock().getRelative(x, y, z).getType().isSolid()) {
                         if (x > xMax) {
                             xMax = x;
                         }
@@ -47,7 +47,7 @@ public class Effector {
         for (int x = 0; x < maxRange; x++) {
             for (int z = 0; z < maxRange; z++) {
                 for (int y = 0; y < maxRange; y++) {
-                    if (center.getBlock().getRelative(x, y, z).getType().isSolid() || y == maxRange - 1) {
+                    if (center.getBlock().getRelative(x, y, z).getType().isSolid()) {
                         if (y > yMax) {
                             yMax = y;
                         }
@@ -60,7 +60,7 @@ public class Effector {
         for (int x = 0; x < maxRange; x++) {
             for (int y = 0; y < maxRange; y++) {
                 for (int z = 0; z < maxRange; z++) {
-                    if (center.getBlock().getRelative(x, y, z).getType().isSolid() || z == maxRange - 1) {
+                    if (center.getBlock().getRelative(x, y, z).getType().isSolid()) {
                         if (z > zMax) {
                             zMax = z;
                         }
@@ -80,7 +80,7 @@ public class Effector {
         for (int y = 0; y < maxRange; y++) {
             for (int z = 0; z < maxRange; z++) {
                 for (int x = 0; x < maxRange; x++) {
-                    if (center.getBlock().getRelative(-x, y, z).getType().isSolid() || x == maxRange - 1) {
+                    if (center.getBlock().getRelative(-x, y, z).getType().isSolid()) {
                         if (x > xMax) {
                             xMax = x;
                         }
@@ -94,7 +94,7 @@ public class Effector {
         for (int x = 0; x < maxRange; x++) {
             for (int z = 0; z < maxRange; z++) {
                 for (int y = 0; y < maxRange; y++) {
-                    if (center.getBlock().getRelative(x, -y, z).getType().isSolid() || y == maxRange - 1) {
+                    if (center.getBlock().getRelative(x, -y, z).getType().isSolid()) {
                         if (y > yMax) {
                             yMax = y;
                         }
@@ -108,7 +108,7 @@ public class Effector {
         for (int x = 0; x < maxRange; x++) {
             for (int y = 0; y < maxRange; y++) {
                 for (int z = 0; z < maxRange; z++) {
-                    if (center.getBlock().getRelative(x, y, -z).getType().isSolid() || z == maxRange - 1) {
+                    if (center.getBlock().getRelative(x, y, -z).getType().isSolid()) {
                         if (z > zMax) {
                             zMax = z;
                         }
