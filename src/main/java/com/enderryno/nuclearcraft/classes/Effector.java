@@ -44,6 +44,7 @@ public class Effector {
             }
         }
 
+
         for (int x = 0; x < maxRange; x++) {
             for (int z = 0; z < maxRange; z++) {
                 for (int y = 0; y < maxRange; y++) {
@@ -80,7 +81,8 @@ public class Effector {
         for (int y = 0; y < maxRange; y++) {
             for (int z = 0; z < maxRange; z++) {
                 for (int x = 0; x < maxRange; x++) {
-                    if (center.getBlock().getRelative(-x, y, z).getType().isSolid()) {
+
+                    if (center.getBlock().getRelative(-x, -y, -z).getType().isSolid()) {
                         if (x > xMax) {
                             xMax = x;
                         }
@@ -89,12 +91,13 @@ public class Effector {
                 }
             }
         }
+        NuclearCraft.instance.getLogger().info("xMax " + xMax);
 
         yMax = 0;
         for (int x = 0; x < maxRange; x++) {
             for (int z = 0; z < maxRange; z++) {
                 for (int y = 0; y < maxRange; y++) {
-                    if (center.getBlock().getRelative(x, -y, z).getType().isSolid()) {
+                    if (center.getBlock().getRelative(-x, -y, -z).getType().isSolid()) {
                         if (y > yMax) {
                             yMax = y;
                         }
@@ -108,7 +111,7 @@ public class Effector {
         for (int x = 0; x < maxRange; x++) {
             for (int y = 0; y < maxRange; y++) {
                 for (int z = 0; z < maxRange; z++) {
-                    if (center.getBlock().getRelative(x, y, -z).getType().isSolid()) {
+                    if (center.getBlock().getRelative(-x, -y, -z).getType().isSolid()) {
                         if (z > zMax) {
                             zMax = z;
                         }
@@ -122,8 +125,10 @@ public class Effector {
         corner2 = corner2.add(-(xMax-1), -(yMax-1), -(zMax-1));
 
 
+
         // Generate the cuboid region
         ProtectedCuboidRegion region = new ProtectedCuboidRegion("radiation", corner1, corner2);
+
 
         RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
         RegionManager regions = container.get(BukkitAdapter.adapt(center.getWorld()));
