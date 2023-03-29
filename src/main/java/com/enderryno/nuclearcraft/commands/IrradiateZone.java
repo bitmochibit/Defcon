@@ -2,7 +2,7 @@ package com.enderryno.nuclearcraft.commands;
 
 import com.enderryno.nuclearcraft.abstracts.GenericCommand;
 import com.enderryno.nuclearcraft.annotations.CommandInfo;
-import com.enderryno.nuclearcraft.classes.Effector;
+import com.enderryno.nuclearcraft.services.Effector;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
