@@ -1,6 +1,10 @@
 package com.enderryno.nuclearcraft.events.blocks;
 
 import com.enderryno.nuclearcraft.NuclearCraft;
+import com.enderryno.nuclearcraft.classes.CustomItem;
+import com.enderryno.nuclearcraft.interfaces.PluginItem;
+import com.enderryno.nuclearcraft.services.BlockRegister;
+import com.enderryno.nuclearcraft.services.ItemRegister;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.block.TileState;
@@ -17,23 +21,35 @@ public class CustomBlockPlaceEvent implements Listener {
     public void onBlockPlace(BlockPlaceEvent event) {
         // Get the item in the player's hand
         ItemStack item = event.getItemInHand();
+        PluginItem customItem = null;
         Block block = event.getBlock();
-        TileState tileState = (TileState) block.getState();
-
 
         // Get persistent data container
         PersistentDataContainer container = item.getItemMeta().getPersistentDataContainer();
 
         // Get key and check if namespace exists
-        NamespacedKey key = new NamespacedKey(NuclearCraft.getPlugin(NuclearCraft.class), "custom-block-id");
-        if (!container.has(key, PersistentDataType.STRING)) return;
+        NamespacedKey blockIdKey = new NamespacedKey(NuclearCraft.getPlugin(NuclearCraft.class), "custom-block-id");
+        NamespacedKey itemIdKey = new NamespacedKey(NuclearCraft.getPlugin(NuclearCraft.class), "custom-item-id");
+        if (!container.has(blockIdKey, PersistentDataType.STRING)) return;
+        if (!container.has(itemIdKey, PersistentDataType.STRING)) return;
 
         // Get the custom block id and set it to the block
-        String customBlockId = container.get(key, PersistentDataType.STRING);
-        tileState.getPersistentDataContainer().set(key, PersistentDataType.STRING, customBlockId);
+        String customBlockId = container.get(blockIdKey, PersistentDataType.STRING);
+        String customItemId = container.get(itemIdKey, PersistentDataType.STRING);
 
-        tileState.update();
-        event.getPlayer().sendMessage("Custom block id placed: " + customBlockId);
+        try {
+             customItem = ItemRegister.getRegisteredItems().get(Integer.parseInt(customItemId));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try {
+            BlockRegister.getRegisteredBlocks()
+                    .get(Integer.parseInt(customBlockId))
+                    .placeBlock(customItem, block.getLocation());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
     }
 }

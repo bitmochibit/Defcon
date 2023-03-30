@@ -1,9 +1,7 @@
 package com.enderryno.nuclearcraft;
 
-import com.enderryno.nuclearcraft.services.CommandRegister;
-import com.enderryno.nuclearcraft.services.BlockRegister;
-import com.enderryno.nuclearcraft.services.EventRegister;
-import com.enderryno.nuclearcraft.services.ItemRegister;
+import com.enderryno.nuclearcraft.database.Database;
+import com.enderryno.nuclearcraft.services.*;
 import org.bukkit.plugin.java.JavaPlugin;
 public final class NuclearCraft extends JavaPlugin {
     public static NuclearCraft instance = null;
@@ -35,5 +33,7 @@ public final class NuclearCraft extends JavaPlugin {
     @Override
     public void onDisable() {
         this.getLogger().info("[NuclearCraft] has been disabled!");
+        // Disconnect from all databases
+        Database.disconnectAll();
     }
 }
