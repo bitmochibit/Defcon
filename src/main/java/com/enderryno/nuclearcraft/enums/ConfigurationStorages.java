@@ -5,9 +5,7 @@ public enum ConfigurationStorages {
     items("items"),
     blocks("blocks"),
     config("config"),
-
-    playerStructures("player_structures"),
-    playerBlocks("player_blocks");
+    playerStructures("player_structures");
 
 
     private final String storageFileName;

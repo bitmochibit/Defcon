@@ -10,12 +10,13 @@
 # BLOCK BEHAVIOURS
 #------------------------------------------------------------------------------
 # behaviour: The behaviour of the block
-#
-# structure_component
-# air_vent
-# generator
-# refiner
-# pump
+# generic | The block is a generic block (Minecraft events)
+# structure_component | The block is a structure component
+# structure_interface | The block is a structure interface
+# air_vent | The block is an air vent
+# generator | The block is a generator
+# refiner | The block is a refiner
+# pump | The block is a pump
 #
 
 enabled-blocks:
@@ -43,4 +44,4 @@ bomb-interface:
   block-id: 3
   block-minecraft-id: COMMAND_BLOCK
   block-data-model-id: 1002
-  behaviour: "structure_component"
+  behaviour: "structure_interface"

@@ -66,6 +66,10 @@ public class CustomItem implements PluginItem {
         itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "droppable"), PersistentDataType.BYTE, this.droppable ? (byte) 1 : (byte) 0);
         itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "transportable"), PersistentDataType.BYTE, this.transportable ? (byte) 1 : (byte) 0);
 
+        itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "item-behaviour"), PersistentDataType.STRING, this.behaviour.getName());
+
+        itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "custom-block-id"), PersistentDataType.INTEGER, this.customBlockId);
+
         itemMeta.setCustomModelData(this.modelId);
 
         customItem.setItemMeta(itemMeta);

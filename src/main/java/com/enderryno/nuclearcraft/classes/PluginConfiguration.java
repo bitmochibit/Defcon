@@ -12,7 +12,6 @@ public class PluginConfiguration {
 
     /* Strict constructor variables */
     private final JavaPlugin plugin;
-    private final ConfigurationStorages configType;
     private final String filePath;
     private final String fileName;
 
@@ -25,10 +24,9 @@ public class PluginConfiguration {
 
     public PluginConfiguration(JavaPlugin plugin, ConfigurationStorages configurationStorage) {
         this.plugin = plugin;
-        this.configType = configurationStorage;
 
-        this.filePath = configType.getStoragePath();
-        this.fileName = configType.getStorageFileName() + ".yml";
+        this.filePath = configurationStorage.getStoragePath();
+        this.fileName = configurationStorage.getStorageFileName() + ".yml";
 
         this.configurationFilePath = new File(plugin.getDataFolder(), filePath);
         this.configurationFile = new File(configurationFilePath, fileName);

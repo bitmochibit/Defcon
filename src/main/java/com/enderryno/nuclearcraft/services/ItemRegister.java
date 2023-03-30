@@ -89,12 +89,12 @@ public class ItemRegister {
             customItem.setUsable(itemUsable);
             customItem.setTransportable(itemTransportable);
 
-            String eventType = itemConfig.getString(item + ".behaviour");
-            if (eventType == null) {
-                eventType = "generic";
+            String behaviour = itemConfig.getString(item + ".behaviour");
+            if (behaviour == null) {
+                behaviour = "generic";
             }
 
-            customItem.setBehaviour(ItemBehaviour.fromString(eventType));
+            customItem.setBehaviour(ItemBehaviour.fromString(behaviour));
 
 
 

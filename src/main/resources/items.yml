@@ -22,7 +22,7 @@
 
 # behaviour: The function of the item. DEFAULT: Generic (Minecraft events)
 
-
+# block | The item is a block.
 # geiger_counter | The item is a Geiger counter.
 # radiation_inhibitor | The item is a radiation inhibitor (slows the rad/s).
 # gas_mask | The item is a gas mask.
@@ -34,6 +34,9 @@ enabled-items:
   - radiation-inhibitor
   - gas-mask
   - gas-mask-filter
+  - bomb-casing
+  - bomb-core
+  - bomb-interface
 
 
 #------------------------------------------------------------------------------
@@ -56,9 +59,9 @@ geiger:
 # BLOCK ITEMS
 #------------------------------------------------------------------------------
 bomb-casing:
-  item-id: 1
+  item-id: 2
   item-name: "Bomb casing"
-  item-description: "&eThis item is a bomb casing and used to create a complex bomb"
+  item-description: "&eUsed to create a bomb casing"
   item-minecraft-id: IRON_BLOCK
   item-data-model-id: 1000
   is-usable: true
@@ -67,3 +70,32 @@ bomb-casing:
   is-transportable: true
   max-stack-size: 64
   custom-block-id: 1
+  behaviour: "block"
+
+bomb-core:
+    item-id: 3
+    item-name: "Bomb core"
+    item-description: "&eThe core of the bomb"
+    item-minecraft-id: BEACON
+    item-data-model-id: 1001
+    is-usable: true
+    is-equipable: true
+    is-droppable: true
+    is-transportable: true
+    max-stack-size: 64
+    custom-block-id: 2
+    behaviour: "block"
+
+bomb-interface:
+    item-id: 4
+    item-name: "Bomb interface"
+    item-description: "&eThe interface of the bomb"
+    item-minecraft-id: COMMAND_BLOCK
+    item-data-model-id: 1002
+    is-usable: true
+    is-equipable: true
+    is-droppable: true
+    is-transportable: true
+    max-stack-size: 64
+    custom-block-id: 3
+    behaviour: "block"

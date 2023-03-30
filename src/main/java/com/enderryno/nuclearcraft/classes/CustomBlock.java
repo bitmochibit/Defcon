@@ -1,6 +1,7 @@
 package com.enderryno.nuclearcraft.classes;
 
 
+import com.enderryno.nuclearcraft.enums.BlockBehaviour;
 import com.enderryno.nuclearcraft.interfaces.PluginBlock;
 import com.enderryno.nuclearcraft.interfaces.PluginItem;
 import com.enderryno.nuclearcraft.enums.ItemBehaviour;
@@ -15,7 +16,7 @@ public class CustomBlock implements PluginBlock {
 
 
     @Override
-    public PluginItem setID(int id) {
+    public PluginBlock setID(int id) {
         return null;
     }
 
@@ -25,7 +26,7 @@ public class CustomBlock implements PluginBlock {
     }
 
     @Override
-    public PluginItem setMinecraftId(String minecraftId) {
+    public PluginBlock setMinecraftId(String minecraftId) {
         return null;
     }
 
@@ -35,7 +36,7 @@ public class CustomBlock implements PluginBlock {
     }
 
     @Override
-    public PluginItem setCustomBlockId(int customBlockId) {
+    public PluginBlock setCustomBlockId(int customBlockId) {
         return null;
     }
 
@@ -55,12 +56,12 @@ public class CustomBlock implements PluginBlock {
     }
 
     @Override
-    public PluginItem setBehaviour(ItemBehaviour behaviour) {
+    public PluginBlock setBehaviour(BlockBehaviour behaviour) {
         return null;
     }
 
     @Override
-    public ItemBehaviour getBehaviour() {
+    public BlockBehaviour getBehaviour() {
         return null;
     }
 }

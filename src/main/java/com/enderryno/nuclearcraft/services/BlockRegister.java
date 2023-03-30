@@ -1,6 +1,7 @@
 package com.enderryno.nuclearcraft.services;
 
 import com.enderryno.nuclearcraft.classes.PluginConfiguration;
+import com.enderryno.nuclearcraft.enums.BlockBehaviour;
 import com.enderryno.nuclearcraft.enums.ConfigurationStorages;
 import com.enderryno.nuclearcraft.classes.CustomBlock;
 import com.enderryno.nuclearcraft.interfaces.PluginBlock;
@@ -34,9 +35,8 @@ public class BlockRegister {
 
     /**
      *
-     * @return boolean - True if all items are registered, false if some error occurred.
      */
-    public boolean registerBlocks () {
+    public void registerBlocks () {
 
         registeredBlocks = new HashMap<>();
         /* REGISTER THE ITEMS COMING FROM THE CONFIG */
@@ -59,9 +59,10 @@ public class BlockRegister {
 
             String behaviour = blockConfig.getString(item + ".behaviour");
             if (behaviour == null) {
-                pluginInstance.getLogger().info("[NuclearCraft] ERROR! A block can't be registered correctly because the behaviour is not set. Check the block config. ID:" + blockId);
+                behaviour = "generic";
                 return;
             }
+            customBlock.setBehaviour(BlockBehaviour.fromString(behaviour));
 
 
             registeredBlocks.put(customBlock.getID(), customBlock);
@@ -71,13 +72,12 @@ public class BlockRegister {
 
 
         itemConfigurator.saveConfig();
-        return true;
     }
 
 
 
     /* Registered items getter */
-    public static HashMap<Integer, PluginBlock> getRegisteredItems() throws BlockNotRegisteredException {
+    public static HashMap<Integer, PluginBlock> getRegisteredBlocks() throws BlockNotRegisteredException {
         if (registeredBlocks == null) {
             throw new BlockNotRegisteredException("Block not registered for some reason. Verify the initialization");
         }
