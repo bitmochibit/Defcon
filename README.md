@@ -12,7 +12,7 @@ A minecraft plugin that adds the power and the dangers of nuclear energy.
   - Missile silo (A platform required for launching missiles)
   - Nuclear Bomb effects on the Environment (Radiation fallout, unbreathable air in the detonation zones, acid rain, mutated mobs, contamination and decontamination system, exposure system, nuclear winter if detonated nukes in a certain time exceeds a certain number..)
   - Items and blocks for fighting against radiations and air contamination
-  - IF POSSIBLE (Air filters with all the system for detecting dirty air) [In theory it should be possible with Flood Fill Algorithm]
+  - Dirty air done with WorldGuard regions, supports both Polygonal Areas (for restricted contamination) or huge contaminated areas with Cuboids (like for extremely radioactive bombs)
   - Defensive structures (Radar, missile battery) (Affected by the EMP)
 - Power and supplies
   - Generators (Coal, Thermal, Nuclear) [For powering defensive structures or launch silos]
