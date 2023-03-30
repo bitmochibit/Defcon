@@ -27,7 +27,7 @@ public class CustomItem implements PluginItem {
 
     private String name;
     private String description;
-    private int id;
+    private String id;
     private boolean usable;
     private boolean equipable;
     private boolean droppable;
@@ -37,7 +37,7 @@ public class CustomItem implements PluginItem {
 
 
     private int modelId;
-    private int customBlockId;
+    private String customBlockId;
     private ItemBehaviour behaviour;
 
     private String minecraftId;
@@ -58,7 +58,7 @@ public class CustomItem implements PluginItem {
         itemMeta.setDisplayName(ColorParser.parseColor(this.name));
         itemMeta.setLore(ColorParser.parseColor(Arrays.asList(this.description.split("\n"))));
 
-        itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "id"), PersistentDataType.INTEGER, this.id);
+        itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "item-id"), PersistentDataType.STRING, this.id);
         itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "max-item-stack"), PersistentDataType.INTEGER, this.stackSize);
 
         itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "usable"), PersistentDataType.BYTE, this.usable ? (byte) 1 : (byte) 0);
@@ -68,7 +68,9 @@ public class CustomItem implements PluginItem {
 
         itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "item-behaviour"), PersistentDataType.STRING, this.behaviour.getName());
 
-        itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "custom-block-id"), PersistentDataType.INTEGER, this.customBlockId);
+        if (this.customBlockId != null) {
+            itemMeta.getPersistentDataContainer().set(new NamespacedKey(plugin, "custom-block-id"), PersistentDataType.STRING, this.customBlockId);
+        }
 
         itemMeta.setCustomModelData(this.modelId);
 
@@ -103,13 +105,13 @@ public class CustomItem implements PluginItem {
     }
 
     @Override
-    public PluginItem setID(int id) {
+    public PluginItem setID(String id) {
         this.id = id;
         return this;
     }
 
     @Override
-    public int getID() {
+    public String getID() {
         return this.id;
     }
 
@@ -145,7 +147,7 @@ public class CustomItem implements PluginItem {
     }
 
     @Override
-    public PluginItem setCustomBlockId(int customBlockId) {
+    public PluginItem setCustomBlockId(String customBlockId) {
         this.customBlockId = customBlockId;
         return this;
     }
@@ -186,7 +188,7 @@ public class CustomItem implements PluginItem {
     }
 
     @Override
-    public int getCustomBlockId() {
+    public String getCustomBlockId() {
         return this.customBlockId;
     }
 

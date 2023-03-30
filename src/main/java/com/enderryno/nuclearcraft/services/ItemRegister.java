@@ -24,7 +24,7 @@ public class ItemRegister {
     /**
      * Static member to access the registered items
      */
-    private static HashMap<Integer, PluginItem> registeredItems = null;
+    private static HashMap<String, PluginItem> registeredItems = null;
 
     private JavaPlugin pluginInstance = null;
 
@@ -59,15 +59,15 @@ public class ItemRegister {
 
             PluginItem customItem = new CustomItem();
 
-            int itemId = itemConfig.getInt(item + ".item-id");
-            if (itemId == 0 || registeredItems.get(itemId) != null) return;
+            String itemId = itemConfig.getString(item + ".item-id");
+            if (itemId == null || registeredItems.get(itemId) != null) return;
 
             String itemName = itemConfig.getString(item + ".item-name");
             String itemDescription = itemConfig.getString(item + ".item-description");
             String itemMinecraftId = itemConfig.getString(item + ".item-minecraft-id");
 
             int itemDataModelId = itemConfig.getInt(item + ".item-data-model-id");
-            int itemCustomBlockId = itemConfig.getInt(item + ".custom-block-id");
+            String itemCustomBlockId = itemConfig.getString(item + ".custom-block-id");
 
             int itemStackSize = itemConfig.getInt(item + ".max-stack-size");
 
@@ -111,7 +111,7 @@ public class ItemRegister {
 
 
     /* Registered items getter */
-    public static HashMap<Integer, PluginItem> getRegisteredItems() throws ItemNotRegisteredException {
+    public static HashMap<String, PluginItem> getRegisteredItems() throws ItemNotRegisteredException {
         if (registeredItems == null) {
             throw new ItemNotRegisteredException("Item were not registered! Verify the initialization");
         }

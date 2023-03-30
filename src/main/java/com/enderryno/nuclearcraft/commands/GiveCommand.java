@@ -12,7 +12,7 @@ import org.bukkit.entity.Player;
 public class GiveCommand extends GenericCommand {
     @Override
     public void execute(Player player, String[] args) {
-        int itemId;
+        String itemId;
         PluginItem item;
 
         if (args.length < 1) {
@@ -20,7 +20,7 @@ public class GiveCommand extends GenericCommand {
             return;
         }
         try {
-            itemId = Integer.parseInt(args[0]);
+            itemId = args[0];
         } catch (NumberFormatException ex) {
             player.sendMessage(ChatColor.RED + "The second parameter must be a NuclearCraft ID");
             return;

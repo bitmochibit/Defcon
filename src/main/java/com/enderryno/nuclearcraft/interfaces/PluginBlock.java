@@ -7,14 +7,14 @@ import org.bukkit.Location;
 
 
 public interface PluginBlock {
-    PluginBlock setID(int id);
-    int getID();
+    PluginBlock setID(String id);
+    String getID();
+
+    PluginBlock setCustomModelId(int customModelId);
+    int getCustomModelId();
 
     PluginBlock setMinecraftId(String minecraftId);
     String getMinecraftId();
-
-    PluginBlock setCustomBlockId(int customBlockId);
-    int getCustomBlockId();
 
     void placeBlock(PluginItem item, Location location);
     PluginBlock getBlock(Location location);

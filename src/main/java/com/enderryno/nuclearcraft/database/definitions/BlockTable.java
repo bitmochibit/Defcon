@@ -1,5 +1,6 @@
 package com.enderryno.nuclearcraft.database.definitions;
 
+import com.enderryno.nuclearcraft.NuclearCraft;
 import com.enderryno.nuclearcraft.database.Database;
 import com.enderryno.nuclearcraft.enums.DatabaseFile;
 
@@ -12,8 +13,7 @@ public class BlockTable extends Database {
         this.connect(DatabaseFile.BLOCK_DATA);
         this.createTable();
     }
-
-    private void createTable() {
+    public void createTable() {
         // Create a table which stores an id, the custom block id (including the item-id that generated this block) and the location of the block in the world
         String sql = """
                 CREATE TABLE IF NOT EXISTS blocks (
@@ -31,24 +31,25 @@ public class BlockTable extends Database {
             e.printStackTrace();
         }
     }
-
     public BlockTable insert(String blockId, String itemId, String world, int x, int y, int z) {
         // Prepare the sql statement
         String sql = "INSERT INTO blocks(block_id, item_id, world, x, y, z) VALUES(?, ?, ?, ?, ?, ?)";
+
+        NuclearCraft.instance.getLogger().info("Inserting block into database: " + blockId + " " + itemId + " " + world + " " + x + " " + y + " " + z);
+
         try (PreparedStatement statement = this.getConnection().prepareStatement(sql)){
             statement.setString(1, blockId);
             statement.setString(2, itemId);
-            statement.setString(2, world);
-            statement.setInt(3, x);
-            statement.setInt(4, y);
-            statement.setInt(5, z);
+            statement.setString(3, world);
+            statement.setInt(4, x);
+            statement.setInt(5, y);
+            statement.setInt(6, z);
             statement.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
         }
         return this;
     }
-
     public ResultSet get(int x, int y, int z, String world) {
         String sql = "SELECT * FROM blocks WHERE x = ? AND y = ? AND z = ? AND world = ?";
         try (PreparedStatement statement = this.getConnection().prepareStatement(sql)) {
@@ -63,7 +64,6 @@ public class BlockTable extends Database {
         }
         return null;
     }
-
     public BlockTable delete(int x, int y, int z, String world) {
         String sql = "DELETE FROM blocks WHERE x = ? AND y = ? AND z = ? AND world = ?";
         // Delete the block from the database with the given coordinates and world

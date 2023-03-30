@@ -24,37 +24,45 @@ import java.sql.ResultSet;
  * this class has a getter for both the ItemStack instance and this plugin item class.
  */
 public class CustomBlock implements PluginBlock {
+    private String id;
+    private String minecraftId;
+    private BlockBehaviour behaviour;
 
+    int customModelId;
 
     @Override
-    public PluginBlock setID(int id) {
-        return null;
+    public PluginBlock setID(String id) {
+        this.id = id;
+        return this;
     }
 
     @Override
-    public int getID() {
-        return 0;
+    public String getID() {
+        return this.id;
+    }
+
+    @Override
+    public PluginBlock setCustomModelId(int customModelId) {
+        this.customModelId = customModelId;
+        return this;
+    }
+
+    @Override
+    public int getCustomModelId() {
+        return this.customModelId;
     }
 
     @Override
     public PluginBlock setMinecraftId(String minecraftId) {
-        return null;
+        this.minecraftId = minecraftId;
+        return this;
     }
 
     @Override
     public String getMinecraftId() {
-        return null;
+        return this.minecraftId;
     }
 
-    @Override
-    public PluginBlock setCustomBlockId(int customBlockId) {
-        return null;
-    }
-
-    @Override
-    public int getCustomBlockId() {
-        return 0;
-    }
 
     @Override
     public void placeBlock(PluginItem item, Location location) {
@@ -63,15 +71,17 @@ public class CustomBlock implements PluginBlock {
         // Save metadata for cache and to database
         BlockState state = block.getState();
 
-        state.setMetadata("custom-block-id", new FixedMetadataValue(NuclearCraft.instance, this.getCustomBlockId()));
-        state.setMetadata("custom-item-id", new FixedMetadataValue(NuclearCraft.instance, item.getID()));
+        state.setMetadata("custom-block-id", new FixedMetadataValue(NuclearCraft.instance, this.getID()));
+        state.setMetadata("item-id", new FixedMetadataValue(NuclearCraft.instance, item.getID()));
         state.update();
         // Save to database
         BlockTable blockTable = new BlockTable();
-        blockTable.insert(String.valueOf(this.getCustomBlockId()),
-                String.valueOf(item.getID()),
+        blockTable.insert(
+                this.getID(),
+                item.getID(),
                 location.getWorld().getName(),
-                location.getBlockX(), location.getBlockY(),
+                location.getBlockX(),
+                location.getBlockY(),
                 location.getBlockZ());
     }
 
@@ -127,11 +137,12 @@ public class CustomBlock implements PluginBlock {
 
     @Override
     public PluginBlock setBehaviour(BlockBehaviour behaviour) {
-        return null;
+        this.behaviour = behaviour;
+        return this;
     }
 
     @Override
     public BlockBehaviour getBehaviour() {
-        return null;
+        return this.behaviour;
     }
 }

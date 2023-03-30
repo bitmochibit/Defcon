@@ -29,7 +29,7 @@ public class CustomBlockPlaceEvent implements Listener {
 
         // Get key and check if namespace exists
         NamespacedKey blockIdKey = new NamespacedKey(NuclearCraft.getPlugin(NuclearCraft.class), "custom-block-id");
-        NamespacedKey itemIdKey = new NamespacedKey(NuclearCraft.getPlugin(NuclearCraft.class), "custom-item-id");
+        NamespacedKey itemIdKey = new NamespacedKey(NuclearCraft.getPlugin(NuclearCraft.class), "item-id");
         if (!container.has(blockIdKey, PersistentDataType.STRING)) return;
         if (!container.has(itemIdKey, PersistentDataType.STRING)) return;
 
@@ -38,14 +38,14 @@ public class CustomBlockPlaceEvent implements Listener {
         String customItemId = container.get(itemIdKey, PersistentDataType.STRING);
 
         try {
-             customItem = ItemRegister.getRegisteredItems().get(Integer.parseInt(customItemId));
+             customItem = ItemRegister.getRegisteredItems().get(customItemId);
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         try {
             BlockRegister.getRegisteredBlocks()
-                    .get(Integer.parseInt(customBlockId))
+                    .get(customBlockId)
                     .placeBlock(customItem, block.getLocation());
         } catch (Exception e) {
             e.printStackTrace();

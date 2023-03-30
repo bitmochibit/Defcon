@@ -21,7 +21,7 @@ public class BlockRegister {
     /**
      * Static member to access the registered items
      */
-    private static HashMap<Integer, PluginBlock> registeredBlocks = null;
+    private static HashMap<String, PluginBlock> registeredBlocks = null;
 
     private JavaPlugin pluginInstance = null;
 
@@ -47,15 +47,15 @@ public class BlockRegister {
 
             PluginBlock customBlock = new CustomBlock();
 
-            int blockId = blockConfig.getInt(item + ".block-id");
-            if (blockId == 0 || registeredBlocks.get(blockId) != null) return;
+            String blockId = blockConfig.getString(item + ".block-id");
+            if (blockId == null || registeredBlocks.get(blockId) != null) return;
 
             String blockMinecraftId = blockConfig.getString(item + ".block-minecraft-id");
             int blockDataModelId = blockConfig.getInt(item + ".block-data-model-id");
 
             customBlock.setID(blockId);
             customBlock.setMinecraftId(blockMinecraftId);
-            customBlock.setCustomBlockId(blockDataModelId);
+            customBlock.setCustomModelId(blockDataModelId);
 
             String behaviour = blockConfig.getString(item + ".behaviour");
             if (behaviour == null) {
@@ -77,7 +77,7 @@ public class BlockRegister {
 
 
     /* Registered items getter */
-    public static HashMap<Integer, PluginBlock> getRegisteredBlocks() throws BlockNotRegisteredException {
+    public static HashMap<String, PluginBlock> getRegisteredBlocks() throws BlockNotRegisteredException {
         if (registeredBlocks == null) {
             throw new BlockNotRegisteredException("Block not registered for some reason. Verify the initialization");
         }

@@ -1,18 +1,20 @@
 package com.enderryno.nuclearcraft.database;
 
 import com.enderryno.nuclearcraft.NuclearCraft;
+import com.enderryno.nuclearcraft.database.definitions.BlockTable;
 import com.enderryno.nuclearcraft.enums.DatabaseFile;
 
 import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.util.HashMap;
 
 /**
  * This class is responsible for handling all database related tasks.
  * Useful for storing data such as player data, block data, etc.
  */
-public class Database {
+public abstract class Database {
 
     static HashMap<DatabaseFile, Database> openedDatabases = new HashMap<>();
 
@@ -75,5 +77,8 @@ public class Database {
             }
         }
     }
+
+    protected abstract void createTable();
+
 }
 

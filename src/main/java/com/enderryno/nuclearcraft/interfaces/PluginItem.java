@@ -11,7 +11,7 @@ public interface PluginItem {
 
     PluginItem setDescription(String description);
 
-    PluginItem setID(int id);
+    PluginItem setID(String id);
 
     PluginItem setMinecraftId(String minecraftId);
 
@@ -21,7 +21,7 @@ public interface PluginItem {
 
     String getDescription();
 
-    int getID();
+    String getID();
 
     String getMinecraftId();
 
@@ -32,7 +32,7 @@ public interface PluginItem {
 
     PluginItem setModelId(int modelId);
 
-    PluginItem setCustomBlockId(int customBlockId);
+    PluginItem setCustomBlockId(String customBlockId);
 
     PluginItem setUsable(boolean usable);
 
@@ -47,7 +47,7 @@ public interface PluginItem {
 
     int getModelId();
 
-    int getCustomBlockId();
+    String getCustomBlockId();
 
     boolean isUsable();
 
