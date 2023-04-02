@@ -18,16 +18,13 @@
 #------------------------------------------------------------------------------
 # SPECIFIC ITEMS FUNCTION
 #------------------------------------------------------------------------------
-# Notice: Every item that has a custom block id will be treated as a block.
 
 # behaviour: The function of the item. DEFAULT: Generic (Minecraft events)
-
 # block | The item is a block.
 # geiger_counter | The item is a Geiger counter.
 # radiation_inhibitor | The item is a radiation inhibitor (slows the rad/s).
 # gas_mask | The item is a gas mask.
 # gas_mask_filter | The item is a gas mask filter.
-#
 
 enabled-items:
   - geiger

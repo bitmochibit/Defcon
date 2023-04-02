@@ -40,8 +40,8 @@ public class BlockRegister {
 
         registeredBlocks = new HashMap<>();
         /* REGISTER THE ITEMS COMING FROM THE CONFIG */
-        PluginConfiguration itemConfigurator = new PluginConfiguration(this.pluginInstance, ConfigurationStorages.blocks);
-        FileConfiguration blockConfig = itemConfigurator.getConfig();
+        PluginConfiguration blockConfiguration = new PluginConfiguration(this.pluginInstance, ConfigurationStorages.blocks);
+        FileConfiguration blockConfig = blockConfiguration.getConfig();
 
         blockConfig.getList("enabled-blocks").forEach(item -> {
 
@@ -60,18 +60,12 @@ public class BlockRegister {
             String behaviour = blockConfig.getString(item + ".behaviour");
             if (behaviour == null) {
                 behaviour = "generic";
-                return;
             }
             customBlock.setBehaviour(BlockBehaviour.fromString(behaviour));
-
-
             registeredBlocks.put(customBlock.getID(), customBlock);
-
         });
 
-
-
-        itemConfigurator.saveConfig();
+        blockConfiguration.saveConfig();
     }
 
 

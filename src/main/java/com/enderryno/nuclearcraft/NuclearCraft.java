@@ -29,6 +29,9 @@ public final class NuclearCraft extends JavaPlugin {
         /* Register commands */
         new CommandRegister(this).registerCommands();
 
+        /* Register structures */
+        new StructureRegister(this).registerStructures();
+
     }
     @Override
     public void onDisable() {

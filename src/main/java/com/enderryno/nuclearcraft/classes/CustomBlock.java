@@ -90,31 +90,30 @@ public class CustomBlock implements PluginBlock {
         // Try to get block from cache, if not found, get from database
         Block block = location.getWorld().getBlockAt(location);
         BlockState state = block.getState();
-        Integer customBlockId = null;
+        String customBlockId = null;
         if (state.hasMetadata("custom-block-id")) {
             MetadataValue metadataValue = state.getMetadata("custom-block-id").get(0);
-            customBlockId = metadataValue.asInt();
+            customBlockId = metadataValue.asString();
         } else {
             // Get from database
             BlockTable blockTable = new BlockTable();
             ResultSet result = blockTable.get(location.getBlockX(), location.getBlockY(), location.getBlockZ(), location.getWorld().getName());
             try {
-                if (result.next()) {
-                    customBlockId = result.getInt("custom_block_id");
-                } else {
-                    return null;
-                }
+                if (result.next())
+                    customBlockId = result.getString("custom_block_id");
             } catch (Exception e) {
                 e.printStackTrace();
                 return null;
             }
         }
-
+        if (customBlockId == null)
+            return null;
         // Get custom block from id
         try {
             BlockRegister.getRegisteredBlocks().get(customBlockId);
         } catch (Exception e) {
             e.printStackTrace();
+            return null;
         }
         return null;
     }
