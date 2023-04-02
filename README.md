@@ -3,7 +3,7 @@ A minecraft plugin that adds the power and the dangers of nuclear energy.
 
 
 # RoadMap
-> This section contanis all the features that will be covered by the plugin in the future.
+> This section contains all the features that will be covered by the plugin in the future.
 
 - Nuclear War
   - Multiblock structure (The bomb is a modular multiblock structure)
