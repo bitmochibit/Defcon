@@ -8,5 +8,4 @@ import java.util.List;
 
 public class Warhead extends AbstractStructure {
 
-
 }

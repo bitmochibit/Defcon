@@ -1,41 +1,38 @@
 package com.enderryno.nuclearcraft.classes;
 
+import com.enderryno.nuclearcraft.interfaces.PluginBlock;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.block.Block;
 
-public class StructureBlock<T> {
-    private T block;
+public class StructureBlock {
+    private PluginBlock block;
     int x, y, z;
 
 
-    public StructureBlock(T block) throws Exception {
-        if (!(block instanceof CustomBlock) && !(block instanceof Material)) {
-            throw new Exception("The block must be a CustomBlock or a Block");
-        }
+    public StructureBlock(PluginBlock block){
         this.block = block;
     }
 
-    public StructureBlock<T> setBlock(T block) {
+    public StructureBlock setBlock(PluginBlock block) {
         this.block = block;
         return this;
     }
 
-    public StructureBlock<T> setPosition(Location location) {
+    public StructureBlock setPosition(Location location) {
         this.x = location.getBlockX();
         this.y = location.getBlockY();
         this.z = location.getBlockZ();
         return this;
     }
 
-    public StructureBlock<T> setPosition(int x, int y, int z) {
+    public StructureBlock setPosition(int x, int y, int z) {
         this.x = x;
         this.y = y;
         this.z = z;
         return this;
     }
 
-    public T getBlock() {
+    public PluginBlock getBlock() {
         return this.block;
     }
 }

@@ -8,12 +8,9 @@
 # Every structure has a specific id.
 
 #block-set: The blocks that compose the structure.
-#  custom-blocks:
 #  - a:bomb-core | name:custom-block-id
 #  - b:bomb-casing
 #  - c:bomb-interface
-#  minecraft-blocks:
-#  - yes:DIAMOND_BLOCK | name:minecraft-block-id
 
 #block-dispositions:
 #  - set_name: | The name of the set of blocks
@@ -52,18 +49,15 @@ enabled-structures:
 
 bomb:
   block-set:
-    custom-blocks:
-      - a:bomb-core
-      - b:bomb-casing
-      - c:bomb-interface
-    minecraft-blocks:
-      - yes:DIAMOND_BLOCK
+    - a:bomb-core
+    - b:bomb-casing
+    - c:bomb-interface
   block-dispositions:
     - set0:
         y: 0
         dispositions:
           - b,b,b
-          - b,yes,b
+          - b,b,b
           - b,b,b
     - set1:
         y: 1

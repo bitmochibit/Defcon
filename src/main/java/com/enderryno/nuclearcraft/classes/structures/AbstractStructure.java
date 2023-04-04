@@ -9,8 +9,8 @@ import java.util.List;
 public abstract class AbstractStructure implements PluginStructure {
     private Boolean requiredInterface;
     private StructureBehaviour structureBehaviour;
-    private List<StructureBlock<?>> structureBlocks;
-    private List<StructureBlock<?>> interfaceBlocks;
+    private List<StructureBlock> structureBlocks;
+    private List<StructureBlock> interfaceBlocks;
 
     @Override
     public PluginStructure setRequiredInterface(Boolean required) {
@@ -25,12 +25,12 @@ public abstract class AbstractStructure implements PluginStructure {
     }
 
     @Override
-    public List<StructureBlock<?>> getStructureBlocks() {
+    public List<StructureBlock> getStructureBlocks() {
         return this.structureBlocks;
     }
 
     @Override
-    public List<StructureBlock<?>> getInterfaceBlocks() {
+    public List<StructureBlock> getInterfaceBlocks() {
         return this.interfaceBlocks;
     }
 

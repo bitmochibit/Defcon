@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Set;
 
 public class StructureRegister {
-    private static HashMap<String, PluginBlock> registeredStructures = null;
+    private static HashMap<String, PluginStructure> registeredStructures = null;
     private JavaPlugin pluginInstance = null;
 
     /**
@@ -61,43 +61,25 @@ public class StructureRegister {
             } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
                 e.printStackTrace();
             }
+
             if (structure == null)
                 return;
 
-            ConfigurationSection blockSet = structureConfig.getConfigurationSection(item + ".block-set");
-            if (blockSet == null)
-                return;
+            List<String> rawDefinitions = structureConfig.getStringList(item + ".block-set");
 
-            Set<String> blockSetKeys = blockSet.getKeys(false);
             HashMap<String, String> customBlockDefinitions = new HashMap<>();
-            for (String blockSetKey : blockSetKeys) {
-                // If defined a custom block set, get it and register it
-                if (blockSetKey.equals("custom-blocks") || blockSetKey.equals("minecraft-blocks")) {
-                    List<String> rawDefinitions = blockSet.getStringList("custom-blocks");
-                    // Split string by :
-                    for (String rawDefinition : rawDefinitions) {
-                        String[] definition = rawDefinition.split(":");
-                        customBlockDefinitions.put(definition[0], definition[1]);
-                    }
-                }
+            for (String rawDefinition : rawDefinitions) {
+                String[] definition = rawDefinition.split(":");
+                customBlockDefinitions.put(definition[0], definition[1]);
             }
 
-            List<StructureBlock<?>> structureBlocks = structure.getStructureBlocks();
-            List<StructureBlock<?>> interfaceBlocks = structure.getInterfaceBlocks();
+            List<StructureBlock> structureBlocks = structure.getStructureBlocks();
+            List<StructureBlock> interfaceBlocks = structure.getInterfaceBlocks();
 
             customBlockDefinitions.forEach((key, value) -> {
-                Object blockObject = null;
-                try {
-                    blockObject = Material.valueOf(value);
-                } catch(IllegalArgumentException e) {
-                    // If not a material, try to get a custom block
-                    if (registeredBlocks.containsKey(value))
-                        blockObject = registeredBlocks.get(value);
-                }
-                if (blockObject == null)
+                if (registeredBlocks.containsKey(key))
                     return;
-
-
+                PluginBlock block = registeredBlocks.get(value);
             });
         });
         structureConfiguration.saveConfig();
@@ -105,7 +87,7 @@ public class StructureRegister {
 
 
     /* Registered items getter */
-    public static HashMap<String, PluginBlock> getRegisteredStructures() throws StructureNotRegisteredException {
+    public static HashMap<String, PluginStructure> getRegisteredStructures() throws StructureNotRegisteredException {
         if (registeredStructures == null) {
             throw new StructureNotRegisteredException("Block not registered for some reason. Verify the initialization");
         }

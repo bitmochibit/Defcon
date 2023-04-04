@@ -1,6 +1,8 @@
 package com.enderryno.nuclearcraft.enums;
 
+import com.enderryno.nuclearcraft.classes.structures.Warhead;
 import com.enderryno.nuclearcraft.interfaces.PluginStructure;
+import org.apache.maven.model.Plugin;
 
 public enum StructureBehaviour {
     WARHEAD("WARHEAD"),
@@ -23,7 +25,7 @@ public enum StructureBehaviour {
     public Class<? extends PluginStructure> getStructureClass() {
         switch (this) {
             case WARHEAD:
-                return com.enderryno.nuclearcraft.classes.structures.Warhead.class;
+                return Warhead.class;
             default:
                 return null;
         }
