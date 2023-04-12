@@ -53,8 +53,8 @@ public class StructureRegister {
                 return;
 
             boolean requiresInterface = structureConfig.getBoolean(item + ".requires-interface");
+            StructureBehaviour structureBehaviour = StructureBehaviour.fromString(behaviour);
 
-            StructureBehaviour structureBehaviour = StructureBehaviour.valueOf(behaviour);
             PluginStructure structure = null;
             try {
                 structure = structureBehaviour.getStructureClass().getDeclaredConstructor().newInstance();
@@ -76,11 +76,44 @@ public class StructureRegister {
             List<StructureBlock> structureBlocks = structure.getStructureBlocks();
             List<StructureBlock> interfaceBlocks = structure.getInterfaceBlocks();
 
-            customBlockDefinitions.forEach((key, value) -> {
-                if (registeredBlocks.containsKey(key))
-                    return;
-                PluginBlock block = registeredBlocks.get(value);
-            });
+            // Loop through block dispositions
+            List<?> blockDispositions = structureConfig.getList(item + ".block-dispositions");
+            // Every list element is a node which has a y value and the dispositions
+            for (Object blockDisposition : blockDispositions) {
+                ConfigurationSection blockDispositionSection = (ConfigurationSection) blockDisposition;
+                int y = blockDispositionSection.getInt("y");
+                List<?> dispositions = blockDispositionSection.getList("dispositions");
+                // Every disposition is a different Z coordinate
+                for (int z = 0; z < dispositions.size(); z++) {
+                    // Split each dispositions by the comma, every sub-disposition it's a different X coordinate (block)
+                    String[] dispositionBlocks = dispositions.get(z).toString().split(",");
+
+                    // Loop through the disposition blocks
+                    for (int x = 0; x < dispositionBlocks.length; x++) {
+                        String blockName = dispositionBlocks[x];
+                        // Check if the block is a custom block
+                        if (!customBlockDefinitions.containsKey(blockName)) {
+                            throw new RuntimeException("Unable to register structure, block variable " + blockName + " is unknown");
+                        }
+                        String blockId = customBlockDefinitions.get(blockName);
+                        PluginBlock block = registeredBlocks.get(blockId);
+                        structureBlocks.add(new StructureBlock(block).setPosition(x, y, z));
+                    }
+                }
+            }
+
+            // Register interface blocks
+            List<String> interfaceBlockNames = structureConfig.getStringList(item + ".interface-blocks");
+            for (String interfaceBlockName : interfaceBlockNames) {
+                // Check if the block is a custom block
+                if (!customBlockDefinitions.containsKey(interfaceBlockName)) {
+                    throw new RuntimeException("Unable to register structure, block variable " + interfaceBlockName + " is unknown");
+                }
+                String blockId = customBlockDefinitions.get(interfaceBlockName);
+                PluginBlock block = registeredBlocks.get(blockId);
+                interfaceBlocks.add(new StructureBlock(block));
+            }
+
         });
         structureConfiguration.saveConfig();
     }

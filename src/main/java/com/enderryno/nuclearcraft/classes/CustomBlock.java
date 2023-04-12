@@ -8,11 +8,15 @@ import com.enderryno.nuclearcraft.interfaces.PluginBlock;
 import com.enderryno.nuclearcraft.interfaces.PluginItem;
 import com.enderryno.nuclearcraft.enums.ItemBehaviour;
 import com.enderryno.nuclearcraft.services.BlockRegister;
+import com.jeff_media.customblockdata.CustomBlockData;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.sql.ResultSet;
 
@@ -68,47 +72,26 @@ public class CustomBlock implements PluginBlock {
     public void placeBlock(PluginItem item, Location location) {
         // Get block at location
         Block block = location.getWorld().getBlockAt(location);
-        // Save metadata for cache and to database
-        BlockState state = block.getState();
+        // Save metadata
+        PersistentDataContainer blockData = new CustomBlockData(block, NuclearCraft.instance);
 
-        state.setMetadata("custom-block-id", new FixedMetadataValue(NuclearCraft.instance, this.getID()));
-        state.setMetadata("item-id", new FixedMetadataValue(NuclearCraft.instance, item.getID()));
-        state.update();
-        // Save to database
-        BlockTable blockTable = new BlockTable();
-        blockTable.insert(
-                this.getID(),
-                item.getID(),
-                location.getWorld().getName(),
-                location.getBlockX(),
-                location.getBlockY(),
-                location.getBlockZ());
+        NamespacedKey blockIdKey = new NamespacedKey(NuclearCraft.instance, "custom-block-id");
+        NamespacedKey itemIdKey = new NamespacedKey(NuclearCraft.instance, "item-id");
+
+        blockData.set(blockIdKey, PersistentDataType.STRING, this.getID());
+        blockData.set(itemIdKey, PersistentDataType.STRING, item.getID());
+
+        // Print in chat for debugging
+        NuclearCraft.instance.getLogger().info("Placed block " + blockData.get(blockIdKey, PersistentDataType.STRING));
     }
 
     @Override
     public PluginBlock getBlock(Location location) {
-        // Try to get block from cache, if not found, get from database
+        // Try to get block metadata
         Block block = location.getWorld().getBlockAt(location);
-        BlockState state = block.getState();
-        String customBlockId = null;
-        if (state.hasMetadata("custom-block-id")) {
-            MetadataValue metadataValue = state.getMetadata("custom-block-id").get(0);
-            customBlockId = metadataValue.asString();
-        } else {
-            // Get from database
-            BlockTable blockTable = new BlockTable();
-            ResultSet result = blockTable.get(location.getBlockX(), location.getBlockY(), location.getBlockZ(), location.getWorld().getName());
-            try {
-                if (result.next())
-                    customBlockId = result.getString("custom_block_id");
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-        }
-        if (customBlockId == null)
-            return null;
-        // Get custom block from id
+        NamespacedKey blockIdKey = new NamespacedKey(NuclearCraft.instance, "custom-block-id");
+        PersistentDataContainer blockData = new CustomBlockData(block, NuclearCraft.instance);
+        String customBlockId = blockData.get(blockIdKey, PersistentDataType.STRING);
         try {
             BlockRegister.getRegisteredBlocks().get(customBlockId);
         } catch (Exception e) {
@@ -122,16 +105,13 @@ public class CustomBlock implements PluginBlock {
     public void removeBlock(Location location) {
         // Get block at location
         Block block = location.getWorld().getBlockAt(location);
-        // Save metadata for cache and to database
-        BlockState state = block.getState();
+        PersistentDataContainer blockData = new CustomBlockData(block, NuclearCraft.instance);
 
-        state.removeMetadata("custom-block-id", NuclearCraft.instance);
-        state.removeMetadata("custom-item-id", NuclearCraft.instance);
-        state.update();
-        // Save to database
-        BlockTable blockTable = new BlockTable();
-        blockTable.delete(location.getBlockX(), location.getBlockY(), location.getBlockZ(), location.getWorld().getName());
+        NamespacedKey blockIdKey = new NamespacedKey(NuclearCraft.instance, "custom-block-id");
+        NamespacedKey itemIdKey = new NamespacedKey(NuclearCraft.instance, "item-id");
 
+        blockData.remove(blockIdKey);
+        blockData.remove(itemIdKey);
     }
 
     @Override

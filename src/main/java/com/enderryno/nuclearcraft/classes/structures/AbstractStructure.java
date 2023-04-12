@@ -10,6 +10,7 @@ public abstract class AbstractStructure implements PluginStructure {
     private Boolean requiredInterface;
     private StructureBehaviour structureBehaviour;
     private List<StructureBlock> structureBlocks;
+    //@todo: - Remove this fucking shit please, bombastic side eye, and add interface property directly to StructureBlock
     private List<StructureBlock> interfaceBlocks;
 
     @Override
