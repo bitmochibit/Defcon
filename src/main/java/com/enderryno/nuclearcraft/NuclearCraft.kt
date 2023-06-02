@@ -27,10 +27,21 @@ class NuclearCraft : JavaPlugin() {
     override fun onDisable() {
         getLogger().info("[NuclearCraft] has been disabled!")
         // Disconnect from all databases
-        Database.Companion.disconnectAll()
+        Database.disconnectAll()
     }
 
     companion object {
         var instance: NuclearCraft? = null
+        object Logger {
+            fun info(message: String) {
+                instance!!.getLogger().info(message)
+            }
+            fun warning(message: String) {
+                instance!!.getLogger().warning(message)
+            }
+            fun severe(message: String) {
+                instance!!.getLogger().severe(message)
+            }
+        }
     }
 }

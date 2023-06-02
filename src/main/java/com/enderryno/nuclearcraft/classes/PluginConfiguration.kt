@@ -9,8 +9,7 @@ import java.io.IOException
 import java.io.InputStreamReader
 import java.util.logging.Level
 
-class PluginConfiguration(/* Strict constructor variables */
-                          private val plugin: JavaPlugin?, configurationStorage: ConfigurationStorages) {
+class PluginConfiguration(private val plugin: JavaPlugin?, configurationStorage: ConfigurationStorages) {
     private val filePath: String?
     private val fileName: String
     private var configurationFile: File? = null

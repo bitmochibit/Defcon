@@ -9,6 +9,7 @@ import com.sk89q.worldguard.WorldGuard
 import com.sk89q.worldguard.protection.regions.ProtectedPolygonalRegion
 import com.sk89q.worldguard.protection.regions.ProtectedRegion
 import org.bukkit.Location
+import com.enderryno.nuclearcraft.NuclearCraft.Companion.Logger
 
 object Effector {
     /**
@@ -23,7 +24,7 @@ object Effector {
         var blockLocations: List<Location>? = FloodFiller.getFloodFill(center, maxRange)
 
         if (blockLocations.isNullOrEmpty()) {
-            NuclearCraft.instance!!.getLogger().info("No blocks found in range")
+            Logger.warning("No blocks found in radiation field")
             return
         }
 

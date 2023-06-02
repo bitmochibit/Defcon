@@ -9,7 +9,6 @@ import com.enderryno.nuclearcraft.exceptions.BlockNotRegisteredException
 import com.enderryno.nuclearcraft.exceptions.StructureNotRegisteredException
 import com.enderryno.nuclearcraft.interfaces.PluginBlock
 import com.enderryno.nuclearcraft.interfaces.PluginStructure
-import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.plugin.java.JavaPlugin
 import java.lang.reflect.InvocationTargetException
 
@@ -67,14 +66,24 @@ class StructureRegister() {
             // Loop through block dispositions
             val blockDispositions = structureConfig.getList("$item.block-dispositions")!!
             // Every list element is a node which has a y value and the dispositions
+
             for (blockDisposition in blockDispositions) {
-                val blockDispositionSection = blockDisposition as ConfigurationSection
-                val y = blockDispositionSection.getInt("y")
-                val dispositions = blockDispositionSection.getList("dispositions")
+                // Access the first level of the linkedHashmap, which contains the y and the dispositions
+                val blockDispositionDef = blockDisposition as LinkedHashMap<*, *>
+                val set = blockDispositionDef.keys.first()?: continue
+
+                val effectiveBlockDisposition = blockDispositionDef[set] as LinkedHashMap<*, *>
+
+
+                // Get the Y coordinate
+                val y = effectiveBlockDisposition["y"] as Int
+                val dispositions = effectiveBlockDisposition["dispositions"] as List<*>
+
                 // Every disposition is a different Z coordinate
-                for (z in dispositions!!.indices) {
+                for (z in dispositions.indices) {
                     // Split each dispositions by the comma, every sub-disposition it's a different X coordinate (block)
-                    val dispositionBlocks = dispositions[z].toString().split(",".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+                    val dispositionBlocks =
+                        dispositions[z].toString().split(",".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
 
                     // Loop through the disposition blocks
                     for (x in dispositionBlocks.indices) {
@@ -85,7 +94,7 @@ class StructureRegister() {
                         }
                         val blockId = customBlockDefinitions[blockName]
                         val block = registeredBlocks?.get(blockId)
-                        structureBlocks!!.add(StructureBlock(block).setPosition(x, y, z))
+                        structureBlocks?.add(StructureBlock(block).setPosition(x, y, z))
                     }
                 }
             }
@@ -99,7 +108,7 @@ class StructureRegister() {
                 }
                 val blockId = customBlockDefinitions[interfaceBlockName]
                 val block = registeredBlocks?.get(blockId)
-                interfaceBlocks!!.add(StructureBlock(block))
+                interfaceBlocks?.add(StructureBlock(block))
             }
         }
         structureConfiguration.saveConfig()

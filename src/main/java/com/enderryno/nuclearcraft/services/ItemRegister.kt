@@ -37,11 +37,11 @@ class ItemRegister() {
             val customItem: PluginItem = CustomItem()
             val itemId = itemConfig.getString("$item.item-id")
             if (itemId == null || registeredItems!![itemId] != null) return@forEach
-            val itemName = itemConfig.getString("$item.item-name")!!
-            val itemDescription = itemConfig.getString("$item.item-description")!!
-            val itemMinecraftId = itemConfig.getString("$item.item-minecraft-id")!!
+            val itemName = itemConfig.getString("$item.item-name")
+            val itemDescription = itemConfig.getString("$item.item-description")
+            val itemMinecraftId = itemConfig.getString("$item.item-minecraft-id")
             val itemDataModelId = itemConfig.getInt("$item.item-data-model-id")
-            val itemCustomBlockId = itemConfig.getString("$item.custom-block-id")!!
+            val itemCustomBlockId = itemConfig.getString("$item.custom-block-id")
             val itemStackSize = itemConfig.getInt("$item.max-stack-size")
             val itemEquipable = itemConfig.getBoolean("$item.is-equipable")
             val itemUsable = itemConfig.getBoolean("$item.is-usable")
