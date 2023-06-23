@@ -1,5 +1,6 @@
 package com.enderryno.nuclearcraft.utils
 
+import com.enderryno.nuclearcraft.classes.StructureBlock
 import org.bukkit.Location
 import java.util.*
 import kotlin.math.atan2
@@ -58,7 +59,8 @@ object Geometry {
         return convexHull
     }
 
-    fun rotateStructureXZ(points: List<Location>) : MutableList<Location> {
+    // Todo - make this work for any angle of rotation
+    fun rotateLocationPlaneXZ(points: List<Location>, angle: Float = 90f) : MutableList<Location> {
         val rotatedPoints : MutableList<Location> = ArrayList()
         for (point in points) {
             val rotatedX = point.z
@@ -66,6 +68,16 @@ object Geometry {
             rotatedPoints.add(Location(point.world, rotatedX, point.y, rotatedZ))
         }
         return rotatedPoints
+    }
+
+    fun rotateStructureBlockPlaneXZ(structureBlocks: List<StructureBlock>, angle: Float = 90f): MutableList<StructureBlock> {
+        val rotatedStructure : MutableList<StructureBlock> = ArrayList()
+        for (structureBlock in structureBlocks) {
+            val rotatedX = structureBlock.z
+            val rotatedZ = structureBlocks.maxByOrNull { it.x }!!.x - structureBlock.x
+            rotatedStructure.add(StructureBlock(structureBlock.block, rotatedX, structureBlock.y, rotatedZ, structureBlock.isInterface))
+        }
+        return rotatedStructure
     }
 
     private fun ccw(p1: Location, p2: Location, p3: Location): Int {

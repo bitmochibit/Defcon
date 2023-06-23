@@ -22,3 +22,8 @@ commands:
     permission: nuclearcraft.admin
     permission-message: You do not have permission!
     usage: /<command> [x] [y] [z] [radius]
+  ncstructuresearch:
+    description: Search a structure by block coordinate
+    permission: nuclearcraft.admin
+    permission-message: You do not have permission!
+    usage: /<command> [x] [y] [z]

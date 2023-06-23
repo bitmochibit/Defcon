@@ -28,9 +28,9 @@
 
 enabled-items:
   - geiger
-  - radiation-inhibitor
-  - gas-mask
-  - gas-mask-filter
+#  - radiation-inhibitor
+#  - gas-mask
+#  - gas-mask-filter
   - bomb-casing
   - bomb-core
   - bomb-interface
@@ -40,7 +40,6 @@ enabled-items:
 # ITEMS
 #------------------------------------------------------------------------------
 geiger:
-  item-id: 1
   item-name: "&#cbfb09G&#cff408e&#d3ed08i&#d8e607g&#dcdf06e&#e0d805r &#e4d105C&#e8ca04o&#ecc303u&#f1bc02n&#f5b502t&#f9ae01e&#fda700r"
   item-description: "&eThis item measures the radiation levels"
   item-minecraft-id: COMPASS
@@ -56,7 +55,6 @@ geiger:
 # BLOCK ITEMS
 #------------------------------------------------------------------------------
 bomb-casing:
-  item-id: 2
   item-name: "Bomb casing"
   item-description: "&eUsed to create a bomb casing"
   item-minecraft-id: IRON_BLOCK
@@ -66,11 +64,10 @@ bomb-casing:
   is-droppable: true
   is-transportable: true
   max-stack-size: 64
-  custom-block-id: 1
+  custom-block-id: bomb-casing
   behaviour: "block"
 
 bomb-core:
-    item-id: 3
     item-name: "Bomb core"
     item-description: "&eThe core of the bomb"
     item-minecraft-id: BEACON
@@ -80,11 +77,10 @@ bomb-core:
     is-droppable: true
     is-transportable: true
     max-stack-size: 64
-    custom-block-id: 2
+    custom-block-id: bomb-core
     behaviour: "block"
 
 bomb-interface:
-    item-id: 4
     item-name: "Bomb interface"
     item-description: "&eThe interface of the bomb"
     item-minecraft-id: COMMAND_BLOCK
@@ -94,5 +90,5 @@ bomb-interface:
     is-droppable: true
     is-transportable: true
     max-stack-size: 64
-    custom-block-id: 3
+    custom-block-id: bomb-interface
     behaviour: "block"

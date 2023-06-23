@@ -16,7 +16,7 @@ class CustomBlockPlaceEvent : Listener {
     fun onBlockPlace(event: BlockPlaceEvent) {
         // Get the item in the player's hand
         val item = event.itemInHand
-        var customItem: PluginItem? = null
+        val customItem: PluginItem?
         val block = event.block
 
         // Get persistent data container
@@ -32,11 +32,11 @@ class CustomBlockPlaceEvent : Listener {
         val customBlockId = container.get(blockIdKey, PersistentDataType.STRING)?: return
         val customItemId = container.get(itemIdKey, PersistentDataType.STRING)?: return
 
-        try {
-            customItem = ItemRegister.getRegisteredItems()?.get(customItemId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+
+
+
+        customItem = ItemRegister.getRegisteredItems()?.get(customItemId) ?: throw Exception("Item not registered")
+
         try {
             BlockRegister.getBlock(customBlockId)
                     ?.placeBlock(customItem, block.location)

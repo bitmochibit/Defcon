@@ -15,31 +15,14 @@ import org.bukkit.persistence.PersistentDataType
  * This class instantiates a custom item by its id
  *
  */
-class CustomBlock : PluginBlock{
+class CustomBlock(
+    override val id: String,
+    override val customModelId: Int,
+    override val minecraftId: String,
+    override val behaviour: BlockBehaviour
+) : PluginBlock{
 
-    override var id: String? = null
-        private set
-    override var minecraftId: String? = null
-        private set
-    override var behaviour: BlockBehaviour? = null
-        private set
-    override var customModelId = 0
-    override fun setID(id: String?): PluginBlock {
-        this.id = id
-        return this
-    }
-
-    override fun setCustomModelId(customModelId: Int): PluginBlock {
-        this.customModelId = customModelId
-        return this
-    }
-
-    override fun setMinecraftId(minecraftId: String?): PluginBlock {
-        this.minecraftId = minecraftId
-        return this
-    }
-
-    override fun placeBlock(item: PluginItem?, location: Location) {
+    override fun placeBlock(item: PluginItem, location: Location) {
         // Get block at location
         val block = location.world.getBlockAt(location)
         // Save metadata
@@ -63,8 +46,4 @@ class CustomBlock : PluginBlock{
         blockData.remove(itemIdKey)
     }
 
-    override fun setBehaviour(behaviour: BlockBehaviour?): PluginBlock {
-        this.behaviour = behaviour
-        return this
-    }
 }

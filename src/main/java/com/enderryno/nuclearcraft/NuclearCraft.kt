@@ -8,20 +8,25 @@ class NuclearCraft : JavaPlugin() {
     override fun onEnable() {
         if (instance == null) instance = this
         getLogger().info("[NuclearCraft] has been enabled!")
-        /* Register all plugin's events */EventRegister()
+        /* Register all plugin's events */
+        EventRegister()
                 .registerItemEvents()
                 .registerBlockEvents()
 
-        /* Register custom items */if (!ItemRegister().registerItems()) {
+        /* Register custom items */
+        if (!ItemRegister().registerItems()) {
             getLogger().warning("[NuclearCraft] Some items were not registered!")
         }
 
-        /* Register custom blocks */BlockRegister().registerBlocks()
+        /* Register custom blocks */
+        BlockRegister().registerBlocks()
 
 
-        /* Register commands */CommandRegister().registerCommands()
+        /* Register commands */
+        CommandRegister().registerCommands()
 
-        /* Register structures */StructureRegister().registerStructures()
+        /* Register structures */
+        StructureRegister().registerStructures()
     }
 
     override fun onDisable() {

@@ -1,6 +1,5 @@
 package com.enderryno.nuclearcraft.services
 
-import com.enderryno.nuclearcraft.NuclearCraft
 import com.enderryno.nuclearcraft.utils.FloodFiller
 import com.enderryno.nuclearcraft.utils.Geometry
 import com.sk89q.worldedit.bukkit.BukkitAdapter
@@ -21,7 +20,7 @@ object Effector {
      * @param maxRange The maximum range of the radiation field
      */
     fun generateRadiationField(center: Location, maxRange: Int) {
-        var blockLocations: List<Location>? = FloodFiller.getFloodFill(center, maxRange)
+        var blockLocations: List<Location>? = FloodFiller.getFloodFill(center, maxRange, true)
 
         if (blockLocations.isNullOrEmpty()) {
             Logger.warning("No blocks found in radiation field")

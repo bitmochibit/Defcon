@@ -31,19 +31,25 @@ class BlockRegister() {
         val blockConfiguration = PluginConfiguration(pluginInstance, ConfigurationStorages.Blocks)
         val blockConfig = blockConfiguration.config
         blockConfig!!.getList("enabled-blocks")!!.forEach { item: Any? ->
-            val customBlock: PluginBlock = CustomBlock()
-            val blockId = blockConfig.getString("$item.block-id")
-            if (blockId == null || registeredBlocks!![blockId] != null) return@forEach
-            val blockMinecraftId = blockConfig.getString("$item.block-minecraft-id")!!
+
+            val blockId = item.toString()
+            if (registeredBlocks!![blockId] != null) return@forEach
+            val blockMinecraftId = blockConfig.getString("$item.block-minecraft-id") ?: throw BlockNotRegisteredException(blockId)
             val blockDataModelId = blockConfig.getInt("$item.block-data-model-id")
-            customBlock.setID(blockId)
-            customBlock.setMinecraftId(blockMinecraftId)
-            customBlock.setCustomModelId(blockDataModelId)
-            var behaviour = blockConfig.getString("$item.behaviour")
-            if (behaviour == null) {
-                behaviour = "generic"
+
+
+            var behaviourName = blockConfig.getString("$item.behaviour")
+            if (behaviourName == null) {
+                behaviourName = "generic"
             }
-            customBlock.setBehaviour(BlockBehaviour.Companion.fromString(behaviour))
+            val behaviourValue = BlockBehaviour.fromString(behaviourName) ?: throw BlockNotRegisteredException(blockId)
+
+            val customBlock: PluginBlock = CustomBlock(
+                id = blockId,
+                customModelId = blockDataModelId,
+                minecraftId = blockMinecraftId,
+                behaviour = behaviourValue)
+
             registeredBlocks!![customBlock.id] = customBlock
         }
         blockConfiguration.saveConfig()
@@ -58,7 +64,7 @@ class BlockRegister() {
         fun getBlock(location: Location): PluginBlock? {
             // Try to get block metadata
             val block = location.world.getBlockAt(location)
-            val blockIdKey: NamespacedKey = NamespacedKey(NuclearCraft.instance!!, "custom-block-id")
+            val blockIdKey = NamespacedKey(NuclearCraft.instance!!, "custom-block-id")
             val blockData: PersistentDataContainer = CustomBlockData(block, NuclearCraft.instance!!)
             val customBlockId = blockData.get(blockIdKey, PersistentDataType.STRING) ?: return null
 

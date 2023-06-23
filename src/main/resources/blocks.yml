@@ -29,19 +29,16 @@ enabled-blocks:
 # BLOCKS
 #------------------------------------------------------------------------------
 bomb-casing:
-  block-id: 1
   block-minecraft-id: IRON_BLOCK
   block-data-model-id: 1000
   behaviour: "structure_component"
 
 bomb-core:
-  block-id: 2
   block-minecraft-id: BEACON
   block-data-model-id: 1001
   behaviour: "structure_component"
 
 bomb-interface:
-  block-id: 3
   block-minecraft-id: COMMAND_BLOCK
   block-data-model-id: 1002
   behaviour: "structure_interface"

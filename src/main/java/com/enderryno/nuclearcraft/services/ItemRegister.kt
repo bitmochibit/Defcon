@@ -34,33 +34,44 @@ class ItemRegister() {
             return false
         }
         itemConfig.getList("enabled-items")!!.forEach { item: Any? ->
-            val customItem: PluginItem = CustomItem()
-            val itemId = itemConfig.getString("$item.item-id")
-            if (itemId == null || registeredItems!![itemId] != null) return@forEach
-            val itemName = itemConfig.getString("$item.item-name")
+            val itemId = item.toString()
+            if (registeredItems!![itemId] != null) return@forEach
+
+            val itemName = itemConfig.getString("$item.item-name") ?: throw ItemNotRegisteredException(itemId)
             val itemDescription = itemConfig.getString("$item.item-description")
-            val itemMinecraftId = itemConfig.getString("$item.item-minecraft-id")
+            val itemMinecraftId = itemConfig.getString("$item.item-minecraft-id") ?: throw ItemNotRegisteredException(itemId)
             val itemDataModelId = itemConfig.getInt("$item.item-data-model-id")
             val itemCustomBlockId = itemConfig.getString("$item.custom-block-id")
+
             val itemStackSize = itemConfig.getInt("$item.max-stack-size")
             val itemEquipable = itemConfig.getBoolean("$item.is-equipable")
             val itemUsable = itemConfig.getBoolean("$item.is-usable")
             val itemTransportable = itemConfig.getBoolean("$item.is-transportable")
-            customItem.setID(itemId)
-            customItem.setName(itemName)
-            customItem.setDescription(itemDescription)
-            customItem.setMinecraftId(itemMinecraftId)
-            customItem.setModelId(itemDataModelId)
-            customItem.setCustomBlockId(itemCustomBlockId)
-            customItem.setStackSize(itemStackSize)
-            customItem.setEquipable(itemEquipable)
-            customItem.setUsable(itemUsable)
-            customItem.setTransportable(itemTransportable)
-            var behaviour = itemConfig.getString("$item.behaviour")
-            if (behaviour == null) {
-                behaviour = "generic"
+            val itemDroppable = itemConfig.getBoolean("$item.is-droppable")
+
+
+            var behaviourName = itemConfig.getString("$item.behaviour")
+            if (behaviourName == null) {
+                behaviourName = "generic"
             }
-            customItem.setBehaviour(ItemBehaviour.Companion.fromString(behaviour))
+            val behaviourValue = ItemBehaviour.fromString(behaviourName) ?: throw IllegalArgumentException("Behaviour $behaviourName is not valid")
+
+            val customItem: PluginItem = CustomItem(
+                    id = itemId,
+                    name = itemName,
+                    description = itemDescription,
+                    minecraftId = itemMinecraftId,
+                    modelId = itemDataModelId,
+                    customBlockId = itemCustomBlockId,
+
+                    isEquipable = itemEquipable,
+                    isUsable = itemUsable,
+                    isTransportable = itemTransportable,
+                    stackSize = itemStackSize,
+                    isDroppable = itemDroppable,
+                    behaviour = behaviourValue
+            )
+            NuclearCraft.Companion.Logger.info("Registered item $itemId")
             registeredItems!![customItem.id] = customItem
         }
         itemConfigurator.saveConfig()
