@@ -14,11 +14,9 @@ import org.bukkit.persistence.PersistentDataType
 /**
  * This class instantiates a custom item by its id
  *
- *
- * Since it's unsafe to explicitly extend ItemStack class,
- * this class has a getter for both the ItemStack instance and this plugin item class.
  */
-class CustomBlock : PluginBlock {
+class CustomBlock : PluginBlock{
+
     override var id: String? = null
         private set
     override var minecraftId: String? = null
@@ -55,27 +53,12 @@ class CustomBlock : PluginBlock {
         NuclearCraft.instance!!.getLogger().info("Placed block " + blockData.get(blockIdKey, PersistentDataType.STRING))
     }
 
-    override fun getBlock(location: Location): PluginBlock? {
-        // Try to get block metadata
-        val block = location.world.getBlockAt(location)
-        val blockIdKey: NamespacedKey = NamespacedKey(NuclearCraft.Companion.instance!!, "custom-block-id")
-        val blockData: PersistentDataContainer = CustomBlockData(block, NuclearCraft.Companion.instance!!)
-        val customBlockId = blockData.get(blockIdKey, PersistentDataType.STRING)
-        try {
-            BlockRegister.Companion.getRegisteredBlocks()!!.get(customBlockId)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return null
-        }
-        return null
-    }
-
     override fun removeBlock(location: Location) {
         // Get block at location
         val block = location.world.getBlockAt(location)
-        val blockData: PersistentDataContainer = CustomBlockData(block, NuclearCraft.Companion.instance!!)
-        val blockIdKey: NamespacedKey = NamespacedKey(NuclearCraft.Companion.instance!!, "custom-block-id")
-        val itemIdKey: NamespacedKey = NamespacedKey(NuclearCraft.Companion.instance!!, "item-id")
+        val blockData: PersistentDataContainer = CustomBlockData(block, NuclearCraft.instance!!)
+        val blockIdKey = NamespacedKey(NuclearCraft.instance!!, "custom-block-id")
+        val itemIdKey = NamespacedKey(NuclearCraft.instance!!, "item-id")
         blockData.remove(blockIdKey)
         blockData.remove(itemIdKey)
     }

@@ -2,15 +2,19 @@ package com.enderryno.nuclearcraft.services
 
 import com.enderryno.nuclearcraft.NuclearCraft
 import com.enderryno.nuclearcraft.classes.PluginConfiguration
-import com.enderryno.nuclearcraft.classes.StructureBlock
 import com.enderryno.nuclearcraft.enums.ConfigurationStorages
 import com.enderryno.nuclearcraft.enums.StructureBehaviour
 import com.enderryno.nuclearcraft.exceptions.BlockNotRegisteredException
 import com.enderryno.nuclearcraft.exceptions.StructureNotRegisteredException
 import com.enderryno.nuclearcraft.interfaces.PluginBlock
 import com.enderryno.nuclearcraft.interfaces.PluginStructure
+import com.enderryno.nuclearcraft.utils.FloodFiller
+import org.bukkit.Location
 import org.bukkit.plugin.java.JavaPlugin
 import java.lang.reflect.InvocationTargetException
+
+import com.enderryno.nuclearcraft.classes.StructureBlock
+import com.enderryno.nuclearcraft.utils.Geometry
 
 class StructureRegister() {
     private var pluginInstance: JavaPlugin? = null
@@ -44,24 +48,20 @@ class StructureRegister() {
                 if (structureBehaviour != null) {
                     structure = structureBehaviour.structureClass?.getDeclaredConstructor()?.newInstance()
                 }
-            } catch (e: InstantiationException) {
-                e.printStackTrace()
-            } catch (e: IllegalAccessException) {
-                e.printStackTrace()
-            } catch (e: NoSuchMethodException) {
-                e.printStackTrace()
-            } catch (e: InvocationTargetException) {
+            } catch (e: Exception) {
                 e.printStackTrace()
             }
             if (structure == null) return@forEach
+
+
             val rawDefinitions = structureConfig.getStringList("$item.block-set")
             val customBlockDefinitions = HashMap<String, String>()
             for (rawDefinition in rawDefinitions) {
                 val definition = rawDefinition.split(":".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
                 customBlockDefinitions[definition[0]] = definition[1]
             }
+
             val structureBlocks = structure.structureBlocks
-            val interfaceBlocks = structure.interfaceBlocks
 
             // Loop through block dispositions
             val blockDispositions = structureConfig.getList("$item.block-dispositions")!!
@@ -94,7 +94,7 @@ class StructureRegister() {
                         }
                         val blockId = customBlockDefinitions[blockName]
                         val block = registeredBlocks?.get(blockId)
-                        structureBlocks?.add(StructureBlock(block).setPosition(x, y, z))
+                        structureBlocks.add(block?.let { StructureBlock(it, x, y, z) })
                     }
                 }
             }
@@ -107,11 +107,35 @@ class StructureRegister() {
                     throw RuntimeException("Unable to register structure, block variable $interfaceBlockName is unknown")
                 }
                 val blockId = customBlockDefinitions[interfaceBlockName]
-                val block = registeredBlocks?.get(blockId)
-                interfaceBlocks?.add(StructureBlock(block))
+
+                for (structureBlock in structureBlocks) {
+                    if (structureBlock?.block?.id == blockId) {
+                        structureBlock?.isInterface = true
+                    }
+                }
             }
+
+            structure.requiredInterface = requiresInterface
+            registeredStructures!![item.toString()] = structure
+
         }
         structureConfiguration.saveConfig()
+    }
+
+    fun searchByBlock(location: Location): PluginStructure? {
+        // Check if structure block then return the structure
+
+        // If not a structure block, find the structure by the location
+        val pluginBlockLocations = FloodFiller.getFloodFill(location, 200, true)
+        // Loop through the found block locations, and get the minimum x, z foreach y
+        // Generate a new array of StructureBlocks with the relative coordinates (x - minx .. )
+        // Loop through the registered structures blocks and check if the structure is the same (rotate the structure three times until stopping, foreach registered structure)
+
+
+
+
+
+        return null;
     }
 
     companion object {

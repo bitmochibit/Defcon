@@ -58,6 +58,16 @@ object Geometry {
         return convexHull
     }
 
+    fun rotateStructureXZ(points: List<Location>) : MutableList<Location> {
+        val rotatedPoints : MutableList<Location> = ArrayList()
+        for (point in points) {
+            val rotatedX = point.z
+            val rotatedZ = points.maxByOrNull { it.x }!!.x - point.x
+            rotatedPoints.add(Location(point.world, rotatedX, point.y, rotatedZ))
+        }
+        return rotatedPoints
+    }
+
     private fun ccw(p1: Location, p2: Location, p3: Location): Int {
         return (p2.blockX - p1.blockX) * (p3.blockZ - p1.blockZ) - (p2.blockZ - p1.blockZ) * (p3.blockX - p1.blockX)
     }

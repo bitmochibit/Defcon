@@ -11,7 +11,6 @@ interface PluginBlock {
     fun setMinecraftId(minecraftId: String?): PluginBlock
     val minecraftId: String?
     fun placeBlock(item: PluginItem?, location: Location)
-    fun getBlock(location: Location): PluginBlock?
     fun removeBlock(location: Location)
 
     /*Behaviour type*/

@@ -29,16 +29,16 @@ class CustomBlockPlaceEvent : Listener {
         if (!container.has(itemIdKey, PersistentDataType.STRING)) return
 
         // Get the custom block id and set it to the block
-        val customBlockId = container.get(blockIdKey, PersistentDataType.STRING)
-        val customItemId = container.get(itemIdKey, PersistentDataType.STRING)
+        val customBlockId = container.get(blockIdKey, PersistentDataType.STRING)?: return
+        val customItemId = container.get(itemIdKey, PersistentDataType.STRING)?: return
+
         try {
             customItem = ItemRegister.getRegisteredItems()?.get(customItemId)
         } catch (e: Exception) {
             e.printStackTrace()
         }
         try {
-            BlockRegister.getRegisteredBlocks()
-                    ?.get(customBlockId)
+            BlockRegister.getBlock(customBlockId)
                     ?.placeBlock(customItem, block.location)
         } catch (e: Exception) {
             e.printStackTrace()

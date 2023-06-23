@@ -1,20 +1,28 @@
 package com.enderryno.nuclearcraft.utils
 
+import com.enderryno.nuclearcraft.services.BlockRegister
 import org.bukkit.Location
 import java.util.*
+import kotlin.reflect.typeOf
 
 object FloodFiller {
-    fun getFloodFill(startLoc: Location, maxRange: Int): List<Location> {
+    fun getFloodFill(startLoc: Location, maxRange: Int, customBlockOnly: Boolean = false): List<Location> {
         val visited: MutableSet<Location> = HashSet()
         val queue: Queue<Location> = LinkedList()
+        val locations: MutableList<Location> = ArrayList()
+        if (customBlockOnly && !isCustomBlock(startLoc)) {
+            return locations
+        }
         queue.add(startLoc)
         visited.add(startLoc)
-        val locations: MutableList<Location> = ArrayList()
         var range = 0
         while (!queue.isEmpty() && range <= maxRange) {
             val levelSize = queue.size
             for (i in 0 until levelSize) {
                 val loc = queue.poll()
+                if (customBlockOnly && !isCustomBlock(loc)) {
+                    continue
+                }
                 val block = loc.block
                 if (!block.isSolid) {
                     locations.add(loc)
@@ -24,6 +32,11 @@ object FloodFiller {
             range++
         }
         return locations
+    }
+
+
+    private fun isCustomBlock(loc: Location): Boolean {
+        return BlockRegister.getBlock(loc) != null
     }
 
     private fun addNeighbors(loc: Location, queue: Queue<Location>, visited: MutableSet<Location>) {

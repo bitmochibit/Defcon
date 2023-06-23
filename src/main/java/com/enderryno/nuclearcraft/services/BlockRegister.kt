@@ -7,6 +7,11 @@ import com.enderryno.nuclearcraft.enums.BlockBehaviour
 import com.enderryno.nuclearcraft.enums.ConfigurationStorages
 import com.enderryno.nuclearcraft.exceptions.BlockNotRegisteredException
 import com.enderryno.nuclearcraft.interfaces.PluginBlock
+import com.jeff_media.customblockdata.CustomBlockData
+import org.bukkit.Location
+import org.bukkit.NamespacedKey
+import org.bukkit.persistence.PersistentDataContainer
+import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
 
 /**
@@ -49,6 +54,20 @@ class BlockRegister() {
          * Static member to access the registered items
          */
         private var registeredBlocks: HashMap<String?, PluginBlock?>? = null
+
+        fun getBlock(location: Location): PluginBlock? {
+            // Try to get block metadata
+            val block = location.world.getBlockAt(location)
+            val blockIdKey: NamespacedKey = NamespacedKey(NuclearCraft.instance!!, "custom-block-id")
+            val blockData: PersistentDataContainer = CustomBlockData(block, NuclearCraft.instance!!)
+            val customBlockId = blockData.get(blockIdKey, PersistentDataType.STRING) ?: return null
+
+            return getBlock(customBlockId)
+        }
+
+        fun getBlock(id: String): PluginBlock? {
+            return registeredBlocks!![id]
+        }
 
         /* Registered items getter */
         @Throws(BlockNotRegisteredException::class)
