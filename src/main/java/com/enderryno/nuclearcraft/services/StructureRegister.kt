@@ -167,7 +167,8 @@ class StructureRegister() {
 
 
         // Sort the relative structure blocks by Y, then by Z, then by X
-        relativeStructureBlocks = relativeStructureBlocks.sortedWith(compareBy({ it.y }, { it.z }, { it.x })).toMutableList()
+        relativeStructureBlocks =
+            relativeStructureBlocks.sortedWith(compareBy({ it.y }, { it.z }, { it.x })).toMutableList()
 
 
 
@@ -177,14 +178,14 @@ class StructureRegister() {
                 continue
             }
 
-            val regBlocks = registeredStructure.structureBlocks.sortedWith(compareBy({ it.y }, { it.z }, { it.x })).toMutableList()
+            val regBlocks =
+                registeredStructure.structureBlocks.sortedWith(compareBy({ it.y }, { it.z }, { it.x })).toMutableList()
 
-            // Check if the structure is the same
+            // Check if the structure is the same, if not rotate 3 times and check again (90 degrees)
             var isSame = true
             for (i in regBlocks.indices) {
                 val registeredStructureBlock = regBlocks[i]
                 val relativeStructureBlock = relativeStructureBlocks[i]
-
 
                 if (registeredStructureBlock.block.id != relativeStructureBlock.block.id) {
                     isSame = false
@@ -206,8 +207,9 @@ class StructureRegister() {
                     break
                 }
             }
-
-            NuclearCraft.Companion.Logger.info("Structure ${registeredStructure.id} is same: $isSame")
+            if (isSame) {
+                foundStructures.add(registeredStructure)
+            }
 
         }
 
