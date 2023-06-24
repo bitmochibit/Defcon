@@ -70,7 +70,7 @@ class StructureRegister() {
             for (blockDisposition in blockDispositions) {
                 // Access the first level of the linkedHashmap, which contains the y and the dispositions
                 val blockDispositionDef = blockDisposition as LinkedHashMap<*, *>
-                val set = blockDispositionDef.keys.first()?: continue
+                val set = blockDispositionDef.keys.first() ?: continue
 
                 val effectiveBlockDisposition = blockDispositionDef[set] as LinkedHashMap<*, *>
 
@@ -155,7 +155,7 @@ class StructureRegister() {
         // Generate a new array of StructureBlocks with the relative coordinates (x - minx .. )
         var relativeStructureBlocks: MutableList<StructureBlock> = ArrayList()
         for (pluginBlockLocation in pluginBlockLocations) {
-            val pluginBlock = BlockRegister.getBlock(pluginBlockLocation)?: continue
+            val pluginBlock = BlockRegister.getBlock(pluginBlockLocation) ?: continue
             val relativeX = pluginBlockLocation.x - minX.x
             val relativeY = pluginBlockLocation.y - minY.y
             val relativeZ = pluginBlockLocation.z - minZ.z
@@ -163,33 +163,53 @@ class StructureRegister() {
             relativeStructureBlocks.add(structureBlock)
         }
 
-        if (registeredStructures.isEmpty()) return foundStructures
+        if (relativeStructureBlocks.isEmpty()) return foundStructures
 
 
-        // Loop through the registered structures
-        structureLoop@for (registeredStructure in registeredStructures.values) {
-            NuclearCraft.Companion.Logger.info("Checking structure ${registeredStructure.id}")
-            var rotations = 0;
-            // Loop through 3 rotations
-            rotationLoop@while (rotations < 4) {
-                NuclearCraft.Companion.Logger.info("Using ${relativeStructureBlocks} with rotation ${rotations}")
-                // Loop through the structure blocks
-                for (structureBlock in registeredStructure.structureBlocks) {
-                    NuclearCraft.Companion.Logger.info("Checking if $structureBlock is in relative blocks")
-                    // Check if the structure block is in the relative structure blocks
-                    if (!relativeStructureBlocks.contains(structureBlock)) {
-                        // If not, continue to the next rotation
-                        relativeStructureBlocks = Geometry.rotateStructureBlockPlaneXZ(relativeStructureBlocks)
-                        rotations++
-                        continue@rotationLoop
-                    }
-                }
-                // If all the structure blocks are in the relative structure blocks, add the structure to the found structures
-                foundStructures.add(registeredStructure)
-                continue@structureLoop
+        // Sort the relative structure blocks by Y, then by Z, then by X
+        relativeStructureBlocks = relativeStructureBlocks.sortedWith(compareBy({ it.y }, { it.z }, { it.x })).toMutableList()
+
+
+
+        for (registeredStructure in registeredStructures.values) {
+            if (registeredStructure.structureBlocks.size != relativeStructureBlocks.size) {
+                NuclearCraft.Companion.Logger.info("Structure ${registeredStructure.id} has different size")
+                continue
             }
-        }
 
+            val regBlocks = registeredStructure.structureBlocks.sortedWith(compareBy({ it.y }, { it.z }, { it.x })).toMutableList()
+
+            // Check if the structure is the same
+            var isSame = true
+            for (i in regBlocks.indices) {
+                val registeredStructureBlock = regBlocks[i]
+                val relativeStructureBlock = relativeStructureBlocks[i]
+
+
+                if (registeredStructureBlock.block.id != relativeStructureBlock.block.id) {
+                    isSame = false
+                    break
+                }
+
+                if (registeredStructureBlock.x != relativeStructureBlock.x) {
+                    isSame = false
+                    break
+                }
+
+                if (registeredStructureBlock.y != relativeStructureBlock.y) {
+                    isSame = false
+                    break
+                }
+
+                if (registeredStructureBlock.z != relativeStructureBlock.z) {
+                    isSame = false
+                    break
+                }
+            }
+
+            NuclearCraft.Companion.Logger.info("Structure ${registeredStructure.id} is same: $isSame")
+
+        }
 
         return foundStructures;
     }
