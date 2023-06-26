@@ -1,3 +1,7 @@
 package com.enderryno.nuclearcraft.classes.structures
 
-class Warhead : GenericStructure()
+import com.enderryno.nuclearcraft.interfaces.ExplodingStructure
+
+class Warhead : GenericStructure(), ExplodingStructure {
+
+}
