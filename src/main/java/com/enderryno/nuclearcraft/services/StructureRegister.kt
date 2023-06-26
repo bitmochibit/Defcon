@@ -117,6 +117,9 @@ class StructureRegister() {
                 }
             }
 
+            // Sort the structure blocks
+            structure.structureBlocks = structure.structureBlocks.sortedWith(compareBy({ it.y }, { it.z }, { it.x })).toMutableList()
+
             structure.requiredInterface = requiresInterface
             structure.id = item.toString()
             pluginInstance!!.getLogger().info("Registered structure $structure.id")
@@ -133,15 +136,7 @@ class StructureRegister() {
         // If not a structure block, find the structure by the location
         var pluginBlockLocations = FloodFiller.getFloodFill(location, 200, customBlockOnly = true)
 
-        /*
-        Loop through the found block locations and retrieve the minimum x and z for each y level
-        After that generate a new array of StructureBlocks with the relative coordinates (x - minx .. )
-        For every registered structure, loop through the structure blocks and check if the structure is the same
-        The structure check will rotate 3 times (90 degrees) to check if the structure is the same
-         */
-
         if (pluginBlockLocations.isEmpty()) return foundStructures
-
 
         // Sort the locations by Y
         pluginBlockLocations = pluginBlockLocations.sortedBy { it.y }
@@ -170,47 +165,47 @@ class StructureRegister() {
         relativeStructureBlocks =
             relativeStructureBlocks.sortedWith(compareBy({ it.y }, { it.z }, { it.x })).toMutableList()
 
-
-
-        for (registeredStructure in registeredStructures.values) {
+        structureLoop@for (registeredStructure in registeredStructures.values) {
             if (registeredStructure.structureBlocks.size != relativeStructureBlocks.size) {
-                NuclearCraft.Companion.Logger.info("Structure ${registeredStructure.id} has different size")
                 continue
             }
-
-            val regBlocks =
-                registeredStructure.structureBlocks.sortedWith(compareBy({ it.y }, { it.z }, { it.x })).toMutableList()
+            val regBlocks = registeredStructure.structureBlocks
 
             // Check if the structure is the same, if not rotate 3 times and check again (90 degrees)
-            var isSame = true
-            for (i in regBlocks.indices) {
-                val registeredStructureBlock = regBlocks[i]
-                val relativeStructureBlock = relativeStructureBlocks[i]
+            var rotations = 0
+            while (rotations < 3) {
+                var isSame = true
+                for (i in regBlocks.indices) {
+                    val registeredStructureBlock = regBlocks[i]
+                    val relativeStructureBlock = relativeStructureBlocks[i]
 
-                if (registeredStructureBlock.block.id != relativeStructureBlock.block.id) {
-                    isSame = false
-                    break
+                    if (registeredStructureBlock.block.id != relativeStructureBlock.block.id) {
+                        isSame = false
+                        break
+                    }
+                    if (registeredStructureBlock.x != relativeStructureBlock.x) {
+                        isSame = false
+                        break
+                    }
+                    if (registeredStructureBlock.y != relativeStructureBlock.y) {
+                        isSame = false
+                        break
+                    }
+                    if (registeredStructureBlock.z != relativeStructureBlock.z) {
+                        isSame = false
+                        break
+                    }
                 }
 
-                if (registeredStructureBlock.x != relativeStructureBlock.x) {
-                    isSame = false
-                    break
-                }
-
-                if (registeredStructureBlock.y != relativeStructureBlock.y) {
-                    isSame = false
-                    break
-                }
-
-                if (registeredStructureBlock.z != relativeStructureBlock.z) {
-                    isSame = false
-                    break
+                if (isSame) {
+                    foundStructures.add(registeredStructure)
+                    continue@structureLoop
+                } else {
+                    rotations++
+                    // Rotate the relative structure blocks
+                    relativeStructureBlocks = Geometry.rotateStructureBlockPlaneXZ(relativeStructureBlocks)
                 }
             }
-            if (isSame) {
-                foundStructures.add(registeredStructure)
-            }
-
         }
 
         return foundStructures;
