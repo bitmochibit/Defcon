@@ -5,6 +5,7 @@ import com.enderryno.nuclearcraft.enums.ItemBehaviour
 import com.enderryno.nuclearcraft.enums.ItemDataKey
 import com.enderryno.nuclearcraft.interfaces.PluginItem
 import com.enderryno.nuclearcraft.utils.ColorParser
+import com.enderryno.nuclearcraft.utils.MetaManager
 import org.bukkit.Material
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
@@ -51,55 +52,18 @@ class CustomItemDefinition(
             itemMeta.lore =
                 ColorParser.parseColor(Arrays.asList(*description!!.split("\n".toRegex()).dropLastWhile { it.isEmpty() }
                     .toTypedArray()))
-            itemMeta.persistentDataContainer.set(
-                ItemDataKey.ItemID.key,
-                PersistentDataType.STRING,
-                id
-            )
 
-            itemMeta.persistentDataContainer.set(
-                ItemDataKey.StackSize.key,
-                PersistentDataType.INTEGER,
-                stackSize
-            )
-
-            itemMeta.persistentDataContainer.set(
-                ItemDataKey.Usable.key,
-                PersistentDataType.BYTE,
-                if (isUsable) 1.toByte() else 0.toByte()
-            )
-
-            itemMeta.persistentDataContainer.set(
-                ItemDataKey.Equipable.key,
-                PersistentDataType.BYTE,
-                if (isEquipable) 1.toByte() else 0.toByte()
-            )
-
-            itemMeta.persistentDataContainer.set(
-                ItemDataKey.Droppable.key,
-                PersistentDataType.BYTE,
-                if (isDroppable) 1.toByte() else 0.toByte()
-            )
-
-            itemMeta.persistentDataContainer.set(
-                ItemDataKey.Transportable.key,
-                PersistentDataType.BYTE,
-                if (isTransportable) 1.toByte() else 0.toByte()
-            )
-
-            itemMeta.persistentDataContainer.set(
-                ItemDataKey.Behaviour.key,
-                PersistentDataType.STRING,
-                behaviour.name
-            )
-
+            MetaManager.setItemData(itemMeta, ItemDataKey.ItemID, id)
+            MetaManager.setItemData(itemMeta, ItemDataKey.StackSize, stackSize)
+            MetaManager.setItemData(itemMeta, ItemDataKey.Usable, isUsable)
+            MetaManager.setItemData(itemMeta, ItemDataKey.Equipable, isEquipable)
+            MetaManager.setItemData(itemMeta, ItemDataKey.Droppable, isDroppable)
+            MetaManager.setItemData(itemMeta, ItemDataKey.Transportable, isTransportable)
+            MetaManager.setItemData(itemMeta, ItemDataKey.Behaviour, behaviour.name)
             if (customBlockId != null) {
-                itemMeta.persistentDataContainer.set(
-                    ItemDataKey.CustomBlockId.key,
-                    PersistentDataType.STRING,
-                    customBlockId
-                )
+                MetaManager.setItemData(itemMeta, ItemDataKey.CustomBlockId, customBlockId)
             }
+
             itemMeta.setCustomModelData(modelId)
             customItem.setItemMeta(itemMeta)
             /* Properties assignment */return customItem

@@ -8,7 +8,7 @@ import com.enderryno.nuclearcraft.enums.BlockDataKey
 import com.enderryno.nuclearcraft.enums.ConfigurationStorages
 import com.enderryno.nuclearcraft.exceptions.BlockNotRegisteredException
 import com.enderryno.nuclearcraft.interfaces.PluginBlock
-import com.enderryno.nuclearcraft.utils.MetaReader
+import com.enderryno.nuclearcraft.utils.MetaManager
 import org.bukkit.Location
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -60,7 +60,7 @@ class BlockRegister() {
         private var registeredBlocks: HashMap<String?, PluginBlock?>? = null
 
         fun getBlock(location: Location): PluginBlock? {
-            val customBlockId = MetaReader.getBlockData<String>(location, BlockDataKey.CustomBlockId) ?: return null
+            val customBlockId = MetaManager.getBlockData<String>(location, BlockDataKey.CustomBlockId) ?: return null
             return getBlock(customBlockId)
         }
 

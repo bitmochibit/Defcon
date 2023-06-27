@@ -2,13 +2,14 @@ package com.enderryno.nuclearcraft.classes
 
 import com.enderryno.nuclearcraft.NuclearCraft
 import com.enderryno.nuclearcraft.enums.BlockBehaviour
+import com.enderryno.nuclearcraft.enums.BlockDataKey
 import com.enderryno.nuclearcraft.interfaces.PluginBlock
 import com.enderryno.nuclearcraft.interfaces.PluginItem
+import com.enderryno.nuclearcraft.utils.MetaManager
 import com.jeff_media.customblockdata.CustomBlockData
 import org.bukkit.Location
 import org.bukkit.NamespacedKey
 import org.bukkit.persistence.PersistentDataContainer
-import org.bukkit.persistence.PersistentDataType
 
 /**
  * This class defines a custom block
@@ -22,17 +23,13 @@ class CustomBlockDefinition(
 ) : PluginBlock{
 
     override fun placeBlock(item: PluginItem, location: Location) {
-        // Get block at location
-        val block = location.world.getBlockAt(location)
-        // Save metadata
-        val blockData: PersistentDataContainer = CustomBlockData(block, NuclearCraft.instance!!)
-        val blockIdKey = NamespacedKey(NuclearCraft.instance!!, "custom-block-id")
-        val itemIdKey = NamespacedKey(NuclearCraft.instance!!, "item-id")
-        blockData.set(blockIdKey, PersistentDataType.STRING, id)
-        blockData.set(itemIdKey, PersistentDataType.STRING, item.id)
+        MetaManager.setBlockData<String>(location, BlockDataKey.CustomBlockId, id)
+        MetaManager.setBlockData<String>(location, BlockDataKey.ItemId, item.id)
+
 
         // Print in chat for debugging
-        NuclearCraft.instance!!.getLogger().info("Placed block " + blockData.get(blockIdKey, PersistentDataType.STRING))
+        NuclearCraft.instance!!.getLogger().info("Placed block ID: " +
+                "${MetaManager.getBlockData<String>(location, BlockDataKey.CustomBlockId)} from item ID: ${MetaManager.getBlockData<String>(location, BlockDataKey.ItemId)}}")
     }
 
     override fun removeBlock(location: Location) {
