@@ -37,6 +37,8 @@ class NuclearCraft : JavaPlugin() {
 
     companion object {
         var instance: NuclearCraft? = null
+
+        var namespace = "nuclearcraft"
         object Logger {
             fun info(message: String) {
                 instance!!.getLogger().info(message)

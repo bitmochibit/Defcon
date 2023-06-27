@@ -1,17 +1,15 @@
 package com.enderryno.nuclearcraft.services
 
 import com.enderryno.nuclearcraft.NuclearCraft
-import com.enderryno.nuclearcraft.classes.CustomBlock
+import com.enderryno.nuclearcraft.classes.CustomBlockDefinition
 import com.enderryno.nuclearcraft.classes.PluginConfiguration
 import com.enderryno.nuclearcraft.enums.BlockBehaviour
+import com.enderryno.nuclearcraft.enums.BlockDataKey
 import com.enderryno.nuclearcraft.enums.ConfigurationStorages
 import com.enderryno.nuclearcraft.exceptions.BlockNotRegisteredException
 import com.enderryno.nuclearcraft.interfaces.PluginBlock
-import com.jeff_media.customblockdata.CustomBlockData
+import com.enderryno.nuclearcraft.utils.MetaReader
 import org.bukkit.Location
-import org.bukkit.NamespacedKey
-import org.bukkit.persistence.PersistentDataContainer
-import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
 
 /**
@@ -44,7 +42,7 @@ class BlockRegister() {
             }
             val behaviourValue = BlockBehaviour.fromString(behaviourName) ?: throw BlockNotRegisteredException(blockId)
 
-            val customBlock: PluginBlock = CustomBlock(
+            val customBlock: PluginBlock = CustomBlockDefinition(
                 id = blockId,
                 customModelId = blockDataModelId,
                 minecraftId = blockMinecraftId,
@@ -62,12 +60,7 @@ class BlockRegister() {
         private var registeredBlocks: HashMap<String?, PluginBlock?>? = null
 
         fun getBlock(location: Location): PluginBlock? {
-            // Try to get block metadata
-            val block = location.world.getBlockAt(location)
-            val blockIdKey = NamespacedKey(NuclearCraft.instance!!, "custom-block-id")
-            val blockData: PersistentDataContainer = CustomBlockData(block, NuclearCraft.instance!!)
-            val customBlockId = blockData.get(blockIdKey, PersistentDataType.STRING) ?: return null
-
+            val customBlockId = MetaReader.getBlockData<String>(location, BlockDataKey.CustomBlockId) ?: return null
             return getBlock(customBlockId)
         }
 

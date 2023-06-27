@@ -1,7 +1,7 @@
 package com.enderryno.nuclearcraft.services
 
 import com.enderryno.nuclearcraft.NuclearCraft
-import com.enderryno.nuclearcraft.classes.CustomItem
+import com.enderryno.nuclearcraft.classes.CustomItemDefinition
 import com.enderryno.nuclearcraft.classes.PluginConfiguration
 import com.enderryno.nuclearcraft.enums.ConfigurationStorages
 import com.enderryno.nuclearcraft.enums.ItemBehaviour
@@ -56,7 +56,7 @@ class ItemRegister() {
             }
             val behaviourValue = ItemBehaviour.fromString(behaviourName) ?: throw IllegalArgumentException("Behaviour $behaviourName is not valid")
 
-            val customItem: PluginItem = CustomItem(
+            val customItem: PluginItem = CustomItemDefinition(
                     id = itemId,
                     name = itemName,
                     description = itemDescription,

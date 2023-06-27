@@ -18,10 +18,6 @@ import com.enderryno.nuclearcraft.utils.Geometry
 class StructureRegister() {
     private var pluginInstance: JavaPlugin? = null
 
-    /**
-     *
-     * @param pluginInstance - The instance of the plugin
-     */
     init {
         // Get the instance of the plugin
         this.pluginInstance = JavaPlugin.getPlugin(NuclearCraft::class.java);
@@ -132,6 +128,9 @@ class StructureRegister() {
     fun searchByBlock(location: Location): MutableList<PluginStructure> {
         val foundStructures = ArrayList<PluginStructure>() as MutableList<PluginStructure>
         // Check if structure block then return the structure
+        val block = BlockRegister.getBlock(location)
+
+
 
         // If not a structure block, find the structure by the location
         var pluginBlockLocations = FloodFiller.getFloodFill(location, 200, customBlockOnly = true)
