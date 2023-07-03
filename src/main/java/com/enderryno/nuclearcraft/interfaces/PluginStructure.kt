@@ -8,4 +8,6 @@ interface PluginStructure {
     var structureBlocks: MutableList<StructureBlock>
     var structureBehaviour: StructureBehaviour?
     var requiredInterface: Boolean
+
+    fun saveStructure()
 }

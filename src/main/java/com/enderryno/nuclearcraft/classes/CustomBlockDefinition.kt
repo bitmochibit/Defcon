@@ -23,9 +23,8 @@ class CustomBlockDefinition(
 ) : PluginBlock{
 
     override fun placeBlock(item: PluginItem, location: Location) {
-        MetaManager.setBlockData<String>(location, BlockDataKey.CustomBlockId, id)
-        MetaManager.setBlockData<String>(location, BlockDataKey.ItemId, item.id)
-
+        MetaManager.setBlockData(location, BlockDataKey.CustomBlockId, id)
+        MetaManager.setBlockData(location, BlockDataKey.ItemId, item.id)
 
         // Print in chat for debugging
         NuclearCraft.instance!!.getLogger().info("Placed block ID: " +

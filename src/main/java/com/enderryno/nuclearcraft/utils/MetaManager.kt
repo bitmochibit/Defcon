@@ -4,6 +4,7 @@ import com.enderryno.nuclearcraft.NuclearCraft
 import com.enderryno.nuclearcraft.enums.BlockDataKey
 import com.enderryno.nuclearcraft.enums.ItemDataKey
 import com.jeff_media.customblockdata.CustomBlockData
+import it.unimi.dsi.fastutil.booleans.Boolean2LongFunction
 import org.bukkit.Location
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.ItemMeta
@@ -25,11 +26,10 @@ object MetaManager {
 
     inline fun <reified T : Any> setBlockData(blockData: PersistentDataContainer, key: BlockDataKey, value: T): PersistentDataContainer {
 
-        if (value is Boolean) {
-            blockData.set(key.key, PersistentDataType.BYTE, if (value) 1 else 0)
+        if (T::class == Boolean::class) {
+            blockData.set(key.key, PersistentDataType.BYTE, if (value as Boolean) 1 else 0)
             return blockData
         }
-
         // Get the PersistentDataType from the function type
         @Suppress("UNCHECKED_CAST")
         val dataType = getPersistentDataType(T::class) as? PersistentDataType<T, T> ?: return blockData
@@ -57,10 +57,11 @@ object MetaManager {
     inline fun <reified T : Any> setItemData(itemMeta: ItemMeta, key: ItemDataKey, value: T): ItemMeta {
         val itemData: PersistentDataContainer = itemMeta.persistentDataContainer
 
-        if (value is Boolean) {
-            itemData.set(key.key, PersistentDataType.BYTE, if (value) 1 else 0)
+        if (T::class == Boolean::class) {
+            itemData.set(key.key, PersistentDataType.BYTE, if (value as Boolean) 1 else 0)
             return itemMeta
         }
+
         @Suppress("UNCHECKED_CAST")
         val dataType = getPersistentDataType(T::class) as? PersistentDataType<T, T> ?: return itemMeta
 

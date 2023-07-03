@@ -8,4 +8,9 @@ abstract class GenericStructure : PluginStructure {
     final override var structureBehaviour: StructureBehaviour? = null
     final override var structureBlocks: MutableList<StructureBlock> = mutableListOf()
     final override var requiredInterface: Boolean = false
+
+    override fun saveStructure() {
+
+
+    }
 }
