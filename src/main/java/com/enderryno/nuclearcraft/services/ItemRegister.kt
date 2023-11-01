@@ -35,7 +35,7 @@ class ItemRegister() {
         }
         itemConfig.getList("enabled-items")!!.forEach { item: Any? ->
             val itemId = item.toString()
-            if (registeredItems!![itemId] != null) return@forEach
+            if (registeredItems[itemId] != null) return@forEach
 
             val itemName = itemConfig.getString("$item.item-name") ?: throw ItemNotRegisteredException(itemId)
             val itemDescription = itemConfig.getString("$item.item-description")
@@ -72,7 +72,7 @@ class ItemRegister() {
                     behaviour = behaviourValue
             )
             NuclearCraft.Companion.Logger.info("Registered item $itemId")
-            registeredItems!![customItem.id] = customItem
+            registeredItems[customItem.id] = customItem
         }
         itemConfigurator.saveConfig()
         return true
@@ -82,15 +82,7 @@ class ItemRegister() {
         /**
          * Static member to access the registered items
          */
-        private var registeredItems: HashMap<String?, PluginItem?>? = null
+        var registeredItems: HashMap<String?, PluginItem?> = HashMap()
 
-        /* Registered items getter */
-        @Throws(ItemNotRegisteredException::class)
-        fun getRegisteredItems(): HashMap<String?, PluginItem?>? {
-            if (registeredItems == null) {
-                throw ItemNotRegisteredException("Item were not registered! Verify the initialization")
-            }
-            return registeredItems
-        }
     }
 }

@@ -5,7 +5,6 @@ import com.enderryno.nuclearcraft.annotations.CommandInfo
 import com.enderryno.nuclearcraft.services.StructureRegister
 import org.bukkit.ChatColor
 import org.bukkit.Location
-import org.bukkit.Particle
 import org.bukkit.entity.Player
 
 @CommandInfo(name = "ncstructuresearch", permission = "nuclearcraft.admin", requiresPlayer = true)
@@ -31,14 +30,14 @@ class SearchStructure: GenericCommand() {
         }
         val location = Location(world, x.toDouble(), y.toDouble(), z.toDouble())
 
-        val structures = StructureRegister().searchByBlock(location)
+        val structureQuery = StructureRegister().searchByBlock(location)
 
-        if (structures.isEmpty()) {
+        if (structureQuery.structures.isEmpty()) {
             player.sendMessage(ChatColor.RED.toString() + "No structure found")
             return
         }
 
-        for (structure in structures) {
+        for (structure in structureQuery.structures) {
             player.sendMessage(ChatColor.GREEN.toString() + "Structure found: " + structure.id)
         }
 

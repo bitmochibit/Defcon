@@ -5,8 +5,8 @@ import com.enderryno.nuclearcraft.interfaces.ExplodingStructure
 
 class Warhead() : GenericStructure(), ExplodingStructure {
 
-    override fun explode() {
-        TODO("Not yet implemented")
+    override fun explode(explosiveComponent: ExplosiveComponent) {
+
     }
 
 }

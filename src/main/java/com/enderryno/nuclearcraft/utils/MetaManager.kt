@@ -45,6 +45,14 @@ object MetaManager {
         return setBlockData(blockData, key, value)
     }
 
+    fun removeBlockData(location: Location, key: BlockDataKey): PersistentDataContainer {
+        val block = location.world.getBlockAt(location)
+        val blockData: PersistentDataContainer = CustomBlockData(block, NuclearCraft.instance!!)
+
+        blockData.remove(key.key)
+        return blockData
+    }
+
     inline fun <reified T> getItemData(itemMeta: ItemMeta, key: ItemDataKey): T? {
         val itemData: PersistentDataContainer = itemMeta.persistentDataContainer
         val dataType = getPersistentDataType(T::class)
@@ -75,6 +83,12 @@ object MetaManager {
         return itemStack
     }
 
+    fun removeItemData(itemMeta: ItemMeta, key: ItemDataKey): ItemMeta {
+        val itemData: PersistentDataContainer = itemMeta.persistentDataContainer
+
+        itemData.remove(key.key)
+        return itemMeta
+    }
 
 
     fun getPersistentDataType(type: KClass<*>): PersistentDataType<*,*> {

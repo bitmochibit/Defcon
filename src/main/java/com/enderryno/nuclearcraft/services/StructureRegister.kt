@@ -13,7 +13,14 @@ import org.bukkit.Location
 import org.bukkit.plugin.java.JavaPlugin
 
 import com.enderryno.nuclearcraft.classes.StructureBlock
+import com.enderryno.nuclearcraft.classes.structures.StructureQuery
+import com.enderryno.nuclearcraft.enums.BlockDataKey
 import com.enderryno.nuclearcraft.utils.Geometry
+import com.enderryno.nuclearcraft.utils.MetaManager
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
+import kotlin.collections.LinkedHashMap
 
 class StructureRegister() {
     private var pluginInstance: JavaPlugin? = null
@@ -125,17 +132,24 @@ class StructureRegister() {
         structureConfiguration.saveConfig()
     }
 
-    fun searchByBlock(location: Location): MutableList<PluginStructure> {
+    fun searchByBlock(location: Location): StructureQuery {
         val foundStructures = ArrayList<PluginStructure>() as MutableList<PluginStructure>
         // Check if structure block then return the structure
-        val block = BlockRegister.getBlock(location)
+        val foundStructureId = MetaManager.getBlockData<String>(location, BlockDataKey.StructureId);
+        if (foundStructureId != null) {
+            val foundStructure = registeredStructures[foundStructureId]
+            if (foundStructure != null) {
+                foundStructures.add(foundStructure)
+                return StructureQuery(foundStructures, Collections.singletonList(location))
+            }
+        }
 
 
 
         // If not a structure block, find the structure by the location
         var pluginBlockLocations = FloodFiller.getFloodFill(location, 200, customBlockOnly = true)
 
-        if (pluginBlockLocations.isEmpty()) return foundStructures
+        if (pluginBlockLocations.isEmpty()) return StructureQuery(foundStructures, pluginBlockLocations)
 
         // Sort the locations by Y
         pluginBlockLocations = pluginBlockLocations.sortedBy { it.y }
@@ -157,7 +171,7 @@ class StructureRegister() {
             relativeStructureBlocks.add(structureBlock)
         }
 
-        if (relativeStructureBlocks.isEmpty()) return foundStructures
+        if (relativeStructureBlocks.isEmpty()) return StructureQuery(foundStructures, pluginBlockLocations)
 
 
         // Sort the relative structure blocks by Y, then by Z, then by X
@@ -207,7 +221,7 @@ class StructureRegister() {
             }
         }
 
-        return foundStructures;
+        return StructureQuery(foundStructures, pluginBlockLocations);
     }
 
     companion object {

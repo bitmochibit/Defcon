@@ -6,7 +6,8 @@ enum class ItemBehaviour(name: String) {
     GAS_MASK("gas_mask"),
     GAS_MASK_FILTER("gas_mask_filter"),
     RADIATION_INHIBITOR("radiation_inhibitor"),
-    GEIGER_COUNTER("geiger_counter");
+    GEIGER_COUNTER("geiger_counter"),
+    WRENCH("wrench");
 
     companion object {
         fun fromString(text: String?): ItemBehaviour? {
