@@ -1,5 +1,10 @@
-# NuclearCraft
+# NuclearCraft (it will change name)
 A minecraft plugin that adds the power and the dangers of nuclear energy.
+
+
+# NOTICE
+The development of this plugin is still on my plans but lately I'm being very busy. However I'm still thinking about features and I have all the implementations in mind, I just need time.
+
 
 
 # RoadMap
