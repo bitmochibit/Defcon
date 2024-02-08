@@ -3,7 +3,6 @@ package com.enderryno.nuclearcraft.services
 import com.enderryno.nuclearcraft.NuclearCraft
 import com.enderryno.nuclearcraft.classes.PluginConfiguration
 import com.enderryno.nuclearcraft.enums.ConfigurationStorages
-import com.enderryno.nuclearcraft.enums.StructureBehaviour
 import com.enderryno.nuclearcraft.exceptions.BlockNotRegisteredException
 import com.enderryno.nuclearcraft.exceptions.StructureNotRegisteredException
 import com.enderryno.nuclearcraft.interfaces.PluginBlock
@@ -46,16 +45,6 @@ class StructureRegister() {
             // Get behaviour from Item
             val behaviour = structureConfig.getString("$item.behaviour") ?: return@forEach
             val requiresInterface = structureConfig.getBoolean("$item.requires-interface")
-            val structureBehaviour: StructureBehaviour? = StructureBehaviour.fromString(behaviour)
-
-
-            try {
-                if (structureBehaviour != null) {
-                    structure = structureBehaviour.structureClass?.getDeclaredConstructor()?.newInstance()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
             if (structure == null) return@forEach
 
 

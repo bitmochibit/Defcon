@@ -1,4 +1,4 @@
-package com.enderryno.nuclearcraft.classes
+package com.enderryno.nuclearcraft.explosives
 
 data class ExplosiveComponent(
     val blastPower: Float,

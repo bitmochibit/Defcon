@@ -38,6 +38,7 @@ object FloodFiller {
     }
 
 
+    // To optimize
     private fun isCustomBlock(loc: Location): Boolean {
         return BlockRegister.getBlock(loc) != null
     }

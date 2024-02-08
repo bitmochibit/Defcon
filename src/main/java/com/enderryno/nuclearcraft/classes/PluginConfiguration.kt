@@ -10,15 +10,13 @@ import java.io.InputStreamReader
 import java.util.logging.Level
 
 class PluginConfiguration(private val plugin: JavaPlugin?, configurationStorage: ConfigurationStorages) {
-    private val filePath: String?
-    private val fileName: String
+    private val filePath: String = configurationStorage.storagePath
+    private val fileName: String = configurationStorage.storageFileName + ".yml"
     private var configurationFile: File? = null
     private var configurationFilePath: File? = null
     private var configuration: FileConfiguration? = null
 
     init {
-        filePath = configurationStorage.storagePath
-        fileName = configurationStorage.storageFileName + ".yml"
         configurationFilePath = File(plugin!!.dataFolder, filePath)
         configurationFile = File(configurationFilePath, fileName)
 
@@ -28,7 +26,7 @@ class PluginConfiguration(private val plugin: JavaPlugin?, configurationStorage:
 
     fun reloadConfig() {
         if (configurationFilePath == null) {
-            configurationFilePath = File(plugin!!.dataFolder, filePath!!)
+            configurationFilePath = File(plugin!!.dataFolder, filePath)
         }
         if (configurationFile == null) {
             configurationFile = File(configurationFilePath, fileName)

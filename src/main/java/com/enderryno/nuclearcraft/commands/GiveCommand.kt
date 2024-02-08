@@ -22,7 +22,7 @@ class GiveCommand : GenericCommand() {
             return
         }
         val item: PluginItem? = try {
-            ItemRegister.getRegisteredItems()?.get(itemId)
+            ItemRegister.registeredItems[itemId]
         } catch (e: ItemNotRegisteredException) {
             e.printStackTrace()
             return

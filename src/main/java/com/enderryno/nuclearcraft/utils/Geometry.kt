@@ -3,6 +3,7 @@ package com.enderryno.nuclearcraft.utils
 import com.enderryno.nuclearcraft.classes.StructureBlock
 import org.bukkit.Location
 import java.util.*
+import kotlin.collections.HashSet
 import kotlin.math.atan2
 
 object Geometry {
