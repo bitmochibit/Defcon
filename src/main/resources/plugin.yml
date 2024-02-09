@@ -1,6 +1,6 @@
 name: NuclearCraft
 version: '${project.version}'
-main: com.enderryno.nuclearcraft.NuclearCraft
+main: com.mochibit.nuclearcraft.NuclearCraft
 api-version: 1.19
 authors: [ Rynoooo, Corvinoo ]
 description: A plugin that adds nuclear energy, along with his advantages and dangers
