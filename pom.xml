@@ -13,12 +13,12 @@
 
     <description>A plugin that adds nuclear energy, along with his advantages and dangers</description>
     <properties>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.version>1.9.22</kotlin.version>
-        <kotlin.jvm.target>21</kotlin.jvm.target>
-        <kotlin.language.version>2.0</kotlin.language.version>
-        <kotlin.api.version>2.0</kotlin.api.version>
+        <kotlin.jvm.target>17</kotlin.jvm.target>
+        <kotlin.language.version>1.9</kotlin.language.version>
+        <kotlin.api.version>1.9</kotlin.api.version>
     </properties>
     <url>http://rynotechblog.altervista.org/</url>
 
@@ -27,7 +27,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>3.5.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -82,7 +82,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
+                <version>3.11.0</version>
                 <executions>
                     <execution>
                         <id>compile</id>
@@ -100,8 +100,8 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <source>17</source>
-                    <target>17</target>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
                 </configuration>
             </plugin>
         </plugins>

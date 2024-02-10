@@ -17,11 +17,11 @@ commands:
     permission: nuclearcraft.admin
     permission-message: You do not have permission!
     usage: /<command> [x] [y] [z] [radius]
-  ncspawnmushroom:
-    description: Spawn a mushroom
+  nctestexpl:
+    description: Spawn a nuclear explosion
     permission: nuclearcraft.admin
     permission-message: You do not have permission!
-    usage: /<command> [x] [y] [z] [radius]
+    usage: /<command> [x] [y] [z]
   ncstructuresearch:
     description: Search a structure by block coordinate
     permission: nuclearcraft.admin

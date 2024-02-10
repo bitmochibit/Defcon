@@ -81,6 +81,18 @@ object Geometry {
         return rotatedStructure
     }
 
+    fun lengthSq(x : Double, y : Double, z : Double) : Double {
+        return x * x + y * y + z * z;
+    }
+
+    fun lengthSq(x: Double, z: Double) : Double {
+        return x * x + z * z;
+    }
+
+    fun lengthSq(loc: Location) : Double {
+        return lengthSq(loc.x, loc.y, loc.z);
+    }
+
     private fun ccw(p1: Location, p2: Location, p3: Location): Int {
         return (p2.blockX - p1.blockX) * (p3.blockZ - p1.blockZ) - (p2.blockZ - p1.blockZ) * (p3.blockX - p1.blockX)
     }

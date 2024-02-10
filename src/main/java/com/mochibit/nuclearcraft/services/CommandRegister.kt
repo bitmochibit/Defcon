@@ -11,11 +11,20 @@ class CommandRegister() {
     private var plugin: JavaPlugin = JavaPlugin.getPlugin(NuclearCraft::class.java)
 
     fun registerCommands() {
-        plugin.getLogger().info("Registering commands from " + packageName + ".commands")
-        for (commandClass in Reflections(packageName + ".commands").getSubTypesOf(GenericCommand::class.java)) {
+        plugin.getLogger().info("Registering commands from $packageName.commands")
+        for (commandClass in Reflections("$packageName.commands").getSubTypesOf(GenericCommand::class.java)) {
             try {
                 val genericCommand = commandClass.getDeclaredConstructor().newInstance()
-                plugin.getCommand(genericCommand.commandInfo.name)!!.setExecutor(genericCommand)
+                // debug info
+                plugin.getLogger().info("Registering command: ${genericCommand.commandInfo.name}")
+                val pluginCommand = plugin.getCommand(genericCommand.commandInfo.name)
+                if (pluginCommand == null) {
+                    plugin.getLogger().warning("Command ${genericCommand.commandInfo.name} not found, cache issue?")
+                    continue
+                }
+
+                pluginCommand.setExecutor(genericCommand);
+
             } catch (e: InstantiationException) {
                 throw RuntimeException(e)
             } catch (e: IllegalAccessException) {

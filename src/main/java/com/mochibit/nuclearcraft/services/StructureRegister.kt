@@ -5,9 +5,8 @@ import com.mochibit.nuclearcraft.classes.PluginConfiguration
 import com.mochibit.nuclearcraft.enums.ConfigurationStorages
 import com.mochibit.nuclearcraft.enums.StructureBehaviour
 import com.mochibit.nuclearcraft.exceptions.BlockNotRegisteredException
-import com.mochibit.nuclearcraft.exceptions.StructureNotRegisteredException
 import com.mochibit.nuclearcraft.interfaces.PluginBlock
-import com.mochibit.nuclearcraft.interfaces.PluginStructure
+import com.mochibit.nuclearcraft.interfaces.StructureDefinition
 import com.mochibit.nuclearcraft.utils.FloodFiller
 import org.bukkit.Location
 import org.bukkit.plugin.java.JavaPlugin
@@ -15,7 +14,6 @@ import org.bukkit.plugin.java.JavaPlugin
 import com.mochibit.nuclearcraft.classes.StructureBlock
 import com.mochibit.nuclearcraft.classes.structures.StructureQuery
 import com.mochibit.nuclearcraft.enums.BlockDataKey
-import com.mochibit.nuclearcraft.utils.Geometry
 import com.mochibit.nuclearcraft.utils.MetaManager
 import java.util.*
 import kotlin.collections.ArrayList
@@ -41,7 +39,7 @@ class StructureRegister() {
             throw RuntimeException("Unable to register structures, blocks not registered")
         }
         structureConfig!!.getList("enabled-structures")!!.forEach { item: Any? ->
-            var structure: PluginStructure? = null
+            var structure: StructureDefinition? = null
 
             // Get behaviour from Item
             val behaviour = structureConfig.getString("$item.behaviour") ?: return@forEach
@@ -133,7 +131,7 @@ class StructureRegister() {
     }
 
     fun searchByBlock(location: Location): StructureQuery {
-        val foundStructures = ArrayList<PluginStructure>() as MutableList<PluginStructure>
+        val foundStructures = ArrayList<StructureDefinition>() as MutableList<StructureDefinition>
         // Check if structure block then return the structure
         val foundStructureId = MetaManager.getBlockData<String>(location, BlockDataKey.StructureId);
         if (foundStructureId != null) {
@@ -225,6 +223,6 @@ class StructureRegister() {
     }
 
     companion object {
-        private var registeredStructures: HashMap<String, PluginStructure> = HashMap()
+        private var registeredStructures: HashMap<String, StructureDefinition> = HashMap()
     }
 }
