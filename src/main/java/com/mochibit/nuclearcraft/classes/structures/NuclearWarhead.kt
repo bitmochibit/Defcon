@@ -1,10 +1,14 @@
 package com.mochibit.nuclearcraft.classes.structures
 
+import com.mochibit.nuclearcraft.NuclearCraft
 import com.mochibit.nuclearcraft.explosives.NuclearComponent
 import com.mochibit.nuclearcraft.interfaces.ExplodingStructure
 import com.mochibit.nuclearcraft.utils.Geometry
 import org.bukkit.Location
 import org.bukkit.Material
+import javax.swing.Spring.height
+import kotlin.math.ceil
+
 
 class NuclearWarhead : AbstractStructureDefinition(), ExplodingStructure {
     override fun explode(center: Location, nuclearComponent: NuclearComponent) {
@@ -43,80 +47,81 @@ class NuclearWarhead : AbstractStructureDefinition(), ExplodingStructure {
         // TODO: Implement thermal radiation
 
 
-        // Create an expanding shockwave (first approach)
-        /* Get a maximum height for the shockwave starting from the center of the explosion, let it be parametric.
-        *  For every step so the radius is 0, 1 ... radius, generate a column that will check from the top to the bottom if there is a block
-        *  in front of it or under it, if there is, it will explode it, and if there is not, it will move to the next block.
-        *  The column will start with a single one in the center, and for example at radius 1, it will have 4 columns, one for each direction
-        *  for the next radius 8, for the next one 16, and so on.
-        *
-        *
-        * */
-        val shockwaveRadius = nuclearComponent.blastPower * 10;
-        val shockwaveHeight = nuclearComponent.blastPower * 15;
+        val shockwaveRadius = nuclearComponent.blastPower * 30;
+        val shockwaveHeight = nuclearComponent.blastPower * 30;
 
+        NuclearCraft.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
+
+        for (radius in 0..shockwaveRadius.toInt()) {
+            val locations = shockwaveCyl(center, radius.toDouble(), shockwaveHeight);
+            NuclearCraft.Companion.Logger.info("Shockwave locations: ${locations.size}");
+            for (location in locations) {
+                if (location.world.getBlockAt(location).type == Material.AIR)
+                    continue;
+
+                center.world.createExplosion(location, 8.0f, true, true);
+            }
+        }
+    }
+
+    private fun shockwaveCyl(center: Location, radius: Double, maxHeight: Float, filled: Boolean = false) : HashSet<Location> {
         val locations = HashSet<Location>();
 
-        MainLoop@ for (radius in 0..shockwaveRadius.toInt()) {
-            if (radius == 0) {
-                locations.add(center.clone());
-                continue@MainLoop;
-            }
+        val radiusX: Double = radius
+        val radiusZ: Double = radius
 
-            ZLoop@ for (z in -radius..radius) {
-                XLoop@ for (x in -radius..radius) {
-                    // Add location to the set if the distance from the center is the same as the radius
-                    if (Geometry.lengthSq(x.toDouble(), z.toDouble()) == (radius * radius).toDouble()) {
-                        locations.add(center.clone().add(x.toDouble(), 0.0, z.toDouble()));
+        val invRadiusX: Double = 1 / radiusX
+        val invRadiusZ: Double = 1 / radiusZ
+
+        val ceilRadiusX = ceil(radiusX).toInt()
+        val ceilRadiusZ = ceil(radiusZ).toInt()
+
+        var nextXn = 0.0
+        forX@ for (x in 0..ceilRadiusX) {
+            val xn = nextXn
+            nextXn = (x + 1) * invRadiusX
+            var nextZn = 0.0
+            forZ@ for (z in 0..ceilRadiusZ) {
+                val zn = nextZn
+                nextZn = (z + 1) * invRadiusZ
+
+                val distanceSq: Double = Geometry.lengthSq(xn, zn)
+                if (distanceSq > 1) {
+                    if (z == 0) {
+                        break@forX
+                    }
+                    break@forZ
+                }
+
+                if (!filled) {
+                    if (Geometry.lengthSq(nextXn, zn) <= 1 && Geometry.lengthSq(xn, nextZn) <= 1) {
+                        continue
                     }
                 }
+
+                val locationYClone = center.clone();
+                locationYClone.y = center.y + maxHeight;
+                val location1 = getMinY(locationYClone.clone().add(x.toDouble(), 0.0, z.toDouble()));
+                val location2 = getMinY(locationYClone.clone().add(-x.toDouble(), 0.0, z.toDouble()));
+                val location3 = getMinY(locationYClone.clone().add(x.toDouble(), 0.0, -z.toDouble()));
+                val location4 = getMinY(locationYClone.clone().add(-x.toDouble(), 0.0, -z.toDouble()));
+
+                locations.add(location1);
+                locations.add(location2);
+                locations.add(location3);
+                locations.add(location4);
             }
         }
-
-        // From every location, get the deepest block from the current location and save it to current location y
-        for (location in locations) {
-            val block = location.block;
-            YCheck@for (y in 0 downTo -shockwaveHeight.toInt()) {
-                val currentBlock = block.getRelative(0, y, 0);
-                if (currentBlock.type != Material.AIR) {
-                    location.y = currentBlock.y.toDouble();
-                    break@YCheck;
-                }
-            }
-        }
-
-        // From every location, start from the maximum height and go down to the lowest block, if there is a block around it, explode
-        for (location in locations) {
-            for (y in shockwaveHeight.toInt() downTo location.y.toInt()) {
-                val currentBlock = location.block.getRelative(0, y, 0);
-                // Check in every direction if there is a block
-                var solidBlock: Boolean = false;
-                if (currentBlock.getRelative(1, 0, 0).type != Material.AIR) {
-                    solidBlock = true;
-                }
-                if (currentBlock.getRelative(-1, 0, 0).type != Material.AIR) {
-                    solidBlock = true;
-                }
-                if (currentBlock.getRelative(0, 0, 1).type != Material.AIR) {
-                    solidBlock = true;
-                }
-                if (currentBlock.getRelative(0, 0, -1).type != Material.AIR) {
-                    solidBlock = true;
-                }
-                if (currentBlock.getRelative(0, -1, 0).type != Material.AIR) {
-                    solidBlock = true;
-                }
-
-                if (solidBlock) {
-                    // Create an explosion at the current location
-                    currentBlock.world.createExplosion(currentBlock.location, 8.0f, true, true);
-                }
-
-
-            }
-        }
-
-
-
+        return locations;
     }
+
+    private fun getMinY(position: Location) : Location {
+        var y = position.y;
+        while (position.world.getBlockAt(position).type == Material.AIR) {
+            y--;
+            position.y = y;
+        }
+        return position;
+    }
+
 }

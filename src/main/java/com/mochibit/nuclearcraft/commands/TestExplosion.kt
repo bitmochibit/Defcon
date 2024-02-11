@@ -18,18 +18,22 @@ class TestExplosion : GenericCommand() {
         val z: Int
         // The first, second and third are the coordinates of the center;
         // The fourth is the radius;
-        if (args.size < 3) {
-            player.sendMessage(ChatColor.RED.toString() + "You must specify the coordinates of the center of the explosion")
-            return
+        if (args.size == 3) {
+            try {
+                x = args[0].toInt()
+                y = args[1].toInt()
+                z = args[2].toInt()
+            } catch (ex: NumberFormatException) {
+                player.sendMessage(ChatColor.RED.toString() + "The parameters must be integers")
+                return
+            }
+        } else {
+            x = player.location.blockX
+            y = player.location.blockY
+            z = player.location.blockZ
         }
-        try {
-            x = args[0].toInt()
-            y = args[1].toInt()
-            z = args[2].toInt()
-        } catch (ex: NumberFormatException) {
-            player.sendMessage(ChatColor.RED.toString() + "The parameters must be integers")
-            return
-        }
+
+
         val location = Location(world, x.toDouble(), y.toDouble(), z.toDouble())
 
         val nuclearWarhead = NuclearWarhead();
