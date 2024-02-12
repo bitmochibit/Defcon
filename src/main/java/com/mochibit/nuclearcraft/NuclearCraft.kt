@@ -2,11 +2,16 @@ package com.mochibit.nuclearcraft
 
 import com.mochibit.nuclearcraft.database.Database
 import com.mochibit.nuclearcraft.services.*
+import com.mochibit.nuclearcraft.threading.tasks.ScheduledRunnable
+import org.bukkit.Bukkit
+import org.bukkit.plugin.Plugin
 import org.bukkit.plugin.java.JavaPlugin
 
 class NuclearCraft : JavaPlugin() {
+    val scheduledRunnable: ScheduledRunnable = ScheduledRunnable()
     override fun onEnable() {
-        if (instance == null) instance = this
+        instance = this
+
         getLogger().info("[NuclearCraft] has been enabled!")
         /* Register all plugin's events */
         EventRegister()
@@ -27,6 +32,9 @@ class NuclearCraft : JavaPlugin() {
 
         /* Register structures */
         StructureRegister().registerStructures()
+
+        // Testing
+        Bukkit.getScheduler().runTaskTimer(this, this.scheduledRunnable, 0L, 1L);
     }
 
     override fun onDisable() {
@@ -36,7 +44,7 @@ class NuclearCraft : JavaPlugin() {
     }
 
     companion object {
-        var instance: NuclearCraft? = null
+        lateinit var instance: NuclearCraft;
 
         var namespace = "nuclearcraft"
         object Logger {
