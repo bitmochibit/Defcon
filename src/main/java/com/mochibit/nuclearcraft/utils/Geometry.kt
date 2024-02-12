@@ -2,6 +2,7 @@ package com.mochibit.nuclearcraft.utils
 
 import com.mochibit.nuclearcraft.classes.StructureBlock
 import org.bukkit.Location
+import org.bukkit.Material
 import java.util.*
 import kotlin.collections.HashSet
 import kotlin.math.atan2
@@ -47,7 +48,12 @@ object Geometry {
         hull.push(sortedPoints[1])
         for (i in 2 until sortedPoints.size) {
             var top = hull.pop()
-            while (hull.size > 0 && com.mochibit.nuclearcraft.utils.Geometry.ccw(hull.peek(), top, sortedPoints[i]) <= 0) {
+            while (hull.size > 0 && com.mochibit.nuclearcraft.utils.Geometry.ccw(
+                    hull.peek(),
+                    top,
+                    sortedPoints[i]
+                ) <= 0
+            ) {
                 top = hull.pop()
             }
             hull.push(top)
@@ -61,8 +67,8 @@ object Geometry {
     }
 
     // Todo - make this work for any angle of rotation
-    fun rotateLocationPlaneXZ(points: List<Location>, angle: Float = 90f) : MutableList<Location> {
-        val rotatedPoints : MutableList<Location> = ArrayList()
+    fun rotateLocationPlaneXZ(points: List<Location>, angle: Float = 90f): MutableList<Location> {
+        val rotatedPoints: MutableList<Location> = ArrayList()
         for (point in points) {
             val rotatedX = point.z
             val rotatedZ = points.maxByOrNull { it.x }!!.x - point.x
@@ -71,25 +77,47 @@ object Geometry {
         return rotatedPoints
     }
 
-    fun rotateStructureBlockPlaneXZ(structureBlocks: List<StructureBlock>, angle: Float = 90f): MutableList<StructureBlock> {
-        val rotatedStructure : MutableList<StructureBlock> = ArrayList()
+    fun rotateStructureBlockPlaneXZ(
+        structureBlocks: List<StructureBlock>,
+        angle: Float = 90f
+    ): MutableList<StructureBlock> {
+        val rotatedStructure: MutableList<StructureBlock> = ArrayList()
         for (structureBlock in structureBlocks) {
             val rotatedX = structureBlock.z
             val rotatedZ = structureBlocks.maxByOrNull { it.x }!!.x - structureBlock.x
-            rotatedStructure.add(StructureBlock(structureBlock.block, rotatedX, structureBlock.y, rotatedZ, structureBlock.isInterface))
+            rotatedStructure.add(
+                StructureBlock(
+                    structureBlock.block,
+                    rotatedX,
+                    structureBlock.y,
+                    rotatedZ,
+                    structureBlock.isInterface
+                )
+            )
         }
         return rotatedStructure
     }
 
-    fun lengthSq(x : Double, y : Double, z : Double) : Double {
+    fun getMinY(position: Location, maxDepth: Double? = null): Location {
+        val clonedPosition = position.clone();
+
+        var depth = 0;
+        while (clonedPosition.world.getBlockAt(clonedPosition).type == Material.AIR && (maxDepth == null || depth < maxDepth) && clonedPosition.y > position.world.minHeight) {
+            clonedPosition.subtract(0.0, 1.0, 0.0);
+            depth++;
+        }
+        return clonedPosition;
+    }
+
+    fun lengthSq(x: Double, y: Double, z: Double): Double {
         return (x * x) + (y * y) + (z * z);
     }
 
-    fun lengthSq(x: Double, z: Double) : Double {
+    fun lengthSq(x: Double, z: Double): Double {
         return (x * x) + (z * z);
     }
 
-    fun lengthSq(loc: Location) : Double {
+    fun lengthSq(loc: Location): Double {
         return lengthSq(loc.x, loc.y, loc.z);
     }
 

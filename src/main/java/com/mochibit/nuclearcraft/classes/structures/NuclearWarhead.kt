@@ -2,11 +2,12 @@ package com.mochibit.nuclearcraft.classes.structures
 
 import com.mochibit.nuclearcraft.NuclearCraft
 import com.mochibit.nuclearcraft.explosives.NuclearComponent
+import com.mochibit.nuclearcraft.explosives.ShockwaveColumn
 import com.mochibit.nuclearcraft.interfaces.ExplodingStructure
 import com.mochibit.nuclearcraft.utils.Geometry
 import org.bukkit.Location
 import org.bukkit.Material
-import javax.swing.Spring.height
+import org.bukkit.util.Vector
 import kotlin.math.ceil
 
 
@@ -47,25 +48,28 @@ class NuclearWarhead : AbstractStructureDefinition(), ExplodingStructure {
         // TODO: Implement thermal radiation
 
 
-        val shockwaveRadius = nuclearComponent.blastPower * 30;
-        val shockwaveHeight = nuclearComponent.blastPower * 30;
+        val shockwaveRadius = nuclearComponent.blastPower * 30 * 2;
+        val shockwaveHeight = nuclearComponent.blastPower * 100 * 2;
 
         NuclearCraft.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
 
-        for (radius in 0..shockwaveRadius.toInt()) {
-            val locations = shockwaveCyl(center, radius.toDouble(), shockwaveHeight);
-            NuclearCraft.Companion.Logger.info("Shockwave locations: ${locations.size}");
-            for (location in locations) {
-                if (location.world.getBlockAt(location).type == Material.AIR)
-                    continue;
 
-                center.world.createExplosion(location, 8.0f, true, true);
-            }
+
+        val columns: HashSet<ShockwaveColumn> = HashSet();
+        for (radius in 0..shockwaveRadius.toInt()) {
+            columns.addAll(shockwaveCyl(center, radius.toDouble(), shockwaveHeight.toDouble()));
         }
+
+
+        for (column in columns.sortedBy{ it.radiusGroup }) {
+            column.explode();
+        }
+
+
     }
 
-    private fun shockwaveCyl(center: Location, radius: Double, maxHeight: Float, filled: Boolean = false) : HashSet<Location> {
-        val locations = HashSet<Location>();
+    private fun shockwaveCyl(center: Location, radius: Double, maxHeight: Double): HashSet<ShockwaveColumn> {
+        val columns = HashSet<ShockwaveColumn>();
 
         val radiusX: Double = radius
         val radiusZ: Double = radius
@@ -93,35 +97,17 @@ class NuclearWarhead : AbstractStructureDefinition(), ExplodingStructure {
                     break@forZ
                 }
 
-                if (!filled) {
-                    if (Geometry.lengthSq(nextXn, zn) <= 1 && Geometry.lengthSq(xn, nextZn) <= 1) {
-                        continue
-                    }
+                if (Geometry.lengthSq(nextXn, zn) <= 1 && Geometry.lengthSq(xn, nextZn) <= 1) {
+                    continue
                 }
 
-                val locationYClone = center.clone();
-                locationYClone.y = center.y + maxHeight;
-                val location1 = getMinY(locationYClone.clone().add(x.toDouble(), 0.0, z.toDouble()));
-                val location2 = getMinY(locationYClone.clone().add(-x.toDouble(), 0.0, z.toDouble()));
-                val location3 = getMinY(locationYClone.clone().add(x.toDouble(), 0.0, -z.toDouble()));
-                val location4 = getMinY(locationYClone.clone().add(-x.toDouble(), 0.0, -z.toDouble()));
 
-                locations.add(location1);
-                locations.add(location2);
-                locations.add(location3);
-                locations.add(location4);
+                columns.add(ShockwaveColumn(center.clone().add(x.toDouble(), 0.0, z.toDouble()), maxHeight, radius.toInt()));
+                columns.add(ShockwaveColumn(center.clone().add(-x.toDouble(), 0.0, z.toDouble()), maxHeight, radius.toInt()));
+                columns.add(ShockwaveColumn(center.clone().add(x.toDouble(), 0.0, -z.toDouble()), maxHeight, radius.toInt()));
+                columns.add(ShockwaveColumn(center.clone().add(-x.toDouble(), 0.0, -z.toDouble()), maxHeight, radius.toInt()));
             }
         }
-        return locations;
+        return columns;
     }
-
-    private fun getMinY(position: Location) : Location {
-        var y = position.y;
-        while (position.world.getBlockAt(position).type == Material.AIR) {
-            y--;
-            position.y = y;
-        }
-        return position;
-    }
-
 }
