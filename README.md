@@ -11,7 +11,8 @@ The development of this plugin is still on my plans but lately I'm being very bu
 > This section contains all the features that will be covered by the plugin in the future.
 
 - Nuclear War
-  - Multiblock structure (The bomb is a modular multiblock structure)
+  - [x] Nuclear bomb realistic destruction (with shockwave), thermal radiation damage
+  - [x] Multiblock structure (The bomb is a modular multiblock structure)
   - Bomb regulation (You have the capability to regulate some types of power with materials) [Blast Power, Fallout Power, Thermal Power (Also EMP)]
   - Missile multiblock modular structure (This structure can be loaded with a Warhead or EMP) [Has power ups]
   - Missile silo (A platform required for launching missiles)
