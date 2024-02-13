@@ -49,13 +49,13 @@ class NuclearCraft : JavaPlugin() {
         var namespace = "nuclearcraft"
         object Logger {
             fun info(message: String) {
-                instance!!.getLogger().info(message)
+                instance.getLogger().info(message)
             }
             fun warning(message: String) {
-                instance!!.getLogger().warning(message)
+                instance.getLogger().warning(message)
             }
             fun severe(message: String) {
-                instance!!.getLogger().severe(message)
+                instance.getLogger().severe(message)
             }
         }
     }

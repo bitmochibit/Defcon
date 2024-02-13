@@ -8,6 +8,6 @@ class SimpleCompositionJob<T> (val element: T, val action: Consumer<T>) : Schedu
     }
 
     override fun shouldBeRescheduled(): Boolean {
-        return true;
+        return false;
     }
 }

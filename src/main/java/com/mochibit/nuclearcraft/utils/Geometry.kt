@@ -4,7 +4,6 @@ import com.mochibit.nuclearcraft.classes.StructureBlock
 import org.bukkit.Location
 import org.bukkit.Material
 import java.util.*
-import kotlin.collections.HashSet
 import kotlin.math.atan2
 
 object Geometry {
@@ -102,9 +101,19 @@ object Geometry {
         val clonedPosition = position.clone();
 
         var depth = 0;
-        while (clonedPosition.world.getBlockAt(clonedPosition).type == Material.AIR && (maxDepth == null || depth < maxDepth) && clonedPosition.y > position.world.minHeight) {
+        while (clonedPosition.world.getBlockAt(clonedPosition).type == Material.AIR && (maxDepth == null || depth < maxDepth) && clonedPosition.y >= position.world.minHeight) {
             clonedPosition.subtract(0.0, 1.0, 0.0);
             depth++;
+        }
+        return clonedPosition;
+    }
+    fun getMaxY(position: Location, maxHeight: Double? = null): Location {
+        val clonedPosition = position.clone();
+
+        var height = 0;
+        while (clonedPosition.world.getBlockAt(clonedPosition).type == Material.AIR && (maxHeight == null || height < maxHeight) && clonedPosition.y <= position.world.maxHeight) {
+            clonedPosition.add(0.0, 1.0, 0.0);
+            height++;
         }
         return clonedPosition;
     }

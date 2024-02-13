@@ -7,10 +7,14 @@ import com.mochibit.nuclearcraft.interfaces.ExplodingStructure
 import com.mochibit.nuclearcraft.threading.jobs.SimpleCompositionJob
 import com.mochibit.nuclearcraft.threading.tasks.ScheduledRunnable
 import com.mochibit.nuclearcraft.utils.Geometry
+import it.unimi.dsi.fastutil.objects.ObjectSets
+import it.unimi.dsi.fastutil.objects.ObjectSets.SynchronizedSet
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
+import java.util.*
 import java.util.function.Consumer
+import kotlin.collections.HashSet
 import kotlin.math.ceil
 
 
@@ -64,8 +68,14 @@ class NuclearWarhead : AbstractStructureDefinition(), ExplodingStructure {
 
         }
 
-        for (column in columns.sortedBy { it.radiusGroup }) {
-            column.explode()
+        // Convert columns to a thread-safe collection
+        val clonedColumns = Collections.synchronizedList(ArrayList(columns));
+        for (column in clonedColumns.sortedBy { it.radiusGroup }) {
+            NuclearCraft.instance.scheduledRunnable.addWorkload(
+              SimpleCompositionJob(column) {
+                  it.explode();
+              }
+            );
         }
 
 
