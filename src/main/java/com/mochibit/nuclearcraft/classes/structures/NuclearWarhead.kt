@@ -2,6 +2,7 @@ package com.mochibit.nuclearcraft.classes.structures
 
 import com.mochibit.nuclearcraft.NuclearCraft
 import com.mochibit.nuclearcraft.explosives.NuclearComponent
+import com.mochibit.nuclearcraft.explosives.Shockwave
 import com.mochibit.nuclearcraft.explosives.ShockwaveColumn
 import com.mochibit.nuclearcraft.interfaces.ExplodingStructure
 import com.mochibit.nuclearcraft.threading.jobs.SimpleCompositionJob
@@ -36,7 +37,7 @@ class NuclearWarhead : AbstractStructureDefinition(), ExplodingStructure {
         */
 
         // Create a sphere of air blocks
-        val obliterationRadius = nuclearComponent.blastPower * 5;
+        val obliterationRadius = nuclearComponent.blastPower * 30;
         for (x in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
             for (y in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
                 for (z in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
@@ -55,72 +56,17 @@ class NuclearWarhead : AbstractStructureDefinition(), ExplodingStructure {
         // TODO: Implement thermal radiation
 
 
-        val shockwaveRadius = nuclearComponent.blastPower * 30 * 2;
+        val shockwaveRadius = nuclearComponent.blastPower * 30 * 5;
         val shockwaveHeight = nuclearComponent.blastPower * 100 * 2;
 
         NuclearCraft.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
 
 
-
-        val columns: HashSet<ShockwaveColumn> = HashSet();
-        for (radius in 0..shockwaveRadius.toInt()) {
-            columns.addAll(shockwaveCyl(center, radius.toDouble(), shockwaveHeight.toDouble()));
-
-        }
-
-        // Convert columns to a thread-safe collection
-        val clonedColumns = Collections.synchronizedList(ArrayList(columns));
-        for (column in clonedColumns.sortedBy { it.radiusGroup }) {
-            NuclearCraft.instance.scheduledRunnable.addWorkload(
-              SimpleCompositionJob(column) {
-                  it.explode();
-              }
-            );
-        }
+        NuclearCraft.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(shockwaveRadius) {
+            Shockwave(center, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
+        });
 
 
     }
 
-    private fun shockwaveCyl(center: Location, radius: Double, maxHeight: Double): HashSet<ShockwaveColumn> {
-        val columns = HashSet<ShockwaveColumn>();
-
-        val radiusX: Double = radius
-        val radiusZ: Double = radius
-
-        val invRadiusX: Double = 1 / radiusX
-        val invRadiusZ: Double = 1 / radiusZ
-
-        val ceilRadiusX = ceil(radiusX).toInt()
-        val ceilRadiusZ = ceil(radiusZ).toInt()
-
-        var nextXn = 0.0
-        forX@ for (x in 0..ceilRadiusX) {
-            val xn = nextXn
-            nextXn = (x + 1) * invRadiusX
-            var nextZn = 0.0
-            forZ@ for (z in 0..ceilRadiusZ) {
-                val zn = nextZn
-                nextZn = (z + 1) * invRadiusZ
-
-                val distanceSq: Double = Geometry.lengthSq(xn, zn)
-                if (distanceSq > 1) {
-                    if (z == 0) {
-                        break@forX
-                    }
-                    break@forZ
-                }
-
-                if (Geometry.lengthSq(nextXn, zn) <= 1 && Geometry.lengthSq(xn, nextZn) <= 1) {
-                    continue
-                }
-
-
-                columns.add(ShockwaveColumn(center.clone().add(x.toDouble(), 0.0, z.toDouble()), maxHeight, radius.toInt()));
-                columns.add(ShockwaveColumn(center.clone().add(-x.toDouble(), 0.0, z.toDouble()), maxHeight, radius.toInt()));
-                columns.add(ShockwaveColumn(center.clone().add(x.toDouble(), 0.0, -z.toDouble()), maxHeight, radius.toInt()));
-                columns.add(ShockwaveColumn(center.clone().add(-x.toDouble(), 0.0, -z.toDouble()), maxHeight, radius.toInt()));
-            }
-        }
-        return columns;
-    }
 }
