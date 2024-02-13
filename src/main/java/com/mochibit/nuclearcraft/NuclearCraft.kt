@@ -33,7 +33,9 @@ class NuclearCraft : JavaPlugin() {
         /* Register structures */
         StructureRegister().registerStructures()
 
-        // Testing
+        // TODO: Thread pool for the scheduledRunnable, so there's a static class and there are a dynamic number of scheduledRunnable instances.
+        // For example, if we drop 5 nukes, we want to have 5 scheduledRunnable instances running at the same time, not just one, so we can process the nukes in parallel
+        // (for now they are processed sequentially)
         Bukkit.getScheduler().runTaskTimer(this, this.scheduledRunnable, 0L, 1L);
     }
 
