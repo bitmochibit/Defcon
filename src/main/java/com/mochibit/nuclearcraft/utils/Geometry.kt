@@ -99,21 +99,13 @@ object Geometry {
 
     fun getMinY(position: Location, maxDepth: Double? = null): Location {
         val clonedPosition = position.clone();
+        // Coerce the Y coordinate to the world height limit
+        clonedPosition.y = clonedPosition.y.coerceAtMost((clonedPosition.world.maxHeight - 1).toDouble());
 
         var depth = 0;
         while (clonedPosition.world.getBlockAt(clonedPosition).type == Material.AIR && (maxDepth == null || depth < maxDepth) && clonedPosition.y >= position.world.minHeight) {
             clonedPosition.subtract(0.0, 1.0, 0.0);
             depth++;
-        }
-        return clonedPosition;
-    }
-    fun getMaxY(position: Location, maxHeight: Double? = null): Location {
-        val clonedPosition = position.clone();
-
-        var height = 0;
-        while (clonedPosition.world.getBlockAt(clonedPosition).type == Material.AIR && (maxHeight == null || height < maxHeight) && clonedPosition.y <= position.world.maxHeight) {
-            clonedPosition.add(0.0, 1.0, 0.0);
-            height++;
         }
         return clonedPosition;
     }
