@@ -1,22 +1,16 @@
 package com.mochibit.nuclearcraft.classes.structures
 
 import com.mochibit.nuclearcraft.NuclearCraft
+import com.mochibit.nuclearcraft.effects.NuclearMushroom
 import com.mochibit.nuclearcraft.explosives.NuclearComponent
-import com.mochibit.nuclearcraft.explosives.Shockwave
-import com.mochibit.nuclearcraft.explosives.ShockwaveColumn
 import com.mochibit.nuclearcraft.interfaces.ExplodingStructure
+import com.mochibit.nuclearcraft.lifecycle.CycleEngine
 import com.mochibit.nuclearcraft.threading.jobs.SimpleCompositionJob
-import com.mochibit.nuclearcraft.threading.tasks.ScheduledRunnable
-import com.mochibit.nuclearcraft.utils.Geometry
-import it.unimi.dsi.fastutil.objects.ObjectSets
-import it.unimi.dsi.fastutil.objects.ObjectSets.SynchronizedSet
-import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
 import java.util.*
-import java.util.function.Consumer
-import kotlin.collections.HashSet
-import kotlin.math.ceil
+import kotlin.math.cos
+import kotlin.math.sin
 
 
 class NuclearWarhead : AbstractStructureDefinition(), ExplodingStructure {
@@ -59,13 +53,13 @@ class NuclearWarhead : AbstractStructureDefinition(), ExplodingStructure {
         val shockwaveRadius = nuclearComponent.blastPower * 30 * 5;
         val shockwaveHeight = nuclearComponent.blastPower * 100 * 2;
 
-        NuclearCraft.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
+//        NuclearCraft.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
+//        NuclearCraft.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(shockwaveRadius) {
+//            Shockwave(center, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
+//        });
 
-
-        NuclearCraft.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(shockwaveRadius) {
-            Shockwave(center, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
-        });
-
+        // Particle SFX
+        NuclearMushroom(center).instantiateAsync();
 
     }
 

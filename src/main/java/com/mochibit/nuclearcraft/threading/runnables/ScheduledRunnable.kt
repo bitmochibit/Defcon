@@ -1,4 +1,4 @@
-package com.mochibit.nuclearcraft.threading.tasks
+package com.mochibit.nuclearcraft.threading.runnables
 
 import com.mochibit.nuclearcraft.threading.jobs.Schedulable
 import kotlin.collections.ArrayDeque
