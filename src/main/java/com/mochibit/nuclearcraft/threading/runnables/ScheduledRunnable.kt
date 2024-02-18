@@ -5,8 +5,8 @@ import kotlin.collections.ArrayDeque
 
 
 class ScheduledRunnable : Runnable {
-    private val MAX_MILLIS_PER_TICK = 50
-    private val MAX_NANOS_PER_TICK = (MAX_MILLIS_PER_TICK * 1E6).toInt()
+    private val maxMillisPerTick = 15
+    private val maxNanosPerTick = (maxMillisPerTick * 1E6).toInt()
 
     private val workloadDeque: ArrayDeque<Schedulable> = ArrayDeque()
 
@@ -15,7 +15,7 @@ class ScheduledRunnable : Runnable {
     }
 
     override fun run() {
-        val stopTime = System.nanoTime() + MAX_NANOS_PER_TICK
+        val stopTime = System.nanoTime() + maxNanosPerTick
 
         val lastElement: Schedulable = workloadDeque.lastOrNull() ?: return
         var nextLoad: Schedulable? = null

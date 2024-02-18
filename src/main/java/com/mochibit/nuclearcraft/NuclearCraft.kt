@@ -1,9 +1,6 @@
 package com.mochibit.nuclearcraft
 
-import com.mochibit.nuclearcraft.database.Database
-import com.mochibit.nuclearcraft.lifecycle.CycleEngine
 import com.mochibit.nuclearcraft.services.*
-import com.mochibit.nuclearcraft.threading.jobs.SimpleCompositionJob
 import com.mochibit.nuclearcraft.threading.runnables.ScheduledRunnable
 import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
@@ -13,9 +10,6 @@ class NuclearCraft : JavaPlugin() {
     // This whole stuff will be moved, this is just for testing
     val scheduledRunnable: ScheduledRunnable = ScheduledRunnable()
     val asyncRunnable: ScheduledRunnable = ScheduledRunnable()
-
-    val asyncCycleEngine: CycleEngine = CycleEngine()
-    val cycleEngine: CycleEngine = CycleEngine()
     override fun onEnable() {
         instance = this
 
@@ -48,8 +42,6 @@ class NuclearCraft : JavaPlugin() {
 
         Bukkit.getScheduler().runTaskTimer(this, this.scheduledRunnable, 0L, 1L);
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, this.asyncRunnable, 0L, 1L);
-
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this, this.asyncCycleEngine, 0L, 1L);
     }
 
     override fun onDisable() {
