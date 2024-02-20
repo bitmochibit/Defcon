@@ -52,9 +52,9 @@ class NuclearWarhead : AbstractStructureDefinition(), ExplodingStructure {
         val shockwaveHeight = nuclearComponent.blastPower * 100 * 2;
 
         NuclearCraft.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
-        NuclearCraft.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(shockwaveRadius) {
-            Shockwave(center, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
-        });
+//        NuclearCraft.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(shockwaveRadius) {
+//            Shockwave(center, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
+//        });
 
         // Particle SFX
         NuclearMushroom(center).instantiate(true);

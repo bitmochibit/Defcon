@@ -1,6 +1,12 @@
 package com.mochibit.nuclearcraft.utils
 
+import java.lang.Math
+
 object Math {
+    const val PI = Math.PI
+    const val TAU = Math.PI * 2
+
+
     /**
      * Clamps a value to a given range.
      * @param value The value to clamp
