@@ -1,7 +1,10 @@
 package com.mochibit.nuclearcraft.math
 
+import com.mochibit.nuclearcraft.NuclearCraft.Companion.Logger.info
+
 class Transform3D(var basis: Basis, var origin: Vector3) : Cloneable {
 
+    constructor() : this(Basis(), Vector3());
     fun set(transform: Transform3D) {
         basis = transform.basis;
         origin = transform.origin;

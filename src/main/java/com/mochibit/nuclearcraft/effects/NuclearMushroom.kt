@@ -2,6 +2,8 @@ package com.mochibit.nuclearcraft.effects
 
 import com.destroystokyo.paper.ParticleBuilder
 import com.mochibit.nuclearcraft.NuclearCraft
+import com.mochibit.nuclearcraft.math.Vector3
+import com.mochibit.nuclearcraft.particles.shapes.SphereShape
 import com.mochibit.nuclearcraft.utils.MathFunctions
 import org.bukkit.Bukkit
 import org.bukkit.Color
@@ -22,19 +24,24 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     private val startingColor = Color.fromRGB(243, 158, 3)
     private val endingColor = Color.fromRGB(72, 72, 72);
 
+    val sphereShape = SphereShape(Particle.REDSTONE, 10.0, 15.0, 12.0)
 
+    var angle = 0.0;
     override fun drawRate(): Int {
         return 1;
     }
 
     override fun draw() {
-        drawSphere();
-        drawCyl();
+        sphereShape.draw(center);
+        //drawCyl();
     }
 
     override fun animate(delta: Double) {
-        elevateSphere(delta);
-        stretchCylinder()
+//        elevateSphere(delta);
+//        stretchCylinder()
+
+        sphereShape.transform.rotate(Vector3(1.0, 0.0, 0.0), angle);
+        angle += delta;
         if (tickAlive > 1500)
             this.destroy();
     }
@@ -101,42 +108,6 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
         currentHeight += delta * PI;
     }
 
-
-    private fun createSphere(heightRadius: Double, widthRadius: Double, rate: Double): HashSet<Vector> {
-        val result = HashSet<Vector>()
-
-        // Cache
-        val rateDiv = java.lang.Math.PI / rate
-
-        // To make a sphere we're going to generate multiple circles
-        // next to each other.
-        var phi = 0.0
-        while (phi <= java.lang.Math.PI) {
-            // Cache
-            val y1 = heightRadius * cos(phi)
-            val y2 = widthRadius * sin(phi)
-
-            var theta = 0.0
-            while (theta <= 2 * java.lang.Math.PI) {
-                val x = cos(theta) * y2
-                val z = sin(theta) * y2
-
-                // We're going to do the same thing from spreading circle.
-                // Since this is a 3D shape we'll need to get the y value as well.
-                // I'm not sure if this is the right way to do it.
-                val omega = atan2(z, x)
-                val directionX = cos(omega)
-                val directionY = sin(atan2(y2, y1))
-                val directionZ = sin(omega)
-
-                mainCloudEffect.offset(directionX, directionY, directionZ)
-                result.add(Vector(x, y1, z))
-                theta += rateDiv
-            }
-            phi += rateDiv
-        }
-        return result;
-    }
 
     private fun createFilledSphere(heightRadius: Double, widthRadius: Double): HashSet<Vector> {
         val result = HashSet<Vector>()
@@ -227,6 +198,9 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             mainCloudEffect.receivers(entities)
             cloudStemEffect.receivers(entities)
         };
+
+        sphereShape.build();
+        sphereShape.particleBuilder.color(startingColor, 5f)
     }
 
     override fun stop() {

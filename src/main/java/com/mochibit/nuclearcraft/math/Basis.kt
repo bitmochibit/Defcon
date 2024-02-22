@@ -11,11 +11,11 @@ import kotlin.math.*
 
 // This class is a Linear Algebra basis class.
 class Basis() : Cloneable {
-    val rows: Array<Vector3> = Array(3) {
-        Vector3(1.0, 0.0, 0.0);
-        Vector3(0.0, 1.0, 0.0);
-        Vector3(0.0, 0.0, 1.0);
-    }
+    val rows: Array<Vector3> = arrayOf(
+        Vector3(1.0, 0.0, 0.0),
+        Vector3(0.0, 1.0, 0.0),
+        Vector3(0.0, 0.0, 1.0)
+    )
 
     fun set(
         xx: Double,
