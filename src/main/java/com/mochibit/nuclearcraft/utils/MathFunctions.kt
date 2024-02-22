@@ -2,9 +2,15 @@ package com.mochibit.nuclearcraft.utils
 
 import java.lang.Math
 
-object Math {
+object MathFunctions {
     const val PI = Math.PI
     const val TAU = Math.PI * 2
+    const val EPSILON = 0.00001;
+    const val EPSILON2 = EPSILON * EPSILON;
+
+    const val MATH_SQRT2 = 1.4142135623730951;
+    const val MATH_SQRT12 = 0.7071067811865476;
+
 
 
     /**

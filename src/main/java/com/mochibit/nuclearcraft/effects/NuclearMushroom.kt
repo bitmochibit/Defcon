@@ -2,7 +2,7 @@ package com.mochibit.nuclearcraft.effects
 
 import com.destroystokyo.paper.ParticleBuilder
 import com.mochibit.nuclearcraft.NuclearCraft
-import com.mochibit.nuclearcraft.utils.Math
+import com.mochibit.nuclearcraft.utils.MathFunctions
 import org.bukkit.Bukkit
 import org.bukkit.Color
 import org.bukkit.Location
@@ -50,9 +50,9 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             val location = basis.clone().add(vector)
             // Interpolate the color based on the height
             val ratio = (location.y / (location.y + currentHeight))
-            val r = Math.lerp(startingColor.red, endingColor.red, ratio)
-            val g = Math.lerp(startingColor.green, endingColor.green, ratio)
-            val b = Math.lerp(startingColor.blue, endingColor.blue, ratio)
+            val r = MathFunctions.lerp(startingColor.red, endingColor.red, ratio)
+            val g = MathFunctions.lerp(startingColor.green, endingColor.green, ratio)
+            val b = MathFunctions.lerp(startingColor.blue, endingColor.blue, ratio)
             cloudStemEffect
                 .location(location)
                 .color(Color.fromRGB(r.toInt(), g.toInt(), b.toInt()), 5f)
@@ -73,9 +73,9 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             // Interpolate the color based on the distance squared from the center
             val distance = location.distanceSquared(basis)
             val ratio = distance / 140
-            val r = Math.lerp(startingColor.red, endingColor.red, ratio)
-            val g = Math.lerp(startingColor.green, endingColor.green, ratio)
-            val b = Math.lerp(startingColor.blue, endingColor.blue, ratio)
+            val r = MathFunctions.lerp(startingColor.red, endingColor.red, ratio)
+            val g = MathFunctions.lerp(startingColor.green, endingColor.green, ratio)
+            val b = MathFunctions.lerp(startingColor.blue, endingColor.blue, ratio)
 
             mainCloudEffect
                 .location(location)
@@ -190,8 +190,8 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
         val rateDiv = java.lang.Math.PI / abs(rate)
 
         // If no limit is specified do a full loop.
-        if (limit == 0.0) limit = Math.TAU
-        else if (limit == -1.0) limit = Math.TAU / abs(extension)
+        if (limit == 0.0) limit = MathFunctions.TAU
+        else if (limit == -1.0) limit = MathFunctions.TAU / abs(extension)
 
         // If the extension changes (isn't 1), the wave might not do a full
         // loop anymore. So by simply dividing PI from the extension you can get the limit for a full loop.
