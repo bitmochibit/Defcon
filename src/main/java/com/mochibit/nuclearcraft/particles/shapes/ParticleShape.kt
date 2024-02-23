@@ -10,9 +10,14 @@ import org.bukkit.util.Vector
 import kotlin.random.Random
 
 abstract class ParticleShape(particle: Particle) {
-    var points = HashSet<Vector3>();
+    var points = HashSet<Vector3>()
+        set(value) {
+            field.clear();
+            field.addAll(value);
+        }
+
     val particleBuilder = ParticleBuilder(particle);
-    val transform = Transform3D();
+    var transform = Transform3D();
 
     open fun draw(location: Location) {
         val transformedPoints = transform.xform(points);
@@ -24,7 +29,12 @@ abstract class ParticleShape(particle: Particle) {
             particleBuilder.spawn();
         }
     }
-    abstract fun build();
+    abstract fun build() : HashSet<Vector3>;
+
+    open fun buildAndAssign() : ParticleShape {
+        points = build();
+        return this;
+    }
 
     fun directional() : ParticleShape {
         particleBuilder.count(0);

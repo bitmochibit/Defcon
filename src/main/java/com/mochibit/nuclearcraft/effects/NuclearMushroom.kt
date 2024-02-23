@@ -3,6 +3,7 @@ package com.mochibit.nuclearcraft.effects
 import com.destroystokyo.paper.ParticleBuilder
 import com.mochibit.nuclearcraft.NuclearCraft
 import com.mochibit.nuclearcraft.math.Vector3
+import com.mochibit.nuclearcraft.particles.shapes.FullSphereShape
 import com.mochibit.nuclearcraft.particles.shapes.SphereShape
 import com.mochibit.nuclearcraft.utils.MathFunctions
 import org.bukkit.Bukkit
@@ -18,18 +19,13 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     private val mainCloudEffect = ParticleBuilder(Particle.REDSTONE).force(true)
     private val cloudStemEffect = ParticleBuilder(Particle.REDSTONE).force(true)
     private var currentHeight = 0.0
-    private val sphere = createFilledSphere(10.0, 15.0)
     private val cylinder = createFilledCircle(1.0, 12.0, 10.0);
 
     private val startingColor = Color.fromRGB(243, 158, 3)
     private val endingColor = Color.fromRGB(72, 72, 72);
 
-    val sphereShape = SphereShape(Particle.REDSTONE, 10.0, 15.0, 12.0)
-
-    var angle = 0.0;
-    override fun drawRate(): Int {
-        return 1;
-    }
+    val sphereShape = FullSphereShape(Particle.REDSTONE, 10.0, 15.0)
+    var height = 0.0;
 
     override fun draw() {
         sphereShape.draw(center);
@@ -40,8 +36,6 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
 //        elevateSphere(delta);
 //        stretchCylinder()
 
-        sphereShape.transform.rotate(Vector3(1.0, 0.0, 0.0), angle);
-        angle += delta;
         if (tickAlive > 1500)
             this.destroy();
     }
@@ -71,12 +65,12 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
 
     private fun drawSphere() {
         val basis = center.clone().set(center.x, center.y + currentHeight, center.z)
-        for (vector in sphere) {
+        for (vector in sphereShape.points) {
             // For optimization, 95% of the time we skip the vector
             if (nextInt(0, 100) <= 95)
                 continue;
 
-            val location = basis.clone().add(vector)
+            val location = basis.clone().add(vector.toBukkitVector())
             // Interpolate the color based on the distance squared from the center
             val distance = location.distanceSquared(basis)
             val ratio = distance / 140
@@ -85,7 +79,7 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             val b = MathFunctions.lerp(startingColor.blue, endingColor.blue, ratio)
 
             mainCloudEffect
-                .location(location)
+               // .location(location)
                 .color(Color.fromRGB(r.toInt(), g.toInt(), b.toInt()), 5f)
                 .count(0)
                 .spawn()
@@ -108,21 +102,6 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
         currentHeight += delta * PI;
     }
 
-
-    private fun createFilledSphere(heightRadius: Double, widthRadius: Double): HashSet<Vector> {
-        val result = HashSet<Vector>()
-
-        for (x in -widthRadius.toInt()..widthRadius.toInt()) {
-            for (y in -heightRadius.toInt()..heightRadius.toInt()) {
-                for (z in -widthRadius.toInt()..widthRadius.toInt()) {
-                    if ((x * x) / (widthRadius * widthRadius) + (y * y) / (heightRadius * heightRadius) + (z * z) / (widthRadius * widthRadius) <= 1)
-                        result.add(Vector(x.toDouble(), y.toDouble(), z.toDouble()))
-                }
-            }
-        }
-
-        return result;
-    }
 
     private fun createCylinder(height: Double, radius: Double, rate: Double) : HashSet<Vector> {
         val result = HashSet<Vector>();
@@ -199,8 +178,8 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             cloudStemEffect.receivers(entities)
         };
 
-        sphereShape.build();
         sphereShape.particleBuilder.color(startingColor, 5f)
+        sphereShape.buildAndAssign();
     }
 
     override fun stop() {

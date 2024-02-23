@@ -13,10 +13,12 @@ class Vector3(
 
     companion object {
         val ZERO = Vector3(0.0, 0.0, 0.0)
+
         val LEFT = Vector3(-1.0, 0.0, 0.0)
         val RIGHT = Vector3(1.0, 0.0, 0.0)
         val UP = Vector3(0.0, 1.0, 0.0)
         val DOWN = Vector3(0.0, -1.0, 0.0)
+
         val FORWARD = Vector3(0.0, 0.0, 1.0)
         val BACKWARD = Vector3(0.0, 0.0, -1.0)
     }
@@ -294,6 +296,10 @@ class Vector3(
 
     public override fun clone(): Vector3 {
         return Vector3(x, y, z)
+    }
+
+    fun toBukkitVector(): org.bukkit.util.Vector {
+        return org.bukkit.util.Vector(x, y, z)
     }
 
 

@@ -4,6 +4,9 @@ import com.mochibit.nuclearcraft.NuclearCraft.Companion.Logger.info
 
 class Transform3D(var basis: Basis, var origin: Vector3) : Cloneable {
 
+    companion object {
+        val IDENTITY = Transform3D(Basis(), Vector3());
+    }
     constructor() : this(Basis(), Vector3());
     fun set(transform: Transform3D) {
         basis = transform.basis;
@@ -212,5 +215,11 @@ class Transform3D(var basis: Basis, var origin: Vector3) : Cloneable {
 
     override fun clone(): Transform3D {
         return Transform3D(basis.clone(), origin.clone());
+    }
+
+    override fun hashCode(): Int {
+        var result = basis.hashCode()
+        result = 31 * result + origin.hashCode()
+        return result
     }
 }
