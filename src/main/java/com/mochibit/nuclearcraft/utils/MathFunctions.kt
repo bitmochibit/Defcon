@@ -1,10 +1,9 @@
 package com.mochibit.nuclearcraft.utils
 
-import java.lang.Math
+import kotlin.math.PI
 
 object MathFunctions {
-    const val PI = Math.PI
-    const val TAU = Math.PI * 2
+    const val TAU = PI * 2
     const val EPSILON = 0.00001;
     const val EPSILON2 = EPSILON * EPSILON;
 
