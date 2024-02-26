@@ -1,4 +1,4 @@
-package com.mochibit.nuclearcraft.explosives
+package com.mochibit.nuclearcraft.explosions
 
 import com.mochibit.nuclearcraft.utils.Geometry
 import org.bukkit.Location
@@ -15,8 +15,8 @@ class ShockwaveColumn(
     private val minHeight: Double =
         Geometry.getMinY(location.clone().add(0.0, maxDeltaHeight, 0.0), maxDeltaHeight * 2).y;
 
-    // Make the power start from the maximum 8f and decrease evenly with the radius to a minimum of 4f
-    private val explosionPower = 8f - (radiusGroup * 4f / shockwave.shockwaveRadius).toFloat();
+    // Make the power start from the maximum 8f and decrease evenly with the radius to a minimum of 6f
+    private val explosionPower = 8f - (radiusGroup * 6f / shockwave.shockwaveRadius).toFloat();
 
     fun explode() {
 ;

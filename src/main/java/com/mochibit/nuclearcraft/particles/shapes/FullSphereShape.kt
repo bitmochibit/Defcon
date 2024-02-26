@@ -2,17 +2,16 @@ package com.mochibit.nuclearcraft.particles.shapes
 
 import com.mochibit.nuclearcraft.math.Vector3
 import org.bukkit.Particle
-import org.bukkit.util.Vector
 
-class FullSphereShape(private val particle: Particle, private val heightRadius: Double, private val widthRadius: Double): ParticleShape(particle){
+class FullSphereShape(private val particle: Particle, private val radiusY: Double, private val radiusXZ: Double): ParticleShape(particle){
 
     override fun build(): HashSet<Vector3> {
         val result = HashSet<Vector3>();
 
-        for (x in -widthRadius.toInt()..widthRadius.toInt()) {
-            for (y in -heightRadius.toInt()..heightRadius.toInt()) {
-                for (z in -widthRadius.toInt()..widthRadius.toInt()) {
-                    if ((x * x) / (widthRadius * widthRadius) + (y * y) / (heightRadius * heightRadius) + (z * z) / (widthRadius * widthRadius) <= 1)
+        for (x in -radiusXZ.toInt()..radiusXZ.toInt()) {
+            for (y in -radiusY.toInt()..radiusY.toInt()) {
+                for (z in -radiusXZ.toInt()..radiusXZ.toInt()) {
+                    if ((x * x) / (radiusXZ * radiusXZ) + (y * y) / (radiusY * radiusY) + (z * z) / (radiusXZ * radiusXZ) <= 1)
                         result.add(Vector3(x.toDouble(), y.toDouble(), z.toDouble()))
                 }
             }

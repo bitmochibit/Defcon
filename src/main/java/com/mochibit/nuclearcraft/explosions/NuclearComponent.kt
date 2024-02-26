@@ -1,4 +1,4 @@
-package com.mochibit.nuclearcraft.explosives
+package com.mochibit.nuclearcraft.explosions
 
 data class NuclearComponent(
     val blastPower: Float = 1f,

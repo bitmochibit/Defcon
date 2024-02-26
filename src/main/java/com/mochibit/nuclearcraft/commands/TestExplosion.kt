@@ -3,10 +3,10 @@ package com.mochibit.nuclearcraft.commands
 import com.mochibit.nuclearcraft.abstracts.GenericCommand
 import com.mochibit.nuclearcraft.annotations.CommandInfo
 import com.mochibit.nuclearcraft.classes.structures.NuclearWarhead
-import com.mochibit.nuclearcraft.explosives.NuclearComponent
+import com.mochibit.nuclearcraft.explosions.NuclearComponent
+import com.mochibit.nuclearcraft.explosions.NuclearExplosion
 import org.bukkit.ChatColor
 import org.bukkit.Location
-import org.bukkit.Particle
 import org.bukkit.entity.Player
 
 @CommandInfo(name = "nctestexpl", permission = "nuclearcraft.admin", requiresPlayer = true)
@@ -35,9 +35,7 @@ class TestExplosion : GenericCommand() {
 
 
         val location = Location(world, x.toDouble(), y.toDouble(), z.toDouble())
-
-        val nuclearWarhead = NuclearWarhead();
         val nuclearComponent = NuclearComponent(blastPower = 1f, radiationPower = 1f, thermalPower = 1f, empPower = 1f);
-        nuclearWarhead.explode(location, nuclearComponent);
+        NuclearExplosion(location, nuclearComponent).explode()
     }
 }

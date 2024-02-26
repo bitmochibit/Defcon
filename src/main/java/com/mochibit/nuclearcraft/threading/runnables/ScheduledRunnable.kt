@@ -5,7 +5,7 @@ import kotlin.collections.ArrayDeque
 
 
 class ScheduledRunnable : Runnable {
-    private val maxMillisPerTick = 15
+    private val maxMillisPerTick = 20
     private val maxNanosPerTick = (maxMillisPerTick * 1E6).toInt()
 
     private val workloadDeque: ArrayDeque<Schedulable> = ArrayDeque()

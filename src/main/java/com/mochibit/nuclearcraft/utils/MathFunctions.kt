@@ -44,4 +44,8 @@ object MathFunctions {
         return this.lerp(a.toDouble(), b.toDouble(), t).toInt()
     }
 
+    fun map(value: Double, inValueMin: Double, inValueMax: Double, outValueMin: Double, outValueMax: Double): Double {
+        return (value - inValueMin) * (outValueMax - outValueMin) / (inValueMax - inValueMin) + outValueMin;
+    }
+
 }

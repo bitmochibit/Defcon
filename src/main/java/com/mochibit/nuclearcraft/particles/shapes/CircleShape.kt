@@ -7,8 +7,8 @@ import kotlin.math.*
 
 class CircleShape(
     particle: Particle,
-    private var radiusWidth: Double,
-    private var radiusHeight: Double,
+    private var radiusX: Double,
+    private var radiusZ: Double,
     private var extension: Double,
     private var rate: Double,
     private var limit: Double,
@@ -31,8 +31,8 @@ class CircleShape(
             // In order to curve our straight line in the loop, we need to
             // use cos and sin. It doesn't matter, you can get x as sin and z as cos.
             // But you'll get weird results if you use si+n or cos for both or using tan or cot.
-            val x = radiusWidth * cos(extension * theta)
-            val z = radiusHeight * sin(extension * theta)
+            val x = radiusX * cos(extension * theta)
+            val z = radiusZ * sin(extension * theta)
 
 
             if (isDirectional()) {

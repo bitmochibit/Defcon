@@ -2,12 +2,11 @@ package com.mochibit.nuclearcraft.particles.shapes
 
 import com.mochibit.nuclearcraft.math.Vector3
 import org.bukkit.Particle
-import org.bukkit.util.Vector
 
 class FullCircleShape(
     private var particle: Particle,
-    private var radiusWidth: Double,
-    private var radiusHeight: Double,
+    private var radiusX: Double,
+    private var radiusZ: Double,
     private var rate: Double,
     private var radiusRate: Double
 ) : ParticleShape(particle) {
@@ -15,20 +14,22 @@ class FullCircleShape(
         val result = HashSet<Vector3>()
         var dynamicRate = 0.0
 
+        val invRadiusRate = 1 / radiusRate
+
         var i = 0.1
         var j = 0.1
-        while (i < radiusWidth || j < radiusHeight) {
+        while (i < radiusX || j < radiusZ) {
             // Dynamic rate depending both on the width and the height radius
-            dynamicRate = rate / ((radiusWidth / radiusRate) * (radiusHeight / radiusRate))
+            dynamicRate = rate / ((radiusX / radiusRate) * (radiusZ / radiusRate))
             result.addAll(CircleShape(particle, i, j, 1.0, dynamicRate, 0.0).build());
-            i += radiusRate
-            j += radiusRate
+            i += invRadiusRate
+            j += invRadiusRate
 
-            if (i > radiusWidth)
-                i = radiusWidth
+            if (i > radiusX)
+                i = radiusX
 
-            if (j > radiusHeight)
-                j = radiusHeight
+            if (j > radiusZ)
+                j = radiusZ
         }
         return result;
     }

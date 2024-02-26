@@ -1,4 +1,4 @@
-package com.mochibit.nuclearcraft.explosives
+package com.mochibit.nuclearcraft.explosions
 
 import com.mochibit.nuclearcraft.NuclearCraft
 import com.mochibit.nuclearcraft.threading.jobs.SimpleCompositionJob
