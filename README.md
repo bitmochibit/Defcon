@@ -1,11 +1,5 @@
 # NuclearCraft (it will change name)
-A minecraft plugin that adds the power and the dangers of nuclear energy.
-
-
-# NOTICE
-The development of this plugin is still on my plans but lately I'm being very busy. However I'm still thinking about features and I have all the implementations in mind, I just need time.
-
-
+A plugin for spigot servers that adds nuclear energy and warfare.
 
 # RoadMap
 > This section contains all the features that will be covered by the plugin in the future.
@@ -24,3 +18,5 @@ The development of this plugin is still on my plans but lately I'm being very bu
   - Generators (Coal, Thermal, Nuclear) [For powering defensive structures or launch silos]
   - Refiners (For refine Uranium or producing **fuel mixtures**)
   - Pumps 
+- Supported Plugins
+  - [ ] WorldGuard (protection and tags)
