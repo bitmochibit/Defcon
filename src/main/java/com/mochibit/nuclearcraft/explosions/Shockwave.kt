@@ -8,8 +8,6 @@ import java.util.*
 import kotlin.math.ceil
 
 class Shockwave(val center: Location, val shockwaveRadius: Double, val shockwaveHeight: Double) {
-    val shockwaveColumns: List<ShockwaveColumn> = Collections.synchronizedList(ArrayList());
-
     fun explode() {
         val columns: HashSet<ShockwaveColumn> = HashSet();
         for (radius in 0..shockwaveRadius.toInt()) {

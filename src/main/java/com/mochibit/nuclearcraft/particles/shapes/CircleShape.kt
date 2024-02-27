@@ -2,17 +2,19 @@ package com.mochibit.nuclearcraft.particles.shapes
 
 import com.mochibit.nuclearcraft.math.Vector3
 import com.mochibit.nuclearcraft.utils.MathFunctions
+import org.bukkit.Location
 import org.bukkit.Particle
 import kotlin.math.*
 
 class CircleShape(
     particle: Particle,
+    spawnPoint: Location,
     private var radiusX: Double,
     private var radiusZ: Double,
     private var extension: Double,
     private var rate: Double,
     private var limit: Double,
-) : ParticleShape(particle) {
+) : ParticleShape(particle, spawnPoint) {
     override fun build(): HashSet<Vector3> {
         val result = HashSet<Vector3>()
 

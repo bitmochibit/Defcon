@@ -24,6 +24,9 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         *  When all of this is happening, there will be a sound effect, and a particle effect, to simulate the explosion
         */
 
+        // Particle SFX
+        NuclearMushroom(center).instantiate(true);
+
         // Create a sphere of air blocks
         val obliterationRadius = nuclearComponent.blastPower * 30;
         for (x in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
@@ -50,11 +53,12 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
         NuclearCraft.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
         NuclearCraft.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(shockwaveRadius) {
-            Shockwave(center, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
+            //Shockwave(center, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
         });
 
-        // Particle SFX
-        NuclearMushroom(center).instantiate(true);
+
+
+
     }
 
 }

@@ -8,7 +8,10 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
-class SphereShape(particle: Particle, val heightRadius: Double, val widthRadius: Double, val rate: Double) : ParticleShape(particle) {
+class SphereShape(particle: Particle,
+                  spawnPoint: Location,
+                  val heightRadius: Double, val widthRadius: Double, val rate: Double
+) : ParticleShape(particle, spawnPoint) {
     override fun build(): HashSet<Vector3> {
         val result = HashSet<Vector3>()
 

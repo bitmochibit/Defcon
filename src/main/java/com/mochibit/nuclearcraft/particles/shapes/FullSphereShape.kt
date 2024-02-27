@@ -1,9 +1,12 @@
 package com.mochibit.nuclearcraft.particles.shapes
 
 import com.mochibit.nuclearcraft.math.Vector3
+import org.bukkit.Location
 import org.bukkit.Particle
 
-class FullSphereShape(private val particle: Particle, private val radiusY: Double, private val radiusXZ: Double): ParticleShape(particle){
+class FullSphereShape(private val particle: Particle, spawnPoint: Location,
+                      private val radiusY: Double, private val radiusXZ: Double
+): ParticleShape(particle, spawnPoint){
 
     override fun build(): HashSet<Vector3> {
         val result = HashSet<Vector3>();
