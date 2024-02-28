@@ -28,7 +28,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
       - run: mvn clean package -DskipTests
-      - run: mkdir staging && mv target/yb-workload-sim.jar target/yb-workload-sim-${{ env.build-number }}.jar && cp target/*.jar staging
+      - run: mkdir staging && mv target/NuclearCraft.jar target/NuclearCraft-${{ env.build-number }}.jar && cp target/*.jar staging
       - name: Upload artifact
         uses: actions/upload-artifact@v4.3.1
         with:
