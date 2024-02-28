@@ -1,10 +1,13 @@
-# NuclearCraft (it will change name)
-A plugin for spigot servers that adds nuclear energy and warfare.
+# ☢️ SpigotDefcon
 
-# RoadMap
+_This Minecraft plugin for spigot adds Nuclear energy and the weapons that come with it._
+Nuke your opponents from your base with missiles and witness the destruction power of nuclear weapons.
+
+---
+
+#### 🔭 RoadMap
 > This section contains all the features that will be covered by the plugin in the future.
-
-- Nuclear War
+- 🌇 Nuclear War
   - [x] Nuclear bomb realistic destruction (with shockwave), thermal radiation damage
   - [x] Multiblock structure (The bomb is a modular multiblock structure)
   - Bomb regulation (You have the capability to regulate some types of power with materials) [Blast Power, Fallout Power, Thermal Power (Also EMP)]
@@ -14,9 +17,9 @@ A plugin for spigot servers that adds nuclear energy and warfare.
   - Items and blocks for fighting against radiations and air contamination
   - Dirty air done with filled regions, supports both Polygonal Areas (for restricted contamination) or huge contaminated areas with Cuboids (like for extremely radioactive bombs), in this air you need to wear a gas mask or you will suffocate and take rad damage.
   - Defensive structures (Radar, missile battery) (Affected by the EMP)
-- Power and supplies
+- 🔋 Power and supplies
   - Generators (Coal, Thermal, Nuclear) [For powering defensive structures or launch silos]
   - Refiners (For refine Uranium or producing **fuel mixtures**)
   - Pumps 
-- Supported Plugins
+- 🛡️ Supported Plugins
   - [ ] WorldGuard (protection and tags)

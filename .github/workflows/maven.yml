@@ -44,7 +44,7 @@ jobs:
       - uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "${{ steps.get-pom.outputs.artifact-id }}"
-          title: "Release version: ${{ steps.get-pom.outputs.version }}"
+          automatic_release_tag: "${{ steps.get-pom.outputs.version }}"
+          title: "Release version: ${{ steps.get-pom.outputs.artifact-id }}-${{ steps.get-pom.outputs.version }}"
           prerelease: true
           files: staging/*.jar
