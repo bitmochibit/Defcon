@@ -1,0 +1,44 @@
+# This file configuration stores all the blocks as abstract entities.
+# Any item can be linked to a block and behaves like one.
+# Behaviours of the single block will be set as defined with the given behaviours
+
+# block-id: The unique block custom id (NOT RELATED WITH ITEMS).
+# block-minecraft-id: The minecraft ID of the block (if an item, some of them can be treated as block).
+# block-data-model-id: This ID will be used if the block is an item. (and will be replaced with a custom model)
+
+#------------------------------------------------------------------------------
+# BLOCK BEHAVIOURS
+#------------------------------------------------------------------------------
+# behaviour: The behaviour of the block
+# generic | The block is a generic block (Minecraft events)
+# structure_component | The block is a structure component
+# structure_interface | The block is a structure interface
+# air_vent | The block is an air vent
+# generator | The block is a generator
+# refiner | The block is a refiner
+# pump | The block is a pump
+#
+
+enabled-blocks:
+  - bomb-casing
+  - bomb-core
+  - bomb-interface
+
+
+#------------------------------------------------------------------------------
+# BLOCKS
+#------------------------------------------------------------------------------
+bomb-casing:
+  block-minecraft-id: IRON_BLOCK
+  block-data-model-id: 1000
+  behaviour: "structure_component"
+
+bomb-core:
+  block-minecraft-id: BEACON
+  block-data-model-id: 1001
+  behaviour: "structure_component"
+
+bomb-interface:
+  block-minecraft-id: COMMAND_BLOCK
+  block-data-model-id: 1002
+  behaviour: "structure_interface"

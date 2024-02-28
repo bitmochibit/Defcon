@@ -1,0 +1,108 @@
+# This file configuration stores all the items and their behaviours.
+# Every item has a specific utility and usage, and it can be defined with some booleans (see below).
+
+# item-id: The unique custom id.
+# item-name: The name of the item.
+# item-description: The description of the item.
+
+# item-minecraft-id: The minecraft id of the item.
+# item-data-model-id: The id of the data model of the item.
+# custom-block-id: Let the system know that this item is a custom block.
+
+# is-usable: If true, the item can be used to consume other items.
+# is-equipable: If true, the item can be equipped.
+# is-droppable: If true, the item can be dropped.
+# max-stack-size: Number of how much stacks this item can compose.
+# is-transportable: If true, the item can be carried in the inventory.
+
+#------------------------------------------------------------------------------
+# SPECIFIC ITEMS FUNCTION
+#------------------------------------------------------------------------------
+
+# behaviour: The function of the item. DEFAULT: Generic (Minecraft events)
+# block | The item is a block.
+# geiger_counter | The item is a Geiger counter.
+# radiation_inhibitor | The item is a radiation inhibitor (slows the rad/s).
+# gas_mask | The item is a gas mask.
+# gas_mask_filter | The item is a gas mask filter.
+# wrench | The item is a wrench.
+
+enabled-items:
+  - geiger
+#  - radiation-inhibitor
+#  - gas-mask
+#  - gas-mask-filter
+  - wrench
+  - bomb-casing
+  - bomb-core
+  - bomb-interface
+
+
+#------------------------------------------------------------------------------
+# ITEMS
+#------------------------------------------------------------------------------
+geiger:
+  item-name: "&#cbfb09G&#cff408e&#d3ed08i&#d8e607g&#dcdf06e&#e0d805r &#e4d105C&#e8ca04o&#ecc303u&#f1bc02n&#f5b502t&#f9ae01e&#fda700r"
+  item-description: "&eThis item measures the radiation levels"
+  item-minecraft-id: COMPASS
+  item-data-model-id: 1
+  is-usable: true
+  is-equipable: true
+  is-droppable: true
+  max-stack-size: 1
+  is-transportable: true
+  behaviour: "geiger_counter"
+
+wrench:
+    item-name: "Wrench"
+    item-description: "&eUsed to assemble structures"
+    item-minecraft-id:
+    item-data-model-id: 2
+    is-usable: true
+    is-equipable: true
+    is-droppable: true
+    max-stack-size: 1
+    is-transportable: true
+    behaviour: "wrench"
+
+#------------------------------------------------------------------------------
+# BLOCK ITEMS
+#------------------------------------------------------------------------------
+bomb-casing:
+  item-name: "Bomb casing"
+  item-description: "&eUsed to create a bomb casing"
+  item-minecraft-id: IRON_BLOCK
+  item-data-model-id: 1000
+  is-usable: true
+  is-equipable: true
+  is-droppable: true
+  is-transportable: true
+  max-stack-size: 64
+  custom-block-id: bomb-casing
+  behaviour: "block"
+
+bomb-core:
+    item-name: "Bomb core"
+    item-description: "&eThe core of the bomb"
+    item-minecraft-id: BEACON
+    item-data-model-id: 1001
+    is-usable: true
+    is-equipable: true
+    is-droppable: true
+    is-transportable: true
+    max-stack-size: 64
+    custom-block-id: bomb-core
+    behaviour: "block"
+
+bomb-interface:
+    item-name: "Bomb interface"
+    item-description: "&eThe interface of the bomb"
+    item-minecraft-id: COMMAND_BLOCK
+    item-data-model-id: 1002
+    is-usable: true
+    is-equipable: true
+    is-droppable: true
+    is-transportable: true
+    max-stack-size: 64
+    custom-block-id: bomb-interface
+    behaviour: "block"

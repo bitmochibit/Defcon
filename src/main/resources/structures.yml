@@ -1,0 +1,78 @@
+# This file is the main configuration file to define the multi-block structures of the plugin.
+# Rules
+
+#------------------------------------------------------------------------------
+# RULES
+#------------------------------------------------------------------------------
+
+# Every structure has a specific id.
+
+#block-set: The blocks that compose the structure.
+#  - a:bomb-core | name:custom-block-id
+#  - b:bomb-casing
+#  - c:bomb-interface
+
+#block-dispositions:
+#  - set_name: | The name of the set of blocks
+#      y: 0 | The y position of the set of blocks
+#      dispositions: | The disposition of the blocks
+#        - b,b,b
+#        - b,b,b
+#        - b,b,b
+
+# How the dispositions are read:
+#  - b,b,b | The disposition of the blocks (x,z plane)
+# There are some operators
+#  , -> Separator for the blocks
+#  || -> Make one block count for another, for example b||c will make a valid structure with b or c
+#
+# structure-requires-interface: true | If the structure requires an interface block to be accessed
+# structure-interface-blocks: | The blocks that can be used as interface
+# behaviour: | The behaviour of the structure
+
+# The behaviour of the structure can be:
+#  - warhead | The structure is a warhead
+#  - launch_pad | The structure is used to launch rockets and missiles
+#  - generator | The structure is a generator
+#  - refiner | The structure is a refiner
+#  - pump | The structure is a pump
+
+
+
+
+enabled-structures:
+  - bomb
+
+#------------------------------------------------------------------------------
+# STRUCTURES
+#------------------------------------------------------------------------------
+
+bomb:
+  block-set:
+    - a:bomb-core
+    - b:bomb-casing
+    - c:bomb-interface
+  block-dispositions:
+    - set0:
+        y: 0
+        dispositions:
+          - b,b,b
+          - b,b,b
+          - b,b,b
+    - set1:
+        y: 1
+        dispositions:
+          - b,b,b
+          - b,a,b
+          - b,b,b
+    - set2:
+        y: 2
+        dispositions:
+          - b,b,b
+          - b,c,b
+          - b,b,b
+  requires-interface: true
+  interface-blocks:
+    - c
+  behaviour: "warhead"
+
