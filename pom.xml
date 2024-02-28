@@ -6,7 +6,7 @@
 
     <groupId>com.mochibit</groupId>
     <artifactId>NuclearCraft</artifactId>
-    <version>1.3-SNAPSHOT</version>
+    <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>NuclearCraft</name>
@@ -19,6 +19,7 @@
         <kotlin.jvm.target>17</kotlin.jvm.target>
         <kotlin.language.version>1.9</kotlin.language.version>
         <kotlin.api.version>1.9</kotlin.api.version>
+        <project.scm.id>github</project.scm.id>
     </properties>
     <url>http://rynotechblog.altervista.org/</url>
 
