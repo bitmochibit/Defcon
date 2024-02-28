@@ -12,47 +12,33 @@ on:
   push:
     branches: [ "main" ]
 
+env:
+  build-number: ${GITHUB_RUN_NUMBER}
+
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
-      - name: Create new branch
-        run: |
-          git checkout -b release/${{ github.run_id }}
       - name: Set up JDK 17
         uses: actions/setup-java@v4.1.0
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: maven
-          server-id: github
-      - name: Configure Git User
-        run: |
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-      - name: Publish JAR
-        run: mvn -B release:prepare -DignoreSnapshots=true release:perform
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+      - run: mvn clean package -DskipTests
+      - run: mkdir staging && mv target/yb-workload-sim.jar target/yb-workload-sim-${{ env.build-number }}.jar && cp target/*.jar staging
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.3.1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: "Release: ${{ github.run_id }}"
-          body: "This is an auto-generated pull request for a new release."
-          branch: "release/${{ github.run_id }}"
-          delete-branch: true
-      - name: Auto approve
-        if: steps.cpr.outputs.pull-request-operation == 'created'
-        run: gh pr review --approve "${{ steps.cpr.outputs.pull-request-number }}"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Enable Pull Request Automerge
-        if: steps.cpr.outputs.pull-request-operation == 'created'
-        uses: peter-evans/enable-pull-request-automerge@v3
+          name: Package
+          path: staging
+          retention-days: 1
+      - uses: marvinpinto/action-automatic-releases@latest
         with:
-          token: ${{ secrets.PAT }}
-          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
-          merge-method: squash
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "${{ github.run_number }}"
+          title: "Automated Build ${{ github.run_number }}"
+          prerelease: true
+          files: staging/*.jar
