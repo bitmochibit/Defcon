@@ -12,9 +12,6 @@ on:
   push:
     branches: [ "main" ]
 
-env:
-  build-number: ${GITHUB_RUN_NUMBER}
-
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -28,7 +25,16 @@ jobs:
           distribution: 'temurin'
           cache: maven
       - run: mvn clean package -DskipTests
-      - run: mkdir staging && mv target/NuclearCraft.jar target/NuclearCraft-${{ env.build-number }}.jar && cp target/*.jar staging
+      - name: Get the artifact-id and version from the pom.xml
+        id: get-pom
+        run: |
+          echo "::set-output name=artifact-id::$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.artifactId}' --non-recursive exec:exec)"
+          echo "::set-output name=version::$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)"
+      - name: Display the artifact-id and version
+        run: |
+          echo "Artifact ID: ${{ steps.get-pom.outputs.artifact-id }}"
+          echo "Version: ${{ steps.get-pom.outputs.version }}"
+      - run: mkdir staging && cp target/*.jar staging
       - name: Upload artifact
         uses: actions/upload-artifact@v4.3.1
         with:
@@ -38,7 +44,7 @@ jobs:
       - uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "${{ github.run_number }}"
-          title: "Automated Build ${{ github.run_number }}"
+          automatic_release_tag: "${{ steps.get-pom.outputs.artifact-id }}"
+          title: "Release version: ${{ steps.get-pom.outputs.version }}"
           prerelease: true
           files: staging/*.jar
