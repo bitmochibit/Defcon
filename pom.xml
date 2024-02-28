@@ -30,7 +30,7 @@
         <repository>
             <id>github</id>
             <name>GitHub</name>
-            <url>https://maven.pkg.github.com/bitmochibit/NuclearCraft.git</url>
+            <url>https://maven.pkg.github.com/bitmochibit/NuclearCraft</url>
         </repository>
     </distributionManagement>
 
