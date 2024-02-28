@@ -66,6 +66,7 @@ jobs:
           title: "Release: ${{ github.run_id }}"
           body: "This is an auto-generated pull request for a new release."
           branch: "release/${{ github.run_id }}"
+          delete-branch: true
       - name: Auto approve
         if: steps.cpr.outputs.pull-request-operation == 'created'
         run: gh pr review --approve "${{ steps.cpr.outputs.pull-request-number }}"
