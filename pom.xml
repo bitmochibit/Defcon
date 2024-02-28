@@ -22,6 +22,10 @@
     </properties>
     <url>http://rynotechblog.altervista.org/</url>
 
+    <scm>
+        <developerConnection>scm:git:https://github.com/bitmochibit/NuclearCraft.git</developerConnection>
+    </scm>
+
     <build>
         <plugins>
             <plugin>
