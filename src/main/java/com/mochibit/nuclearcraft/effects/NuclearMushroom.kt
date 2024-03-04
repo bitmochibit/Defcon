@@ -24,6 +24,7 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
 
     val maxAliveTick = 20 * 60 * 3;
 
+    var riseSpeed = 2;
     var currentHeight = 0.0;
 
     var maxTemp = 4000.0;
@@ -63,7 +64,6 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
         if (outerTemperature > 1800)
             outerTemperature -= 10;
 
-
         coreSpheroid.particleBuilder.color(coreColor, 5f);
         secondarySpheroid.particleBuilder.color(middleColor, 5f);
         tertiarySpheroid.particleBuilder.color(outerColor, 5f);
@@ -79,17 +79,17 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     }
 
     private fun elevateSphere(delta: Double) {
-        if (currentHeight > 50)
+        if (currentHeight > 120)
             return;
 
+        val deltaMovement = riseSpeed*delta;
+
         // Elevate the sphere using transform translation
-        coreSpheroid.transform = coreSpheroid.transform.translated(Vector3(0.0, delta, 0.0));
+        coreSpheroid.transform = coreSpheroid.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+        secondarySpheroid.transform = secondarySpheroid.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+        tertiarySpheroid.transform = tertiarySpheroid.transform.translated(Vector3(0.0, deltaMovement, 0.0));
 
-        secondarySpheroid.transform = secondarySpheroid.transform.translated(Vector3(0.0, delta, 0.0));
-
-        tertiarySpheroid.transform = tertiarySpheroid.transform.translated(Vector3(0.0, delta, 0.0));
-
-        currentHeight += delta;
+        currentHeight += deltaMovement;
     }
 
 
