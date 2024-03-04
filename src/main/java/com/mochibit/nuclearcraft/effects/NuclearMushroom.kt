@@ -13,18 +13,14 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     private val startingColor = Color.fromRGB(255, 229, 159)
     private val endingColor = Color.fromRGB(36, 37, 38);
 
-    val coreSpheroid = FullHemiSphereShape(Particle.REDSTONE, center.subtract(0.0, 5.0, 0.0),25.0, 15.0, 0.0, 0.0, -15.0)
-    val secondarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center.subtract(0.0, 5.0, 0.0),25.0, 20.0, 10.0, 15.0, -8.0)
+    val coreSpheroid = FullHemiSphereShape(Particle.REDSTONE, center,25.0, 15.0, 0.0, 0.0, -15.0)
+    val secondarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center,25.0, 20.0, 10.0, 15.0, -8.0)
     val tertiarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center,20.0, 25.0, 15.0, 20.0, -10.0)
-
-
-
 
     val stem = CylinderShape(Particle.REDSTONE, center, 1.0, 3.0, 3.0, 12.0)
 
     val footCloudMain = FullCylinderShape(Particle.REDSTONE, center, 6.0, 8.0, 8.0, 18.0)
     val footCloudSecondary = FullCylinderShape(Particle.REDSTONE, center, 3.0, 50.0, 50.0, 60.0)
-
 
     val maxAliveTick = 20 * 60 * 3;
 
@@ -34,8 +30,6 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     var coreTemperature = maxTemp;
     var middleTemperature = maxTemp;
     var outerTemperature = maxTemp;
-
-
 
     override fun draw() {
         coreSpheroid.draw();
@@ -50,10 +44,7 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     override fun animate(delta: Double) {
         elevateSphere(delta);
         stretchCylinder()
-
-
         recalculateTempColor()
-
         if (tickAlive > maxAliveTick)
             this.destroy();
     }
