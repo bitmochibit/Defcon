@@ -3,8 +3,12 @@ package com.mochibit.nuclearcraft.explosions
 import com.mochibit.nuclearcraft.NuclearCraft
 import com.mochibit.nuclearcraft.effects.NuclearMushroom
 import com.mochibit.nuclearcraft.threading.jobs.SimpleCompositionJob
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.title.Title
+import net.kyori.adventure.title.Title.Times
 import org.bukkit.Location
 import org.bukkit.Material
+import java.time.Duration
 
 class NuclearExplosion(private val center: Location, private val nuclearComponent: NuclearComponent) : Explosion() {
 
@@ -23,6 +27,21 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         *
         *  When all of this is happening, there will be a sound effect, and a particle effect, to simulate the explosion
         */
+
+        // Send to a nearby player the flash of the explosion (radius)
+        center.getNearbyPlayers(300.0).forEach { player ->
+            // Custom font shows a flash screen
+            val title = Title.title(Component.text("\uE000"),
+                Component.empty(),
+                Times.times(Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(1)));
+
+            player.showTitle(title);
+        }
+
+        // Send custom explosion sounds to all players in the radius
+        center.getNearbyPlayers(300.0).forEach { player ->
+            player.playSound(center, "minecraft:nuke.set_distant", 1.0f, 1.0f);
+        }
 
         // Particle SFX
         NuclearMushroom(center).instantiate(true);

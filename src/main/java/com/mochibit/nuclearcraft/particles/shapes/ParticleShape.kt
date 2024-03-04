@@ -36,17 +36,11 @@ abstract class ParticleShape(particle: Particle, val spawnPoint: Location) {
     var center: Vector3 = Vector3.ZERO;
     private var transformedCenter = Vector3.ZERO;
 
-    private var startingColor: Color = Color.WHITE;
-    private var endingColor: Color = Color.WHITE;
-    private var distanceColor: Boolean = false
-
     open fun draw() {
         for (transformed in transformedPoints) {
             if (Random.nextInt(0, 100) <= 98) continue;
             val currentLoc = spawnPoint.clone().add(transformed.x, transformed.y, transformed.z);
             particleBuilder.location(currentLoc);
-            if (distanceColor)
-                centerDistanceColor(spawnPoint, currentLoc);
             particleBuilder.spawn();
         }
     }
@@ -81,25 +75,8 @@ abstract class ParticleShape(particle: Particle, val spawnPoint: Location) {
         return this;
     }
 
-    private fun centerDistanceColor(spawnPoint: Location, currLoc: Location) {
-        // Get the center from the spawn point and the transformed point y
-        val center = spawnPoint.clone().add(transformedCenter.x, transformedCenter.y, transformedCenter.z);
-        // Get distance from the center of the explosion
-        val distanceSqr = center.distanceSquared(currLoc);
-
-        val lerp = MathFunctions.map(distanceSqr, 0.0, 300.0, 0.0, 1.0);
-        val color = Color.fromRGB(
-            MathFunctions.lerp(startingColor.red, endingColor.red, lerp),
-            MathFunctions.lerp(startingColor.green, endingColor.green, lerp),
-            MathFunctions.lerp(startingColor.blue, endingColor.blue, lerp)
-        );
-        particleBuilder.color(color, 5.0f);
-    }
-
-    fun lerpColorFromCenter(startingColor: Color, endingColor: Color): ParticleShape {
-        this.startingColor = startingColor;
-        this.endingColor = endingColor;
-        distanceColor = true;
+    fun color(color: Color, size: Float): ParticleShape {
+        particleBuilder.color(color, size);
         return this;
     }
 

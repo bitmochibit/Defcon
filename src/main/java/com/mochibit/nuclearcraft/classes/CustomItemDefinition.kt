@@ -4,11 +4,10 @@ import com.mochibit.nuclearcraft.NuclearCraft
 import com.mochibit.nuclearcraft.enums.ItemBehaviour
 import com.mochibit.nuclearcraft.enums.ItemDataKey
 import com.mochibit.nuclearcraft.interfaces.PluginItem
-import com.mochibit.nuclearcraft.utils.ColorParser
+import com.mochibit.nuclearcraft.utils.ColorUtils
 import com.mochibit.nuclearcraft.utils.MetaManager
 import org.bukkit.Material
 import org.bukkit.inventory.ItemStack
-import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.*
 
@@ -36,7 +35,7 @@ class CustomItemDefinition(
     override val displayName: String
         get() {
             // Strip color codes from the name
-            return ColorParser.stripColor(name)
+            return ColorUtils.stripColor(name)
         }
 
     override val itemStack: ItemStack
@@ -48,9 +47,9 @@ class CustomItemDefinition(
 
             /* Meta assignment */
             val itemMeta = customItem.itemMeta
-            itemMeta.setDisplayName(ColorParser.parseColor(name))
+            itemMeta.setDisplayName(ColorUtils.parseColor(name))
             itemMeta.lore =
-                ColorParser.parseColor(Arrays.asList(*description!!.split("\n".toRegex()).dropLastWhile { it.isEmpty() }
+                ColorUtils.parseColor(Arrays.asList(*description!!.split("\n".toRegex()).dropLastWhile { it.isEmpty() }
                     .toTypedArray()))
 
             MetaManager.setItemData(itemMeta, ItemDataKey.ItemID, id)
