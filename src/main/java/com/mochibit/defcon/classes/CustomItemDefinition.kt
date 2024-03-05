@@ -4,7 +4,7 @@ import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.enums.ItemBehaviour
 import com.mochibit.defcon.enums.ItemDataKey
 import com.mochibit.defcon.interfaces.PluginItem
-import com.mochibit.defcon.utils.ColorParser
+import com.mochibit.defcon.utils.ColorUtils
 import com.mochibit.defcon.utils.MetaManager
 import org.bukkit.Material
 import org.bukkit.inventory.ItemStack
@@ -35,7 +35,7 @@ class CustomItemDefinition(
     override val displayName: String
         get() {
             // Strip color codes from the name
-            return ColorParser.stripColor(name)
+            return ColorUtils.stripColor(name)
         }
 
     override val itemStack: ItemStack
@@ -47,9 +47,9 @@ class CustomItemDefinition(
 
             /* Meta assignment */
             val itemMeta = customItem.itemMeta
-            itemMeta.setDisplayName(ColorParser.parseColor(name))
+            itemMeta.setDisplayName(ColorUtils.parseColor(name))
             itemMeta.lore =
-                ColorParser.parseColor(Arrays.asList(*description!!.split("\n".toRegex()).dropLastWhile { it.isEmpty() }
+                ColorUtils.parseColor(Arrays.asList(*description!!.split("\n".toRegex()).dropLastWhile { it.isEmpty() }
                     .toTypedArray()))
 
             MetaManager.setItemData(itemMeta, ItemDataKey.ItemID, id)
