@@ -6,7 +6,7 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Java CI with Maven
+name: Deploy to GitHub Releases
 
 on:
   push:
@@ -30,11 +30,9 @@ jobs:
         run: |
           echo "::set-output name=artifact-id::$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.artifactId}' --non-recursive exec:exec)"
           echo "::set-output name=version::$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)"
-      - name: Display the artifact-id and version
-        run: |
-          echo "Artifact ID: ${{ steps.get-pom.outputs.artifact-id }}"
-          echo "Version: ${{ steps.get-pom.outputs.version }}"
-      - run: mkdir staging && cp target/*.jar staging
+      - name: Concatenate the artifact-id and version to a single string and print it
+        run: echo "ArtifactName=${{ steps.get-pom.outputs.artifact-id }}-${{ steps.get-pom.outputs.version }}" >> $GITHUB_ENV
+      - run: mkdir staging && cp "target/Defcon-${{ env.ArtifactName }}.jar" staging
       - name: Upload artifact
         uses: actions/upload-artifact@v4.3.1
         with:
@@ -47,4 +45,4 @@ jobs:
           automatic_release_tag: "${{ steps.get-pom.outputs.version }}"
           title: "Release version: ${{ steps.get-pom.outputs.artifact-id }}-${{ steps.get-pom.outputs.version }}"
           prerelease: true
-          files: staging/*.jar
+          files: staging/Defcon-${{ env.ArtifactName }}.jar
