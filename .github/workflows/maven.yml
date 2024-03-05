@@ -32,7 +32,7 @@ jobs:
           echo "::set-output name=version::$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)"
       - name: Concatenate the artifact-id and version to a single string and print it
         run: echo "ArtifactName=${{ steps.get-pom.outputs.artifact-id }}-${{ steps.get-pom.outputs.version }}" >> $GITHUB_ENV
-      - run: mkdir staging && cp "target/Defcon-${{ env.ArtifactName }}.jar" staging
+      - run: mkdir staging && cp "target/${{ env.ArtifactName }}.jar" staging
       - name: Upload artifact
         uses: actions/upload-artifact@v4.3.1
         with:
@@ -45,4 +45,4 @@ jobs:
           automatic_release_tag: "${{ steps.get-pom.outputs.version }}"
           title: "Release version: ${{ steps.get-pom.outputs.artifact-id }}-${{ steps.get-pom.outputs.version }}"
           prerelease: true
-          files: staging/Defcon-${{ env.ArtifactName }}.jar
+          files: staging/${{ env.ArtifactName }}.jar
