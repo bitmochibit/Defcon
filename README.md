@@ -1,4 +1,4 @@
-# ☢️ SpigotDefcon
+# ☢️ Defcon: Nuclear Warfare Plugin
 
 _This Minecraft plugin for spigot adds Nuclear energy and the weapons that come with it._
 Nuke your opponents from your base with missiles and witness the destruction power of nuclear weapons.
@@ -20,6 +20,6 @@ Nuke your opponents from your base with missiles and witness the destruction pow
 - 🔋 Power and supplies
   - Generators (Coal, Thermal, Nuclear) [For powering defensive structures or launch silos]
   - Refiners (For refine Uranium or producing **fuel mixtures**)
-  - Pumps 
+  - Pumps
 - 🛡️ Supported Plugins
   - [ ] WorldGuard (protection and tags)

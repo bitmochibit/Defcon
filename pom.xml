@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.mochibit</groupId>
-    <artifactId>NuclearCraft</artifactId>
+    <artifactId>Defcon</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>NuclearCraft</name>
+    <name>Defcon</name>
 
     <description>A plugin that adds nuclear energy, along with his advantages and dangers</description>
     <properties>
@@ -24,19 +24,19 @@
     <url>http://rynotechblog.altervista.org/</url>
 
     <scm>
-        <developerConnection>scm:git:https://github.com/bitmochibit/NuclearCraft.git</developerConnection>
+        <developerConnection>scm:git:https://github.com/bitmochibit/Defcon.git</developerConnection>
     </scm>
 
     <distributionManagement>
         <repository>
             <id>github</id>
             <name>GitHub</name>
-            <url>https://maven.pkg.github.com/bitmochibit/NuclearCraft</url>
+            <url>https://maven.pkg.github.com/bitmochibit/Defcon</url>
         </repository>
         <snapshotRepository>
             <id>github</id>
             <name>GitHub</name>
-            <url>https://maven.pkg.github.com/bitmochibit/NuclearCraft</url>
+            <url>https://maven.pkg.github.com/bitmochibit/Defcon</url>
         </snapshotRepository>
     </distributionManagement>
 
@@ -54,11 +54,11 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <outputFile>C:\Users\Ryno\Desktop\testPlugin\plugins\NuclearCraft.jar</outputFile>
+                            <outputFile>C:\Users\Ryno\Desktop\testPlugin\plugins\Defcon.jar</outputFile>
                             <relocations>
                                 <relocation>
                                     <pattern>com.jeff_media.customblockdata</pattern>
-                                    <shadedPattern>com.mochibit.nuclearcraft.api.customblockdata</shadedPattern>
+                                    <shadedPattern>com.mochibit.defcon.api.customblockdata</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
