@@ -6,8 +6,11 @@ import com.mochibit.defcon.threading.jobs.SimpleCompositionJob
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.title.Title
 import net.kyori.adventure.title.Title.Times
+import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
+import org.bukkit.entity.Entity
+import org.bukkit.scheduler.BukkitScheduler
 import java.time.Duration
 
 class NuclearExplosion(private val center: Location, private val nuclearComponent: NuclearComponent) : Explosion() {
@@ -40,8 +43,28 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
         // Send custom explosion sounds to all players in the radius
         center.getNearbyPlayers(300.0).forEach { player ->
-            player.playSound(center, "minecraft:nuke.set_distant", 1.0f, 1.0f);
+            // Play sound delayed to the distance
+            val distance = player.location.distance(center);
+            val soundSpeed = 50 // blocks per second
+            val delayInSeconds = (distance / soundSpeed).toLong();
+            Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable {
+                player.playSound(center, "minecraft:nuke.set_near", 1.0f, 1.0f);
+                player.playSound(center, "minecraft:nuke.set_near_outer_rumble", 1.0f, 1.0f);
+                player.playSound(center, "minecraft:nuke.set_near_outer_wind", 1.0f, 1.0f);
+            }, delayInSeconds * 20);
+
+            player.playSound(center, "minecraft:nuke.ground_rumble", 1.0f, 1.0f);
         }
+
+        center.getNearbyPlayers(600.0).forEach { player ->
+            val distance = player.location.distance(center);
+            val soundSpeed = 50 // blocks per second
+            val delayInSeconds = (distance / soundSpeed).toLong();
+            Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable {
+                player.playSound(center, "minecraft:nuke.set_distant_outer", 1.0f, 1.0f);
+            }, delayInSeconds * 20);
+        }
+
 
         // Particle SFX
         NuclearMushroom(center).instantiate(true);

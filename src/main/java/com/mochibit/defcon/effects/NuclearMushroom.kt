@@ -3,8 +3,6 @@ package com.mochibit.defcon.effects
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.particles.shapes.*
-import com.mochibit.defcon.utils.MathFunctions
-import com.mochibit.defcon.utils.ColorUtils
 import com.mochibit.defcon.particles.shapes.FullHemiSphereShape
 import org.bukkit.Bukkit
 import org.bukkit.Color
@@ -13,26 +11,22 @@ import org.bukkit.Particle
 
 class NuclearMushroom(val center: Location) : AnimatedEffect() {
     private val startingColor = Color.fromRGB(255, 229, 159)
-    private val endingColor = Color.fromRGB(36, 37, 38);
-
-    val coreSpheroid = FullHemiSphereShape(Particle.REDSTONE, center,25.0, 15.0, 0.0, 0.0, -15.0)
-    val secondarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center,25.0, 20.0, 10.0, 15.0, -8.0)
-    val tertiarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center,20.0, 25.0, 15.0, 20.0, -10.0)
-
-    val stem = CylinderShape(Particle.REDSTONE, center, 1.0, 3.0, 3.0, 12.0)
-
-    val footCloudMain = FullCylinderShape(Particle.REDSTONE, center, 6.0, 8.0, 8.0, 18.0)
-    val footCloudSecondary = FullCylinderShape(Particle.REDSTONE, center, 3.0, 50.0, 50.0, 60.0)
-
+    private val endingColor = Color.fromRGB(88, 87, 84);
+    var maxTemp = 4000.0;
     val maxAliveTick = 20 * 60 * 3;
 
     var riseSpeed = 2;
     var currentHeight = 0.0;
 
-    var maxTemp = 4000.0;
-    var coreTemperature = maxTemp;
-    var middleTemperature = maxTemp;
-    var outerTemperature = maxTemp;
+    // Shapes
+    val coreSpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 15.0, 0.0, 0.0, -15.0)
+    val secondarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 22.0, 20.0, 10.0, 15.0, -8.0)
+    val tertiarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 25.0, 15.0, 20.0, -10.0)
+
+    val stem = CylinderShape(Particle.REDSTONE, center, 1.0, 3.0, 3.0, 12.0)
+
+    val footCloudMain = FullCylinderShape(Particle.REDSTONE, center, 6.0, 8.0, 8.0, 18.0)
+    val footCloudSecondary = FullCylinderShape(Particle.REDSTONE, center, 3.0, 50.0, 50.0, 60.0)
 
     override fun draw() {
         coreSpheroid.draw();
@@ -47,33 +41,25 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     override fun animate(delta: Double) {
         elevateSphere(delta);
         stretchCylinder()
-        recalculateTempColor()
+        coolComponents()
         if (tickAlive > maxAliveTick)
             this.destroy();
     }
 
-    fun recalculateTempColor() {
-        var coreColor = ColorUtils.tempToRGB(coreTemperature);
-        var middleColor = ColorUtils.tempToRGB(middleTemperature);
-        var outerColor = ColorUtils.tempToRGB(outerTemperature);
+    fun coolComponents() {
+        coreSpheroid.temperature -= 2;
+        secondarySpheroid.temperature -= 5;
+        tertiarySpheroid.temperature -= 10;
 
-        if (coreTemperature > 1800)
-            coreTemperature -= 0.1;
-
-        if (middleTemperature > 1800)
-            middleTemperature -= 5;
-
-        if (outerTemperature > 1800)
-            outerTemperature -= 10;
-
-        coreSpheroid.particleBuilder.color(coreColor, 5f);
-        secondarySpheroid.particleBuilder.color(middleColor, 5f);
-        tertiarySpheroid.particleBuilder.color(outerColor, 5f);
+        stem.temperature -= 10;
+        footCloudMain.temperature -= 15;
+        footCloudSecondary.temperature -= 20;
     }
 
 
+
     private fun stretchCylinder() {
-        if (stem.height >= currentHeight-10)
+        if (stem.height >= currentHeight - 10)
             return;
 
         stem.height += 1;
@@ -84,7 +70,7 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
         if (currentHeight > 120)
             return;
 
-        val deltaMovement = riseSpeed*delta;
+        val deltaMovement = riseSpeed * delta;
 
         // Elevate the sphere using transform translation
         coreSpheroid.transform = coreSpheroid.transform.translated(Vector3(0.0, deltaMovement, 0.0));
@@ -110,24 +96,33 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
         };
 
         coreSpheroid.buildAndAssign().color(startingColor, 5f)
+            .temperature(maxTemp, 1500.0, maxTemp)
+            .baseColor(endingColor)
         secondarySpheroid.buildAndAssign().color(startingColor, 5f)
+            .temperature(maxTemp, 1500.0, maxTemp)
+            .baseColor(endingColor)
         tertiarySpheroid.buildAndAssign().color(startingColor, 5f)
+            .baseColor(endingColor)
+            .temperature(maxTemp, 1500.0, maxTemp)
 
 
         stem
             .buildAndAssign()
-            .color(endingColor, 5f);
+            .baseColor(endingColor)
+            .temperature(maxTemp, 1500.0, maxTemp)
 
         stem.particleBuilder.count(0).offset(0.0, 0.1, 0.0)
 
         footCloudMain
             .buildAndAssign()
-            .color(endingColor, 5f);
+            .baseColor(endingColor)
+            .temperature(maxTemp, 1500.0, maxTemp)
 
         footCloudSecondary
             .buildAndAssign()
-            .snapToFloor()
-            .color(endingColor, 5f);
+            .snapToFloor(5.0, 5.0)
+            .baseColor(endingColor)
+            .temperature(maxTemp, 1500.0, maxTemp)
 
     }
 

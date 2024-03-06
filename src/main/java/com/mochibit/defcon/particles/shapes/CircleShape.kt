@@ -37,7 +37,7 @@ class CircleShape(
             val z = radiusZ * sin(extension * theta)
 
 
-            if (isDirectional()) {
+            if (isDirectional) {
                 val phi = atan2(z, x)
                 val directionX = cos(extension * phi)
                 val directionZ = sin(extension * phi)
