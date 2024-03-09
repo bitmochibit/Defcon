@@ -1,8 +1,6 @@
 package com.mochibit.defcon.utils
 
-import org.bukkit.Color
 import kotlin.math.PI
-import kotlin.math.ceil
 
 object MathFunctions {
     const val TAU = PI * 2
@@ -46,15 +44,9 @@ object MathFunctions {
         return this.lerp(a.toDouble(), b.toDouble(), t).toInt()
     }
 
-    fun map(value: Double, inValueMin: Double, inValueMax: Double, outValueMin: Double, outValueMax: Double): Double {
+    fun remap(value: Double, inValueMin: Double, inValueMax: Double, outValueMin: Double, outValueMax: Double): Double {
         return (value - inValueMin) * (outValueMax - outValueMin) / (inValueMax - inValueMin) + outValueMin;
     }
 
-    fun lerpColor(a: Color, b: Color, t: Double): Color {
-        val r = ceil(lerp(a.red.toDouble(), b.red.toDouble(), t))
-        val g = ceil(lerp(a.green.toDouble(), b.green.toDouble(), t))
-        val bl = ceil(lerp(a.blue.toDouble(), b.blue.toDouble(), t))
-        return Color.fromRGB(r.toInt(), g.toInt(), bl.toInt())
-    }
 
 }

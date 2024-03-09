@@ -15,26 +15,36 @@ import org.bukkit.Particle
  */
 class FullSphereShape(private val particle: Particle, spawnPoint: Location,
                       private val radiusY: Double, private val radiusXZ: Double,
-                      private val skipRadiusY: Double = 0.0, private val skipRadiusXZ: Double = 0.0
+                      private val skipRadiusY: Double = 0.0, private val skipRadiusXZ: Double = 0.0,
+                      private val density: Double = 1.0
 ): ParticleShape(particle, spawnPoint){
 
-    override fun build(): HashSet<Vector3> {
-        val result = HashSet<Vector3>();
+    override fun build(): Array<ParticleVertex> {
+        val result = HashSet<ParticleVertex>();
+        val incrementValue = 1.0/ density;
 
-        for (x in -radiusXZ.toInt()..radiusXZ.toInt()) {
-            for (y in -radiusY.toInt()..radiusY.toInt()) {
-                for (z in -radiusXZ.toInt()..radiusXZ.toInt()) {
+        var x = -radiusXZ
+        while (x < radiusXZ) {
+            var y = -radiusY
+            while (y < radiusY) {
+                var z = -radiusXZ
+                while (z < radiusXZ) {
                     if (skipRadiusY > 0 || skipRadiusXZ > 0)
-                        if ((x * x) / (skipRadiusXZ * skipRadiusXZ) + (y * y) / (skipRadiusY * skipRadiusY) + (z * z) / (skipRadiusXZ * skipRadiusXZ) <= 1)
+                        if ((x * x) / (skipRadiusXZ * skipRadiusXZ) + (y * y) / (skipRadiusY * skipRadiusY) + (z * z) / (skipRadiusXZ * skipRadiusXZ) <= 1) {
+                            z += incrementValue
                             continue;
+                        }
 
                     if ((x * x) / (radiusXZ * radiusXZ) + (y * y) / (radiusY * radiusY) + (z * z) / (radiusXZ * radiusXZ) <= 1)
-                        result.add(Vector3(x.toDouble(), y.toDouble(), z.toDouble()))
+                        result.add(ParticleVertex(Vector3(x, y, z)))
+                    z += incrementValue
                 }
+                y += incrementValue
             }
+            x += incrementValue
         }
 
-        return result;
+        return result.toTypedArray();
     }
 
 
