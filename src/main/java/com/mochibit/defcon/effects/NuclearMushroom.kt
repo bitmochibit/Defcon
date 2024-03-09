@@ -19,14 +19,14 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     var currentHeight = 0.0;
 
     // Shapes
-    val coreSpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 15.0, 0.0, 0.0, -15.0)
-    val secondarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 22.0, 20.0, 10.0, 15.0, -8.0)
-    val tertiarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 25.0, 15.0, 20.0, -10.0)
+    val coreSpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 14.0, 0.0, 0.0,1.5, yStart = -16.0)
+    val secondarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 22.0, 20.0, 20.0, 14.0, 1.5, yStart = -8.0)
+    val tertiarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 25.0, 18.0, 20.0, 2.0, -10.0, 16.0)
 
-    val stem = CylinderShape(Particle.REDSTONE, center, 1.0, 3.0, 3.0, 12.0)
+    val stem = CylinderShape(Particle.REDSTONE, center, 1.0, 4.0, 4.0, 18.0)
 
-    val footCloudMain = FullCylinderShape(Particle.REDSTONE, center, 6.0, 8.0, 8.0, 18.0)
-    val footCloudSecondary = FullCylinderShape(Particle.REDSTONE, center, 3.0, 50.0, 50.0, 60.0)
+    val footCloudMain = CylinderShape(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 10.0, 4.0, 4.0, 16.0)
+    val footCloudSecondary = FullCylinderShape(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 1.0, 50.0, 50.0, 60.0)
 
     override fun draw() {
         coreSpheroid.draw();
@@ -44,16 +44,30 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
         coolComponents()
         if (tickAlive > maxAliveTick)
             this.destroy();
+
+        // after 60 seconds, take the tertiarySpheroid and move transitionProgress from 0 to 1 over 20 seconds
+        if (tickAlive > 20 * 30) {
+            tertiarySpheroid.transitionProgress = (tickAlive - 20 * 30) / (20 * 20.0);
+            secondarySpheroid.transitionProgress = (tickAlive - 20 * 30) / (30 * 20.0);
+        }
+
+        if (tickAlive > 20 * 15) {
+            stem.transitionProgress = (tickAlive - 20 * 15) / (20 * 20.0);
+            footCloudMain.transitionProgress = (tickAlive - 20 * 15) / (20 * 20.0);
+            footCloudSecondary.transitionProgress = (tickAlive - 20 * 15) / (20 * 20.0);
+        }
+
+
     }
 
     fun coolComponents() {
-        coreSpheroid.temperature -= 2;
-        secondarySpheroid.temperature -= 5;
-        tertiarySpheroid.temperature -= 10;
+        coreSpheroid.temperature -= 1;
+        secondarySpheroid.temperature -= 4;
+        tertiarySpheroid.temperature -= 5;
 
-        stem.temperature -= 10;
-        footCloudMain.temperature -= 15;
-        footCloudSecondary.temperature -= 20;
+        stem.temperature -= 25;
+        footCloudMain.temperature -= 40;
+        footCloudSecondary.temperature -= 70;
     }
 
 
@@ -67,7 +81,7 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     }
 
     private fun elevateSphere(delta: Double) {
-        if (currentHeight > 120)
+        if (currentHeight > 60.0)
             return;
 
         val deltaMovement = riseSpeed * delta;
@@ -98,32 +112,37 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
         coreSpheroid.buildAndAssign().color(startingColor, 5f)
             .temperature(maxTemp, 1500.0, maxTemp)
             .baseColor(endingColor)
+            .temperatureEmission(true)
         secondarySpheroid.buildAndAssign().color(startingColor, 5f)
             .temperature(maxTemp, 1500.0, maxTemp)
             .baseColor(endingColor)
+            .temperatureEmission(true)
         tertiarySpheroid.buildAndAssign().color(startingColor, 5f)
             .baseColor(endingColor)
             .temperature(maxTemp, 1500.0, maxTemp)
+            .temperatureEmission(true)
 
 
         stem
             .buildAndAssign()
             .baseColor(endingColor)
             .temperature(maxTemp, 1500.0, maxTemp)
-
-        stem.particleBuilder.count(0).offset(0.0, 0.1, 0.0)
+            .temperatureEmission(true).
+            particleBuilder.count(0).offset(0.0, 0.1, 0.0)
 
         footCloudMain
             .buildAndAssign()
             .baseColor(endingColor)
             .temperature(maxTemp, 1500.0, maxTemp)
+            .radialSpeed(0.01)
+            .particleBuilder.count(0).offset(0.0, 0.005, 0.0)
 
         footCloudSecondary
             .buildAndAssign()
             .snapToFloor(5.0, 5.0)
             .baseColor(endingColor)
-            .temperature(maxTemp, 1500.0, maxTemp)
-
+            .radialSpeed(0.05).
+            particleBuilder.count(0).offset(0.0, 0.005, 0.0)
     }
 
     override fun stop() {

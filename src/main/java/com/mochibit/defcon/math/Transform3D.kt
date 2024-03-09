@@ -142,10 +142,10 @@ class Transform3D(var basis: Basis, var origin: Vector3) : Cloneable {
         );
     }
 
-    fun xform(vectors: HashSet<Vector3>) : HashSet<Vector3> {
-        val result = HashSet<Vector3>();
-        for (vector in vectors) {
-            result.add(xform(vector));
+    fun xform(vectors: Array<Vector3>) : Array<Vector3?> {
+        val result = arrayOfNulls<Vector3>(vectors.size)
+        for (i in vectors.indices) {
+            result[i] = xform(vectors[i]);
         }
         return result;
     }

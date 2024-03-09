@@ -12,8 +12,8 @@ class FullCircleShape(
     private var rate: Double,
     private var radiusRate: Double
 ) : ParticleShape(particle, spawnPoint) {
-    override fun build(): HashSet<Vector3> {
-        val result = HashSet<Vector3>()
+    override fun build(): Array<ParticleVertex> {
+        val result = HashSet<ParticleVertex>()
 
         var dynamicRate = 0.0;
         var i = 0.1
@@ -32,7 +32,7 @@ class FullCircleShape(
             if (j > radiusZ)
                 j = radiusZ
         }
-        return result;
+        return result.toTypedArray();
     }
 
 }

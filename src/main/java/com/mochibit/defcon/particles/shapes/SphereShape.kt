@@ -1,8 +1,10 @@
 package com.mochibit.defcon.particles.shapes
 
 import com.mochibit.defcon.math.Vector3
+import com.mochibit.defcon.utils.MathFunctions
 import org.bukkit.Location
 import org.bukkit.Particle
+import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -11,22 +13,22 @@ class SphereShape(particle: Particle,
                   spawnPoint: Location,
                   val heightRadius: Double, val widthRadius: Double, val rate: Double
 ) : ParticleShape(particle, spawnPoint) {
-    override fun build(): HashSet<Vector3> {
-        val result = HashSet<Vector3>()
+    override fun build(): Array<ParticleVertex> {
+        val result = HashSet<ParticleVertex>()
 
         // Cache
-        val rateDiv = java.lang.Math.PI / rate
+        val rateDiv = PI / rate
 
         // To make a sphere we're going to generate multiple circles
         // next to each other.
         var phi = 0.0
-        while (phi <= java.lang.Math.PI) {
+        while (phi <= PI) {
             // Cache
             val y1 = heightRadius * cos(phi)
             val y2 = widthRadius * sin(phi)
 
             var theta = 0.0
-            while (theta <= 2 * java.lang.Math.PI) {
+            while (theta <= 2 * PI) {
                 val x = cos(theta) * y2
                 val z = sin(theta) * y2
 
@@ -39,12 +41,12 @@ class SphereShape(particle: Particle,
                 val directionZ = sin(omega)
 
                 particleBuilder.offset(directionX, directionY, directionZ)
-                result.add(Vector3(x, y1, z))
+                result.add(ParticleVertex(Vector3(x, y1, z)))
                 theta += rateDiv
             }
             phi += rateDiv
         }
-        return result;
+        return result.toTypedArray();
     }
 
 }
