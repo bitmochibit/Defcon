@@ -26,7 +26,7 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     val stem = CylinderShape(Particle.REDSTONE, center, 1.0, 4.0, 4.0, 18.0)
 
     val footCloudMain = CylinderShape(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 10.0, 4.0, 4.0, 16.0)
-    val footCloudSecondary = FullCylinderShape(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 1.0, 50.0, 50.0, 60.0)
+    val footCloudSecondary = FullCylinderShape(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 1.0, 20.0, 20.0, 16.0)
 
     override fun draw() {
         coreSpheroid.draw();

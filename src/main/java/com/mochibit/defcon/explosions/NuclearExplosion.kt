@@ -95,7 +95,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
         Defcon.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
         Defcon.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(shockwaveRadius) {
-            Shockwave(center, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
+            Shockwave(center, 0.0, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
         });
 
 
