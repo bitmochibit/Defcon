@@ -1,6 +1,7 @@
 package com.mochibit.defcon.explosions
 
 import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.biomes.CustomBiomeHandler
 import com.mochibit.defcon.effects.NuclearMushroom
 import com.mochibit.defcon.threading.jobs.SimpleCompositionJob
 import net.kyori.adventure.text.Component
@@ -97,6 +98,14 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         Defcon.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(shockwaveRadius) {
             Shockwave(center, 0.0, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
         });
+
+        // Get area of 10 chunks around the center
+        for (x in -5..5) {
+            for (z in -5..5) {
+                val chunk = center.world.getChunkAt(center.chunk.x + x, center.chunk.z + z);
+                CustomBiomeHandler.setAirFlameBiome(chunk);
+            }
+        }
 
 
 

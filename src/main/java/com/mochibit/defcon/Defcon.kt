@@ -1,5 +1,6 @@
 package com.mochibit.defcon
 
+import com.mochibit.defcon.biomes.CustomBiomeHandler
 import com.mochibit.defcon.services.*
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import org.bukkit.Bukkit
@@ -12,6 +13,8 @@ class Defcon : JavaPlugin() {
     val asyncRunnable: ScheduledRunnable = ScheduledRunnable()
     override fun onEnable() {
         instance = this
+
+        CustomBiomeHandler.registerBiome()
 
         getLogger().info("[Defcon] has been enabled!")
         /* Register all plugin's events */
