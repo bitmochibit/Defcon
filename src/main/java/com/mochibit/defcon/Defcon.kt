@@ -14,8 +14,6 @@ class Defcon : JavaPlugin() {
     override fun onEnable() {
         instance = this
 
-        CustomBiomeHandler.registerBiome()
-
         getLogger().info("[Defcon] has been enabled!")
         /* Register all plugin's events */
         EventRegister()
