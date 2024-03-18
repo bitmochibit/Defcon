@@ -1,13 +1,13 @@
 # This file configuration stores all the items and their behaviours.
 # Every item has a specific utility and usage, and it can be defined with some booleans (see below).
 
-# item-id: The unique custom id.
+# item-id: The unique definitions id.
 # item-name: The name of the item.
 # item-description: The description of the item.
 
 # item-minecraft-id: The minecraft id of the item.
 # item-data-model-id: The id of the data model of the item.
-# custom-block-id: Let the system know that this item is a custom block.
+# definitions-block-id: Let the system know that this item is a definitions block.
 
 # is-usable: If true, the item can be used to consume other items.
 # is-equipable: If true, the item can be equipped.

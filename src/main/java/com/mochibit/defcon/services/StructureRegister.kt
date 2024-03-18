@@ -89,7 +89,7 @@ class StructureRegister() {
                     // Loop through the disposition blocks
                     for (x in dispositionBlocks.indices) {
                         val blockName = dispositionBlocks[x]
-                        // Check if the block is a custom block
+                        // Check if the block is a definitions block
                         if (!customBlockDefinitions.containsKey(blockName)) {
                             throw RuntimeException("Unable to register structure, block variable $blockName is unknown")
                         }
@@ -105,7 +105,7 @@ class StructureRegister() {
             // Register interface blocks
             val interfaceBlockNames = structureConfig.getStringList("$item.interface-blocks")
             for (interfaceBlockName in interfaceBlockNames) {
-                // Check if the block is a custom block
+                // Check if the block is a definitions block
                 if (!customBlockDefinitions.containsKey(interfaceBlockName)) {
                     throw RuntimeException("Unable to register structure, block variable $interfaceBlockName is unknown")
                 }

@@ -2,9 +2,9 @@
 # Any item can be linked to a block and behaves like one.
 # Behaviours of the single block will be set as defined with the given behaviours
 
-# block-id: The unique block custom id (NOT RELATED WITH ITEMS).
+# block-id: The unique block definitions id (NOT RELATED WITH ITEMS).
 # block-minecraft-id: The minecraft ID of the block (if an item, some of them can be treated as block).
-# block-data-model-id: This ID will be used if the block is an item. (and will be replaced with a custom model)
+# block-data-model-id: This ID will be used if the block is an item. (and will be replaced with a definitions model)
 
 #------------------------------------------------------------------------------
 # BLOCK BEHAVIOURS

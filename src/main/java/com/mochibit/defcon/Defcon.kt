@@ -15,17 +15,20 @@ class Defcon : JavaPlugin() {
         instance = this
 
         getLogger().info("[Defcon] has been enabled!")
+        // Register datapack
+        DatapackRegister.get.registerPack()
+
         /* Register all plugin's events */
         EventRegister()
                 .registerItemEvents()
                 .registerBlockEvents()
 
-        /* Register custom items */
+        /* Register definitions items */
         if (!ItemRegister().registerItems()) {
             getLogger().warning("[Defcon] Some items were not registered!")
         }
 
-        /* Register custom blocks */
+        /* Register definitions blocks */
         BlockRegister().registerBlocks()
 
 

@@ -7,10 +7,14 @@ import com.mochibit.defcon.threading.jobs.SimpleCompositionJob
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.title.Title
 import net.kyori.adventure.title.Title.Times
+import net.minecraft.core.particles.ParticleParam
+import net.minecraft.network.protocol.game.PacketPlayOutWorldParticles
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
+import org.bukkit.Particle
 import java.time.Duration
+
 
 class NuclearExplosion(private val center: Location, private val nuclearComponent: NuclearComponent) : Explosion() {
 
@@ -42,7 +46,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
             player.showTitle(title);
         }
 
-        // Send custom explosion sounds to all players in the radius
+        // Send definitions explosion sounds to all players in the radius
         center.getNearbyPlayers(300.0).forEach { player ->
             // Play sound delayed to the distance
             val distance = player.location.distance(center);
@@ -70,20 +74,6 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         // Particle SFX
         NuclearMushroom(center).instantiate(true);
 
-        // Create a sphere of air blocks
-        val obliterationRadius = nuclearComponent.blastPower * 30;
-        for (x in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
-            for (y in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
-                for (z in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
-                    val distance = (x * x + y * y + z * z);
-                    if (distance <= obliterationRadius * obliterationRadius) {
-                        val block = center.clone().add(x.toDouble(), y.toDouble(), z.toDouble()).block;
-                        if (block.type != Material.AIR)
-                            block.type = Material.AIR;
-                    }
-                }
-            }
-        }
 
         // Give fire damage to all entities in the radius of the thermal radiation (unless they are protected)
         // We will use ray-casting to check if the entity is in the radius of the thermal radiation
@@ -100,7 +90,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         for (x in -falloutRadius.toInt()..falloutRadius.toInt()) {
             for (z in -falloutRadius.toInt()..falloutRadius.toInt()) {
                 val chunk = center.world.getChunkAt(center.chunk.x + x, center.chunk.z + z);
-                CustomBiomeHandler.setCustomBiome(chunk, "burning_air");
+                //CustomBiomeHandler.setCustomBiome(chunk, "burning_air");
             }
         }
 
@@ -110,12 +100,26 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
             for (x in -falloutRadius.toInt()..falloutRadius.toInt()) {
                 for (z in -falloutRadius.toInt()..falloutRadius.toInt()) {
                     val chunk = center.world.getChunkAt(center.chunk.x + x, center.chunk.z + z);
-                    CustomBiomeHandler.setCustomBiome(chunk, "nuclear_fallout");
+                    //CustomBiomeHandler.setCustomBiome(chunk, "nuclear_fallout");
                 }
             }
         }, 20 * 30);
 
 
+        // Create a sphere of air blocks
+        val obliterationRadius = nuclearComponent.blastPower * 30;
+        for (x in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
+            for (y in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
+                for (z in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
+                    val distance = (x * x + y * y + z * z);
+                    if (distance <= obliterationRadius * obliterationRadius) {
+                        val block = center.clone().add(x.toDouble(), y.toDouble(), z.toDouble()).block;
+                        if (block.type != Material.AIR)
+                            block.type = Material.AIR;
+                    }
+                }
+            }
+        }
 
         Defcon.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
         Defcon.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(shockwaveRadius) {
