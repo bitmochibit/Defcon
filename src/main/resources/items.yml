@@ -56,7 +56,7 @@ geiger:
 wrench:
     item-name: "Wrench"
     item-description: "&eUsed to assemble structures"
-    item-minecraft-id:
+    item-minecraft-id: IRON_PICKAXE
     item-data-model-id: 2
     is-usable: true
     is-equipable: true

@@ -11,12 +11,17 @@ class Defcon : JavaPlugin() {
     // This whole stuff will be moved, this is just for testing
     val scheduledRunnable: ScheduledRunnable = ScheduledRunnable()
     val asyncRunnable: ScheduledRunnable = ScheduledRunnable()
-    override fun onEnable() {
+
+    override fun onLoad() {
         instance = this
 
-        getLogger().info("[Defcon] has been enabled!")
         // Register datapack
         DatapackRegister.get.registerPack()
+    }
+
+    override fun onEnable() {
+
+        getLogger().info("[Defcon] has been enabled!")
 
         /* Register all plugin's events */
         EventRegister()
