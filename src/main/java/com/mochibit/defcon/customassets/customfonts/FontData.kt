@@ -1,6 +1,6 @@
-package com.mochibit.defcon.gui.customfonts
+package com.mochibit.defcon.customassets.customfonts
 
-data class CustomFontData(
+data class FontData(
     val type: String = "bitmap",
     val file : String = "minecraft:defcon/default.png",
     val ascent : Int = 7,

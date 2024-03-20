@@ -2,6 +2,8 @@ package com.mochibit.defcon.explosions
 
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.biomes.CustomBiomeHandler
+import com.mochibit.defcon.biomes.definitions.BurningAirBiome
+import com.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
 import com.mochibit.defcon.effects.NuclearMushroom
 import com.mochibit.defcon.threading.jobs.SimpleCompositionJob
 import net.kyori.adventure.text.Component
@@ -90,7 +92,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         for (x in -falloutRadius.toInt()..falloutRadius.toInt()) {
             for (z in -falloutRadius.toInt()..falloutRadius.toInt()) {
                 val chunk = center.world.getChunkAt(center.chunk.x + x, center.chunk.z + z);
-                //CustomBiomeHandler.setCustomBiome(chunk, "burning_air");
+                CustomBiomeHandler.setCustomBiome(chunk, BurningAirBiome());
             }
         }
 
@@ -100,7 +102,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
             for (x in -falloutRadius.toInt()..falloutRadius.toInt()) {
                 for (z in -falloutRadius.toInt()..falloutRadius.toInt()) {
                     val chunk = center.world.getChunkAt(center.chunk.x + x, center.chunk.z + z);
-                    //CustomBiomeHandler.setCustomBiome(chunk, "nuclear_fallout");
+                    CustomBiomeHandler.setCustomBiome(chunk, NuclearFalloutBiome());
                 }
             }
         }, 20 * 30);
