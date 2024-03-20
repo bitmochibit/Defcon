@@ -36,5 +36,16 @@ class TestExplosion : GenericCommand() {
         val location = Location(world, x.toDouble(), y.toDouble(), z.toDouble())
         val nuclearComponent = NuclearComponent(blastPower = 1f, radiationPower = 1f, thermalPower = 1f, empPower = 1f);
         NuclearExplosion(location, nuclearComponent).explode()
+
+//        val packet = PacketPlayOutWorldParticles(
+//            Particles.aa, true,
+//            (player.location.x.toFloat()).toDouble(),
+//            (player.location.y.toFloat()).toDouble(),
+//            (player.location.z.toFloat()).toDouble(),
+//            0f, 0f, 0f, 15f, 15
+//        )
+//        val craftPlayer = player as CraftPlayer
+//        craftPlayer.handle.b.a(packet)
+
     }
 }

@@ -23,12 +23,12 @@ class CustomBlockPlaceEvent : Listener {
         val container = item.itemMeta.persistentDataContainer
 
         // Get key and check if namespace exists
-        val blockIdKey = NamespacedKey(JavaPlugin.getPlugin(Defcon::class.java), "custom-block-id")
+        val blockIdKey = NamespacedKey(JavaPlugin.getPlugin(Defcon::class.java), "definitions-block-id")
         val itemIdKey = NamespacedKey(JavaPlugin.getPlugin(Defcon::class.java), "item-id")
         if (!container.has(blockIdKey, PersistentDataType.STRING)) return
         if (!container.has(itemIdKey, PersistentDataType.STRING)) return
 
-        // Get the custom block id and set it to the block
+        // Get the definitions block id and set it to the block
         val customBlockId = container.get(blockIdKey, PersistentDataType.STRING)?: return
         val customItemId = container.get(itemIdKey, PersistentDataType.STRING)?: return
 

@@ -12,7 +12,7 @@ import org.bukkit.plugin.java.JavaPlugin
 import java.util.*
 
 /**
- * This class defines a custom item
+ * This class defines a definitions item
  * It provides a way to generate effective minecraft items from this definition
  */
 class CustomItemDefinition(
