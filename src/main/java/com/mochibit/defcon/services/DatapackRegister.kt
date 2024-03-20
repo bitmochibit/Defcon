@@ -58,7 +58,7 @@ class DatapackRegister private constructor() : PackRegister {
         // Create .mcmeta file for the datapack
         val mcmeta = JSONObject()
         val pack = JSONObject()
-        pack["pack_format"] = DatapackFormatVersion.valueOf("V${serverVersion.replace(".", "_")}").getVersion()
+        pack["pack_format"] = ResourcePackFormatVersion.valueOf("V${serverVersion.replace(".", "_")}").getVersion()
         pack["description"] = "Defcon datapack"
         mcmeta["pack"] = pack
         // Write the .mcmeta file to the rootPath
@@ -93,8 +93,6 @@ class DatapackRegister private constructor() : PackRegister {
 
         if (tempHash == defconHash)
             return
-
-        info("Moving datapack to $defconDatapackFolder")
 
         info("Moving datapack to $defconDatapackFolder")
         if (Files.exists(defconDatapackFolder)) {

@@ -1,5 +1,6 @@
 package com.mochibit.defcon
 
+import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.biomes.CustomBiomeHandler
 import com.mochibit.defcon.services.*
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
@@ -22,6 +23,10 @@ class Defcon : JavaPlugin() {
     override fun onEnable() {
 
         getLogger().info("[Defcon] has been enabled!")
+
+        info("Registering resource pack")
+        ResourcePackRegister.get.registerPack()
+
 
         /* Register all plugin's events */
         EventRegister()
