@@ -4,12 +4,8 @@ import com.mochibit.defcon.abstracts.GenericCommand
 import com.mochibit.defcon.annotations.CommandInfo
 import com.mochibit.defcon.explosions.NuclearComponent
 import com.mochibit.defcon.explosions.NuclearExplosion
-import net.minecraft.core.particles.ParticleParam
-import net.minecraft.core.particles.Particles
-import net.minecraft.network.protocol.game.PacketPlayOutWorldParticles
 import org.bukkit.ChatColor
 import org.bukkit.Location
-import org.bukkit.craftbukkit.v1_19_R2.entity.CraftPlayer
 import org.bukkit.entity.Player
 
 @CommandInfo(name = "nctestexpl", permission = "defcon.admin", requiresPlayer = true)

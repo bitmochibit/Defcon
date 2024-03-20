@@ -9,8 +9,6 @@ import com.mochibit.defcon.threading.jobs.SimpleCompositionJob
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.title.Title
 import net.kyori.adventure.title.Title.Times
-import net.minecraft.core.particles.ParticleParam
-import net.minecraft.network.protocol.game.PacketPlayOutWorldParticles
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
@@ -37,7 +35,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         */
 
         // Send to a nearby player the flash of the explosion (radius)
-        center.getNearbyPlayers(300.0).forEach { player ->
+        center.world.getNearbyPlayers(center, 300.0).forEach { player ->
             // Custom font shows a flash screen
             val title = Title.title(
                 Component.text("\uE000"),
@@ -49,7 +47,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         }
 
         // Send definitions explosion sounds to all players in the radius
-        center.getNearbyPlayers(300.0).forEach { player ->
+        center.world.getNearbyPlayers(center, 300.0).forEach { player ->
             // Play sound delayed to the distance
             val distance = player.location.distance(center);
             val soundSpeed = 50 // blocks per second
@@ -63,7 +61,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
             player.playSound(center, "minecraft:nuke.ground_rumble", 1.0f, 1.0f);
         }
 
-        center.getNearbyPlayers(600.0).forEach { player ->
+        center.world.getNearbyPlayers(center,600.0).forEach { player ->
             val distance = player.location.distance(center);
             val soundSpeed = 50 // blocks per second
             val delayInSeconds = (distance / soundSpeed).toLong();

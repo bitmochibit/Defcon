@@ -4,6 +4,17 @@ _This Minecraft plugin for spigot adds Nuclear energy and the weapons that come 
 Nuke your opponents from your base with missiles and witness the destruction power of nuclear weapons.
 
 ---
+## ✅ Simple guide on installing the plugin.
+
+Make sure the server software is **paper spigot 1.19.3** and not spigot!
+
+Install **Protocollib**, **Worldedit**, **Worldguard** and **Vault**.
+
+When the server starts for the first time, it will automatically install the datapack and the server will restart automatically.
+
+For sounds and gui effects, the plugin will automatically generate a resource pack in the server root, so take it and put it in the ResourcePack folder in your minecraft client.
+
+---
 
 #### 🔭 RoadMap
 > This section contains all the features that will be covered by the plugin in the future.

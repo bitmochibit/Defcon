@@ -160,7 +160,7 @@ class DatapackRegister private constructor() : PackRegister {
                 particle["probability"] = default.effects.particle!!.probability
 
                 val options = JSONObject()
-                options["particle"] =
+                options["type"] =
                     "minecraft:${default.effects.particle!!.particle.name.lowercase(Locale.getDefault())}"
                 default.effects.particle!!.color?.let { options["color"] = it }
                 default.effects.particle!!.size?.let { options["size"] = it }
