@@ -7,7 +7,7 @@ import org.reflections.Reflections
 import java.lang.reflect.InvocationTargetException
 
 class EventRegister() {
-    private var packageName: String = Defcon.Companion.instance!!.javaClass.getPackage().getName()
+    private var packageName: String = Defcon.instance.javaClass.getPackage().name
     var plugin: JavaPlugin = JavaPlugin.getPlugin(Defcon::class.java)
 
     fun registerItemEvents(): EventRegister {

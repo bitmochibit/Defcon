@@ -8,7 +8,7 @@
 # Every structure has a specific id.
 
 #block-set: The blocks that compose the structure.
-#  - a:bomb-core | name:custom-block-id
+#  - a:bomb-core | name:definitions-block-id
 #  - b:bomb-casing
 #  - c:bomb-interface
 

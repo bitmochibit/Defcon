@@ -12,7 +12,7 @@ import org.bukkit.NamespacedKey
 import org.bukkit.persistence.PersistentDataContainer
 
 /**
- * This class defines a custom block
+ * This class defines a definitions block
  *
  */
 class CustomBlockDefinition(
@@ -35,7 +35,7 @@ class CustomBlockDefinition(
         // Get block at location
         val block = location.world.getBlockAt(location)
         val blockData: PersistentDataContainer = CustomBlockData(block, Defcon.instance!!)
-        val blockIdKey = NamespacedKey(Defcon.instance!!, "custom-block-id")
+        val blockIdKey = NamespacedKey(Defcon.instance!!, "definitions-block-id")
         val itemIdKey = NamespacedKey(Defcon.instance!!, "item-id")
         blockData.remove(blockIdKey)
         blockData.remove(itemIdKey)

@@ -1,6 +1,9 @@
 package com.mochibit.defcon.explosions
 
 import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.biomes.CustomBiomeHandler
+import com.mochibit.defcon.biomes.definitions.BurningAirBiome
+import com.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
 import com.mochibit.defcon.effects.NuclearMushroom
 import com.mochibit.defcon.threading.jobs.SimpleCompositionJob
 import net.kyori.adventure.text.Component
@@ -9,9 +12,9 @@ import net.kyori.adventure.title.Title.Times
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
-import org.bukkit.entity.Entity
-import org.bukkit.scheduler.BukkitScheduler
+import org.bukkit.Particle
 import java.time.Duration
+
 
 class NuclearExplosion(private val center: Location, private val nuclearComponent: NuclearComponent) : Explosion() {
 
@@ -32,17 +35,19 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         */
 
         // Send to a nearby player the flash of the explosion (radius)
-        center.getNearbyPlayers(300.0).forEach { player ->
+        center.world.getNearbyPlayers(center, 300.0).forEach { player ->
             // Custom font shows a flash screen
-            val title = Title.title(Component.text("\uE000"),
+            val title = Title.title(
+                Component.text("\uE000"),
                 Component.empty(),
-                Times.times(Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(1)));
+                Times.times(Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(1))
+            );
 
             player.showTitle(title);
         }
 
-        // Send custom explosion sounds to all players in the radius
-        center.getNearbyPlayers(300.0).forEach { player ->
+        // Send definitions explosion sounds to all players in the radius
+        center.world.getNearbyPlayers(center, 300.0).forEach { player ->
             // Play sound delayed to the distance
             val distance = player.location.distance(center);
             val soundSpeed = 50 // blocks per second
@@ -56,7 +61,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
             player.playSound(center, "minecraft:nuke.ground_rumble", 1.0f, 1.0f);
         }
 
-        center.getNearbyPlayers(600.0).forEach { player ->
+        center.world.getNearbyPlayers(center,600.0).forEach { player ->
             val distance = player.location.distance(center);
             val soundSpeed = 50 // blocks per second
             val delayInSeconds = (distance / soundSpeed).toLong();
@@ -68,6 +73,38 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
         // Particle SFX
         NuclearMushroom(center).instantiate(true);
+
+
+        // Give fire damage to all entities in the radius of the thermal radiation (unless they are protected)
+        // We will use ray-casting to check if the entity is in the radius of the thermal radiation
+        val thermalRadius = nuclearComponent.thermalPower * 5;
+        // TODO: Implement thermal radiation
+
+        val shockwaveRadius = nuclearComponent.blastPower * 30 * 5;
+        val shockwaveHeight = nuclearComponent.blastPower * 100 * 2;
+
+        val falloutRadius = shockwaveRadius / 16
+
+
+        // Get area of 10 chunks around the center
+        for (x in -falloutRadius.toInt()..falloutRadius.toInt()) {
+            for (z in -falloutRadius.toInt()..falloutRadius.toInt()) {
+                val chunk = center.world.getChunkAt(center.chunk.x + x, center.chunk.z + z);
+                CustomBiomeHandler.setCustomBiome(chunk, BurningAirBiome());
+            }
+        }
+
+        // After 30 seconds, set the biomes to "nuclear_fallout"
+
+        Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable {
+            for (x in -falloutRadius.toInt()..falloutRadius.toInt()) {
+                for (z in -falloutRadius.toInt()..falloutRadius.toInt()) {
+                    val chunk = center.world.getChunkAt(center.chunk.x + x, center.chunk.z + z);
+                    CustomBiomeHandler.setCustomBiome(chunk, NuclearFalloutBiome());
+                }
+            }
+        }, 20 * 30);
+
 
         // Create a sphere of air blocks
         val obliterationRadius = nuclearComponent.blastPower * 30;
@@ -84,22 +121,10 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
             }
         }
 
-        // Give fire damage to all entities in the radius of the thermal radiation (unless they are protected)
-        // We will use ray-casting to check if the entity is in the radius of the thermal radiation
-        val thermalRadius = nuclearComponent.thermalPower * 5;
-        // TODO: Implement thermal radiation
-
-
-        val shockwaveRadius = nuclearComponent.blastPower * 30 * 5;
-        val shockwaveHeight = nuclearComponent.blastPower * 100 * 2;
-
         Defcon.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
         Defcon.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(shockwaveRadius) {
             Shockwave(center, 0.0, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
         });
-
-
-
 
     }
 
