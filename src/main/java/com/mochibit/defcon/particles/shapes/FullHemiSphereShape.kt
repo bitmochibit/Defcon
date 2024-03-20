@@ -20,6 +20,8 @@ class FullHemiSphereShape(
     private val yEnd: Double = radiusY
 ): ParticleShape(particle, spawnPoint){
 
+    // TODO: Add an option to make it hollow (like a shell)
+
     override fun build(): Array<ParticleVertex> {
         val result = HashSet<ParticleVertex>();
         val sphere = FullSphereShape(particle, spawnPoint, radiusY, radiusXZ, skipRadiusY, skipRadiusXZ, density).build();
