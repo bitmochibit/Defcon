@@ -1,5 +1,7 @@
 package com.mochibit.defcon
 
+import com.mochibit.defcon.Defcon.Companion.Logger.info
+import com.mochibit.defcon.biomes.CustomBiomeHandler
 import com.mochibit.defcon.services.*
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import org.bukkit.Bukkit
@@ -10,21 +12,33 @@ class Defcon : JavaPlugin() {
     // This whole stuff will be moved, this is just for testing
     val scheduledRunnable: ScheduledRunnable = ScheduledRunnable()
     val asyncRunnable: ScheduledRunnable = ScheduledRunnable()
-    override fun onEnable() {
+
+    override fun onLoad() {
         instance = this
 
+        // Register datapack
+        DatapackRegister.get.registerPack()
+    }
+
+    override fun onEnable() {
+
         getLogger().info("[Defcon] has been enabled!")
+
+        info("Registering resource pack")
+        ResourcePackRegister.get.registerPack()
+
+
         /* Register all plugin's events */
         EventRegister()
                 .registerItemEvents()
                 .registerBlockEvents()
 
-        /* Register custom items */
+        /* Register definitions items */
         if (!ItemRegister().registerItems()) {
             getLogger().warning("[Defcon] Some items were not registered!")
         }
 
-        /* Register custom blocks */
+        /* Register definitions blocks */
         BlockRegister().registerBlocks()
 
 

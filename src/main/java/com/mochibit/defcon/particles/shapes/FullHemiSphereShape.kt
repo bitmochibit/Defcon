@@ -1,6 +1,5 @@
 package com.mochibit.defcon.particles.shapes
 
-import com.mochibit.defcon.math.Vector3
 import org.bukkit.Location
 import org.bukkit.Particle
 
@@ -13,20 +12,24 @@ import org.bukkit.Particle
  * @param skipRadius The radius to skip (useful for creating holes in the sphere)
  * @constructor
  */
-class FullHemiSphereShape(private val particle: Particle, spawnPoint: Location,
-                          private val radiusY: Double, private val radiusXZ: Double,
-                          private val skipRadiusY: Double = 0.0, private val skipRadiusXZ: Double = 0.0,
-                          private val yStart: Double = 0.0
+class FullHemiSphereShape(
+    private val particle: Particle, spawnPoint: Location,
+    private val radiusY: Double, private val radiusXZ: Double,
+    private val skipRadiusY: Double = 0.0, private val skipRadiusXZ: Double = 0.0,
+    private val density: Double = 1.0, private val yStart: Double = 0.0,
+    private val yEnd: Double = radiusY
 ): ParticleShape(particle, spawnPoint){
 
-    override fun build(): HashSet<Vector3> {
-        val result = HashSet<Vector3>();
-        val sphere = FullSphereShape(particle, spawnPoint, radiusY, radiusXZ, skipRadiusY, skipRadiusXZ).build();
-        for (point in sphere) {
-            if (point.y >= yStart)
-                result.add(point);
+    // TODO: Add an option to make it hollow (like a shell)
+
+    override fun build(): Array<ParticleVertex> {
+        val result = HashSet<ParticleVertex>();
+        val sphere = FullSphereShape(particle, spawnPoint, radiusY, radiusXZ, skipRadiusY, skipRadiusXZ, density).build();
+        for (vertex in sphere) {
+            if (vertex.point.y in yStart..yEnd)
+                result.add(vertex);
         }
-        return result;
+        return result.toTypedArray()
     }
 
 

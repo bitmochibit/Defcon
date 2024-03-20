@@ -11,5 +11,5 @@ enum class ItemDataKey(val key: NamespacedKey) {
     Droppable(NamespacedKey(Defcon.namespace, "item-droppable")),
     Transportable(NamespacedKey(Defcon.namespace, "item-transportable")),
     Behaviour(NamespacedKey(Defcon.namespace, "item-behaviour")),
-    CustomBlockId(NamespacedKey(Defcon.namespace, "custom-block-id")),
+    CustomBlockId(NamespacedKey(Defcon.namespace, "definitions-block-id")),
 }

@@ -7,16 +7,17 @@ import org.bukkit.Location
 import java.util.*
 import kotlin.math.ceil
 
-class Shockwave(val center: Location, val shockwaveRadius: Double, val shockwaveHeight: Double) {
+class Shockwave(val center: Location, val shockwaveRadiusStart: Double, val shockwaveRadius: Double, val shockwaveHeight: Double) {
     fun explode() {
         val columns: HashSet<ShockwaveColumn> = HashSet();
-        for (radius in 0..shockwaveRadius.toInt()) {
+        for (radius in shockwaveRadiusStart.toInt()..shockwaveRadius.toInt()) {
             columns.addAll(shockwaveCyl(center, radius.toDouble(), shockwaveHeight.toDouble()));
         }
 
         // Convert columns to a thread-safe collection
         val clonedColumns = Collections.synchronizedList(ArrayList(columns));
         for (column in clonedColumns.sortedBy { it.radiusGroup }) {
+
             Defcon.instance.scheduledRunnable.addWorkload(
                 SimpleCompositionJob(column) {
                     it.explode();
@@ -59,24 +60,28 @@ class Shockwave(val center: Location, val shockwaveRadius: Double, val shockwave
 
 
                 columns.add(ShockwaveColumn(
+                    center,
                     center.clone().add(x.toDouble(), 0.0, z.toDouble()),
                     maxHeight,
                     radius.toInt(),
                     this
                 ));
                 columns.add(ShockwaveColumn(
+                    center,
                     center.clone().add(-x.toDouble(), 0.0, z.toDouble()),
                     maxHeight,
                     radius.toInt(),
                     this
                 ));
                 columns.add(ShockwaveColumn(
+                    center,
                     center.clone().add(x.toDouble(), 0.0, -z.toDouble()),
                     maxHeight,
                     radius.toInt(),
                     this
                 ));
                 columns.add(ShockwaveColumn(
+                    center,
                     center.clone().add(-x.toDouble(), 0.0, -z.toDouble()),
                     maxHeight,
                     radius.toInt(),

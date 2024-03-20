@@ -10,11 +10,11 @@ import com.mochibit.defcon.interfaces.PluginItem
 import org.bukkit.plugin.java.JavaPlugin
 
 /**
- * This class handles the registration of the custom items
+ * This class handles the registration of the definitions items
  * All the registered items are stored and returned in a form of a HashMap(id, CustomItem)
  *
  * To initialize create an instance of ItemRegister and execute the method registerItems, it will automatically
- * load up correctly the custom items
+ * load up correctly the definitions items
  *
  */
 class ItemRegister() {
@@ -41,7 +41,7 @@ class ItemRegister() {
             val itemDescription = itemConfig.getString("$item.item-description")
             val itemMinecraftId = itemConfig.getString("$item.item-minecraft-id") ?: throw ItemNotRegisteredException(itemId)
             val itemDataModelId = itemConfig.getInt("$item.item-data-model-id")
-            val itemCustomBlockId = itemConfig.getString("$item.custom-block-id")
+            val itemCustomBlockId = itemConfig.getString("$item.definitions-block-id")
 
             val itemStackSize = itemConfig.getInt("$item.max-stack-size")
             val itemEquipable = itemConfig.getBoolean("$item.is-equipable")

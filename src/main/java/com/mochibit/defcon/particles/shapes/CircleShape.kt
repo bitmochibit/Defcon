@@ -15,8 +15,8 @@ class CircleShape(
     private var rate: Double,
     private var limit: Double,
 ) : ParticleShape(particle, spawnPoint) {
-    override fun build(): HashSet<Vector3> {
-        val result = HashSet<Vector3>()
+    override fun build(): Array<ParticleVertex> {
+        val result = HashSet<ParticleVertex>()
 
         val rateDiv = PI / abs(rate)
 
@@ -37,7 +37,7 @@ class CircleShape(
             val z = radiusZ * sin(extension * theta)
 
 
-            if (isDirectional()) {
+            if (isDirectional) {
                 val phi = atan2(z, x)
                 val directionX = cos(extension * phi)
                 val directionZ = sin(extension * phi)
@@ -45,11 +45,11 @@ class CircleShape(
                 this.particleBuilder.offset(directionX, this.particleBuilder.offsetY(), directionZ)
             }
 
-            result.add(Vector3(x, 0.0, z))
+            result.add(ParticleVertex(Vector3(x, 0.0, z)))
             theta += rateDiv
         }
 
-        return result;
+        return result.toTypedArray();
     }
 
 }

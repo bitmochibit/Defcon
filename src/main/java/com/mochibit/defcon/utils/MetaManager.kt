@@ -5,6 +5,7 @@ import com.mochibit.defcon.enums.BlockDataKey
 import com.mochibit.defcon.enums.ItemDataKey
 import com.jeff_media.customblockdata.CustomBlockData
 import org.bukkit.Location
+import org.bukkit.NamespacedKey
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.ItemMeta
 import org.bukkit.persistence.PersistentDataContainer
@@ -105,6 +106,13 @@ object MetaManager {
         }
     }
 
+    fun convertStringToNamespacedKey(string: String): NamespacedKey {
+        // Split the string into the namespace and key, if the string has no colon, the namespace is "defcon"
+        val split = string.split(":")
+        val namespace = if (split.size == 1) "defcon" else split[0]
+        val key = if (split.size == 1) split[0] else split[1]
+        return NamespacedKey(namespace, key)
+    }
 
 
 

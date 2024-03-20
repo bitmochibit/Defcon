@@ -5,6 +5,7 @@ api-version: 1.19
 authors: [ Rynoooo, Corvinoo ]
 description: A plugin that adds nuclear energy, along with his advantages and dangers
 website: http://rynotechblog.altervista.org/
+load: STARTUP
 depend: [WorldGuard, WorldEdit, Vault, ProtocolLib]
 commands:
   ncgive:

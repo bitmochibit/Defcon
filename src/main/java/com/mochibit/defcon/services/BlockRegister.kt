@@ -13,7 +13,7 @@ import org.bukkit.Location
 import org.bukkit.plugin.java.JavaPlugin
 
 /**
- * This class handles the registration of the custom blocks
+ * This class handles the registration of the definitions blocks
  * All the registered items are stored and returned in a form of a HashMap(id, CustomBlock
  *
  */

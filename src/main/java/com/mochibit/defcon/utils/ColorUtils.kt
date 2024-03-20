@@ -85,4 +85,11 @@ object ColorUtils {
         return Color.fromRGB(r, g, b)
     }
 
+    fun lerpColor(a: Color, b: Color, t: Double): Color {
+        val r = lerp(a.red.toDouble(), b.red.toDouble(), t)
+        val g = lerp(a.green.toDouble(), b.green.toDouble(), t)
+        val bl = lerp(a.blue.toDouble(), b.blue.toDouble(), t)
+        return Color.fromRGB(r.toInt(), g.toInt(), bl.toInt())
+    }
+
 }

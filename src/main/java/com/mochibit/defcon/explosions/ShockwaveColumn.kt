@@ -4,8 +4,10 @@ import com.mochibit.defcon.utils.Geometry
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.block.BlockFace
+import kotlin.math.abs
 
 class ShockwaveColumn(
+    val center: Location,
     val location: Location,
     private val maxDeltaHeight: Double,
     val radiusGroup: Int,
@@ -16,51 +18,60 @@ class ShockwaveColumn(
         Geometry.getMinY(location.clone().add(0.0, maxDeltaHeight, 0.0), maxDeltaHeight * 2).y;
 
     // Make the power start from the maximum 8f and decrease evenly with the radius to a minimum of 6f
-    private val explosionPower = 8f - (radiusGroup * 6f / shockwave.shockwaveRadius).toFloat();
+    private val explosionPower = 10f - (radiusGroup * 6f / shockwave.shockwaveRadius).toFloat();
 
     fun explode() {
-;
+        var lastExplodedY = -1000;
+        val direction = location.toVector().subtract(center.toVector()).normalize();
+
         for (y in (location.y + maxDeltaHeight).toInt()
             .coerceAtMost(location.world.maxHeight - 1) downTo minHeight.toInt()) {
-            val clonedLocation = location.clone().set(location.x, y.toDouble(), location.z);
-            val block = clonedLocation.block;
 
-            faceExplosion@ for (blockFace in BlockFace.entries) {
-                if (blockFace == BlockFace.UP)
-                    continue;
+            val currentYLocation = location.clone().set(location.x, y.toDouble(), location.z);
+            // Keep the distance between the explosions of this column by 8 blocks
+            if (abs(y - lastExplodedY) < 8)
+                continue;
 
-                val relative = block.getRelative(blockFace);
-                if (relative.type == Material.AIR)
-                    continue;
+            // Get the closest axis to the direction vector
+            val axis = if (abs(direction.x) > abs(direction.z)) BlockFace.EAST else BlockFace.SOUTH;
 
-                replaceBlocks(block.location, explosionPower.toInt())
+            // Get the blocks facing the axis and backwards
+            val forwardBlock = currentYLocation.clone().add(axis.direction).block
+            val backwardBlock = currentYLocation.clone().add(axis.direction.clone().multiply(-1)).block
 
-                relative.world.createExplosion(relative.location, explosionPower, true, true)
-                break@faceExplosion;
-            }
+            if (forwardBlock.type == Material.AIR &&
+                backwardBlock.type == Material.AIR)
+                continue;
 
+
+            location.world.createExplosion(currentYLocation, explosionPower, true, true);
+            replaceBlocks(currentYLocation, explosionPower.toInt() * 2);
+            lastExplodedY = y;
         }
 
     }
 
     // This function replaces the blocks around the explosion with deepslate blocks to simulate burnt blocks
     private fun replaceBlocks(location: Location, radius: Int) {
+        // Fast random sphere of radius for replacing blocks with 60% chance of replacing the block with deepslate
+        for (i in 0 until 1000) {
+            val x = (Math.random() * radius * 2 - radius).toInt();
+            val y = (Math.random() * radius * 2 - radius).toInt();
+            val z = (Math.random() * radius * 2 - radius).toInt();
 
-        for (x in -radius..radius) {
-            for (y in -radius..radius) {
-                for (z in -radius..radius) {
-                    val distance = (x * x + y*y + z * z);
-                    if (distance <= radius * radius) {
-                        val block = location.clone().add(x.toDouble(), y.toDouble(), z.toDouble()).block;
-                        if (block.type == Material.AIR || block.type == Material.WATER || block.type == Material.LAVA || block.type == Material.DEEPSLATE)
-                            continue;
+            val distance = (x * x + y * y + z * z);
+            if (distance <= radius * radius) {
+                val block = location.clone().add(x.toDouble(), y.toDouble(), z.toDouble()).block;
+                if (block.type == Material.AIR || block.type == Material.WATER || block.type == Material.LAVA || block.type == Material.DEEPSLATE)
+                    continue;
 
-                        block.type = Material.DEEPSLATE;
-                    }
-                }
+                if (Math.random() < 0.6)
+                    block.type = Material.DEEPSLATE;
+
             }
-
         }
+
+
     }
 
 }
