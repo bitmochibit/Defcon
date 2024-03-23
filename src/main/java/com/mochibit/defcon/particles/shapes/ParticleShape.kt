@@ -81,6 +81,9 @@ abstract class ParticleShape(particle: Particle, val spawnPoint: Location) {
 
     fun assign(newVertexes: Array<ParticleVertex>): ParticleShape {
         vertexes = newVertexes;
+        for (vertex in vertexes) {
+            vertex.transformedPoint = transform.xform(vertex.point);
+        }
 
         val x = newVertexes.map { it.point.x }.average()
         val y = newVertexes.map { it.point.y }.average();

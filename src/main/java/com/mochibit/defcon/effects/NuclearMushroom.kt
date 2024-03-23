@@ -18,38 +18,53 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     var riseSpeed = 2;
     var currentHeight = 0.0;
 
-    // Shapes
-    val coreSpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 14.0, 0.0, 0.0,1.5, yStart = -16.0)
-    val secondarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 22.0, 20.0, 20.0, 14.0, 1.5, yStart = -8.0)
-    val tertiarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 25.0, 18.0, 20.0, 2.0, -10.0, 16.0)
+    // Mushroom cloud components
+    val coreSpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 14.0, 0.0, 0.0,3.0, yStart = -15.0, yEnd = -8.0, hollow = true, ignoreTopSurface = true, ignoreBottomSurface = true)
+    val secondarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 22.0, 20.0, 0.0, 0.0, 4.0, yStart = 14.0, hollow = true, ignoreBottomSurface = true)
+    val tertiarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 25.0, 0.0, 14.0, 4.0, -10.0, 16.0, hollow = true, ignoreTopSurface = true)
 
+    // Mushroom cloud neck
+    val primaryNeck = CylinderShape(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 1.0, 14.0, 14.0, 30.0)
+
+    // Mushroom cloud stem
     val stem = CylinderShape(Particle.REDSTONE, center, 1.0, 4.0, 4.0, 18.0)
 
+    // Mushroom cloud foot
     val footCloudMain = CylinderShape(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 10.0, 4.0, 4.0, 16.0)
     val footCloudSecondary = FullCylinderShape(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 1.0, 20.0, 20.0, 16.0)
+
+    // Condensation cloud
+    val condensationCloud = FullHemiSphereShape(Particle.CLOUD, center, 20.0, 20.0, 0.0, 0.0, 1.0, -10.0, 20.0, hollow = true, ignoreBottomSurface = true)
 
     override fun draw() {
         coreSpheroid.draw();
         secondarySpheroid.draw();
         tertiarySpheroid.draw();
 
+        primaryNeck.draw();
+
         stem.draw();
         footCloudMain.draw();
         footCloudSecondary.draw();
+
+        condensationCloud.draw();
     }
 
     override fun animate(delta: Double) {
         elevateSphere(delta);
         stretchCylinder()
         coolComponents()
+
+        stretchCondensationCloud(delta)
+
         if (tickAlive > maxAliveTick)
             this.destroy();
 
         // after 60 seconds, take the tertiarySpheroid and move transitionProgress from 0 to 1 over 20 seconds
-        if (tickAlive > 20 * 30) {
-            tertiarySpheroid.transitionProgress = (tickAlive - 20 * 30) / (20 * 20.0);
-            secondarySpheroid.transitionProgress = (tickAlive - 20 * 30) / (30 * 20.0);
-        }
+
+        tertiarySpheroid.transitionProgress = (tickAlive) / (10 * 20.0);
+        secondarySpheroid.transitionProgress = (tickAlive) / (10 * 20.0);
+
 
         if (tickAlive > 20 * 15) {
             stem.transitionProgress = (tickAlive - 20 * 15) / (20 * 20.0);
@@ -61,9 +76,10 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     }
 
     fun coolComponents() {
-        coreSpheroid.temperature -= 1;
-        secondarySpheroid.temperature -= 4;
-        tertiarySpheroid.temperature -= 5;
+        coreSpheroid.temperature -= 15;
+
+        secondarySpheroid.temperature -= 50;
+        tertiarySpheroid.temperature -= 50;
 
         stem.temperature -= 25;
         footCloudMain.temperature -= 40;
@@ -71,6 +87,14 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     }
 
 
+    private fun stretchCondensationCloud(delta: Double) {
+        if (condensationCloud.radiusXZ >= 150 )
+            return;
+
+        condensationCloud.radiusXZ += 5*delta;
+
+        condensationCloud.buildAndAssign();
+    }
 
     private fun stretchCylinder() {
         if (stem.height >= currentHeight - 10)
@@ -81,7 +105,7 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     }
 
     private fun elevateSphere(delta: Double) {
-        if (currentHeight > 60.0)
+        if (currentHeight > 100.0)
             return;
 
         val deltaMovement = riseSpeed * delta;
@@ -90,6 +114,10 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
         coreSpheroid.transform = coreSpheroid.transform.translated(Vector3(0.0, deltaMovement, 0.0));
         secondarySpheroid.transform = secondarySpheroid.transform.translated(Vector3(0.0, deltaMovement, 0.0));
         tertiarySpheroid.transform = tertiarySpheroid.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+
+        primaryNeck.transform = primaryNeck.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+
+        condensationCloud.transform = condensationCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
 
         currentHeight += deltaMovement;
     }
@@ -103,10 +131,14 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             secondarySpheroid.particleBuilder.receivers(entities)
             tertiarySpheroid.particleBuilder.receivers(entities)
 
+            primaryNeck.particleBuilder.receivers(entities)
+
             stem.particleBuilder.receivers(entities)
 
             footCloudMain.particleBuilder.receivers(entities)
             footCloudSecondary.particleBuilder.receivers(entities)
+
+            condensationCloud.particleBuilder.receivers(entities)
         };
 
         coreSpheroid.buildAndAssign().color(startingColor, 5f)
@@ -122,6 +154,15 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             .temperature(maxTemp, 1500.0, maxTemp)
             .temperatureEmission(true)
 
+
+
+        primaryNeck.transform = primaryNeck.transform.translated(Vector3(0.0, -14.0, 0.0))
+        primaryNeck
+            .buildAndAssign()
+            .snapToFloor(5.0, 5.0)
+            .baseColor(endingColor)
+            .radialSpeed(0.05).
+            particleBuilder.count(0).offset(0.0, 0.05, 0.0)
 
         stem
             .buildAndAssign()
@@ -143,6 +184,13 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             .baseColor(endingColor)
             .radialSpeed(0.05).
             particleBuilder.count(0).offset(0.0, 0.005, 0.0)
+
+        condensationCloud.transform = condensationCloud.transform.translated(Vector3(0.0, 20.0, 0.0))
+        condensationCloud
+            .buildAndAssign()
+            .baseColor(Color.fromRGB(255, 255, 255))
+            .radialSpeed(0.5)
+            .particleBuilder.count(0).offset(0.0, 0.0, 0.0)
     }
 
     override fun stop() {

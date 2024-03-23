@@ -4,8 +4,8 @@ import com.mochibit.defcon.math.Vector3
 import org.bukkit.Location
 import org.bukkit.Particle
 
-class CylinderShape(val particle: Particle,  spawnPoint: Location,
-                    var height: Double, val radiusWidth: Double, val radiusHeight: Double, val rate: Double,
+class CylinderShape(val particle: Particle, spawnPoint: Location,
+                    var height: Double, var radiusWidth: Double, var radiusHeight: Double, val rate: Double,
 ) : ParticleShape(particle, spawnPoint) {
     override fun build(): Array<ParticleVertex> {
         val result = HashSet<ParticleVertex>();
