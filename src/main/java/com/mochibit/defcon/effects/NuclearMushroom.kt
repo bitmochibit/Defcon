@@ -1,9 +1,10 @@
 package com.mochibit.defcon.effects
 
 import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.fx.ParticleShape
+import com.mochibit.defcon.fx.shapes.CylinderBuilder
 import com.mochibit.defcon.math.Vector3
-import com.mochibit.defcon.particles.shapes.*
-import com.mochibit.defcon.particles.shapes.FullHemiSphereShape
+import com.mochibit.defcon.fx.shapes.SphereBuilder
 import org.bukkit.Bukkit
 import org.bukkit.Color
 import org.bukkit.Location
@@ -19,22 +20,102 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
     var currentHeight = 0.0;
 
     // Mushroom cloud components
-    val coreSpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 14.0, 0.0, 0.0,3.0, yStart = -15.0, yEnd = -8.0, hollow = true, ignoreTopSurface = true, ignoreBottomSurface = true)
-    val secondarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 22.0, 20.0, 0.0, 0.0, 4.0, yStart = 14.0, hollow = true, ignoreBottomSurface = true)
-    val tertiarySpheroid = FullHemiSphereShape(Particle.REDSTONE, center, 20.0, 25.0, 0.0, 14.0, 4.0, -10.0, 16.0, hollow = true, ignoreTopSurface = true)
+    private val coreSpheroid = ParticleShape(
+        SphereBuilder()
+            .withRadiusXZ(14.0)
+            .withRadiusY(20.0)
+            .withDensity(3.0)
+            .withYStart(-15.0)
+            .withYEnd(-8.0)
+            .hollow(true)
+            .ignoreBottomSurface(true)
+            .ignoreBottomSurface(true),
+        Particle.REDSTONE,
+        center
+    )
+    private val secondarySpheroid = ParticleShape(
+        SphereBuilder()
+            .withRadiusXZ(20.0)
+            .withRadiusY(22.0)
+            .withDensity(4.0)
+            .withYStart(14.0)
+            .hollow(true)
+            .ignoreBottomSurface(true),
+        Particle.REDSTONE,
+        center
+    )
+    private val tertiarySpheroid = ParticleShape(
+        SphereBuilder()
+            .withRadiusXZ(25.0)
+            .withRadiusY(20.0)
+            .skipRadiusXZ(14.0)
+            .withDensity(4.0)
+            .withYStart(-10.0)
+            .withYEnd(16.0)
+            .hollow(true)
+            .ignoreTopSurface(true),
+        Particle.REDSTONE,
+        center
+    )
 
     // Mushroom cloud neck
-    val primaryNeck = CylinderShape(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 1.0, 14.0, 14.0, 30.0)
+    private val primaryNeck = ParticleShape(
+        CylinderBuilder()
+            .withHeight(1.0)
+            .withRadiusX(14.0)
+            .withRadiusZ(14.0)
+            .withRate(30.0)
+            .hollow(true),
+        Particle.CAMPFIRE_SIGNAL_SMOKE,
+        center
+    )
 
     // Mushroom cloud stem
-    val stem = CylinderShape(Particle.REDSTONE, center, 1.0, 4.0, 4.0, 18.0)
+    private val stem = ParticleShape(
+        CylinderBuilder()
+            .withHeight(90.0)
+            .withRadiusX(4.0)
+            .withRadiusZ(4.0)
+            .withRate(18.0)
+            .hollow(true),
+        Particle.REDSTONE,
+        center
+    )
 
     // Mushroom cloud foot
-    val footCloudMain = CylinderShape(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 10.0, 4.0, 4.0, 16.0)
-    val footCloudSecondary = FullCylinderShape(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 1.0, 20.0, 20.0, 16.0)
+    private val footCloudMain = ParticleShape(
+        CylinderBuilder()
+            .withHeight(10.0)
+            .withRadiusX(4.0)
+            .withRadiusZ(4.0)
+            .withRate(16.0)
+            .hollow(true),
+        Particle.CAMPFIRE_SIGNAL_SMOKE,
+        center
+    )
+    private val footCloudSecondary = ParticleShape(
+        CylinderBuilder()
+            .withHeight(1.0)
+            .withRadiusX(20.0)
+            .withRadiusZ(20.0)
+            .withRate(16.0),
+        Particle.CAMPFIRE_SIGNAL_SMOKE,
+        center
+    )
 
     // Condensation cloud
-    val condensationCloud = FullHemiSphereShape(Particle.CLOUD, center, 20.0, 20.0, 0.0, 0.0, 1.0, -10.0, 20.0, hollow = true, ignoreBottomSurface = true)
+    private val condensationCloud = ParticleShape(
+        SphereBuilder()
+            .withRadiusXZ(20.0)
+            .withRadiusY(20.0)
+            .withDensity(1.0)
+            .withYStart(-10.0)
+            .withYEnd(20.0)
+            .hollow(true)
+            .ignoreBottomSurface(true),
+        Particle.CLOUD,
+        center
+    )
 
     override fun draw() {
         coreSpheroid.draw();
@@ -52,10 +133,15 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
 
     override fun animate(delta: Double) {
         elevateSphere(delta);
-        stretchCylinder()
         coolComponents()
 
-        stretchCondensationCloud(delta)
+        if (condensationCloud.isVisible()) {
+            stretchCondensationCloud(delta)
+        }
+
+        if (tickAlive > 20 * 20) {
+            condensationCloud.visible(false)
+        }
 
         if (tickAlive > maxAliveTick)
             this.destroy();
@@ -88,25 +174,20 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
 
 
     private fun stretchCondensationCloud(delta: Double) {
-        if (condensationCloud.radiusXZ >= 150 )
-            return;
+        if (tickAlive % 40 != 0) return
+        val condensationCloudBuilder = (condensationCloud.particleShapeBuilder as SphereBuilder)
 
-        condensationCloud.radiusXZ += 5*delta;
+        val currentRadiusXZ = condensationCloudBuilder.getRadiusXZ()
+        if (currentRadiusXZ > 150) return
 
-        condensationCloud.buildAndAssign();
+        condensationCloudBuilder.withRadiusXZ(currentRadiusXZ + 10.0)
+        condensationCloudBuilder.withRadiusY(currentRadiusXZ + 8.0)
+        condensationCloud.buildAndAssign()
     }
 
-    private fun stretchCylinder() {
-        if (stem.height >= currentHeight - 10)
-            return;
-
-        stem.height += 1;
-        stem.buildAndAssign();
-    }
 
     private fun elevateSphere(delta: Double) {
-        if (currentHeight > 100.0)
-            return;
+        if (currentHeight > 100.0) return;
 
         val deltaMovement = riseSpeed * delta;
 
@@ -155,7 +236,6 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             .temperatureEmission(true)
 
 
-
         primaryNeck.transform = primaryNeck.transform.translated(Vector3(0.0, -14.0, 0.0))
         primaryNeck
             .buildAndAssign()
@@ -191,10 +271,22 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             .baseColor(Color.fromRGB(255, 255, 255))
             .radialSpeed(0.5)
             .particleBuilder.count(0).offset(0.0, 0.0, 0.0)
+
+        stem.heightPredicate(this::visibleWhenLessThanCurrentHeight)
+        condensationCloud.heightPredicate(this::stripesHeight)
     }
 
     override fun stop() {
         // Nothing to do here
+    }
+
+    fun stripesHeight(value: Double): Boolean {
+        // Every 10 blocks show 20 blocks of stripes
+        return value % 20 < 10;
+    }
+
+    fun visibleWhenLessThanCurrentHeight(value: Double): Boolean {
+        return value < currentHeight-10;
     }
 
 

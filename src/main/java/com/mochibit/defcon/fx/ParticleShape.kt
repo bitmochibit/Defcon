@@ -1,4 +1,4 @@
-package com.mochibit.defcon.particles.shapes
+package com.mochibit.defcon.fx
 
 import com.destroystokyo.paper.ParticleBuilder
 import com.mochibit.defcon.math.Transform3D
@@ -9,18 +9,34 @@ import com.mochibit.defcon.utils.MathFunctions
 import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.Particle
+import java.util.function.Predicate
 import kotlin.random.Random
 
-abstract class ParticleShape(particle: Particle, val spawnPoint: Location) {
+class ParticleShape(
+    val particleShapeBuilder : ParticleShapeBuilder,
+    particle: Particle,
+    val spawnPoint: Location
+) {
+    init{
+        particleShapeBuilder
+            .setParticle(particle)
+            .setSpawnPoint(spawnPoint)
+    }
+
     val particleBuilder = ParticleBuilder(particle)
+
+
     var center: Vector3 = Vector3.ZERO
     private var transformedCenter = Vector3.ZERO
+
+    private var visible = true
 
     private var minY = 0.0
     private var maxY = 0.0
 
     private var minTemperature = 0.0
     private var maxTemperature = 100.0
+
     var temperature = 0.0
         set(value) {
             field = value.coerceIn(minTemperature, maxTemperature)
@@ -50,8 +66,11 @@ abstract class ParticleShape(particle: Particle, val spawnPoint: Location) {
             transformedCenter = value.xform(center);
         }
 
+    private var heightPredicate : Predicate<Double>? = null
+
     // Shape methods
-    open fun draw() {
+    fun draw() {
+        if (!visible) return;
         for (vertex in vertexes) {
             if (Random.nextInt(0, 100) < 99) continue;
             // Check if the vertex has been spawned in the last 1 second
@@ -66,22 +85,25 @@ abstract class ParticleShape(particle: Particle, val spawnPoint: Location) {
             if (isDirectional && radialSpeed != 0.0)
                 radialDirectionFromCenter(vertex);
 
+            if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y))
+                continue;
+
             particleBuilder.location(currentLoc);
             particleBuilder.spawn();
             vertex.spawnTime = System.currentTimeMillis();
         }
     }
 
-    abstract fun build(): Array<ParticleVertex>;
-
-    open fun buildAndAssign(): ParticleShape {
-        assign(build());
-        return this;
+    fun buildAndAssign(): ParticleShape {
+        assign(
+            particleShapeBuilder.build()
+        )
+        return this
     }
 
     fun assign(newVertexes: Array<ParticleVertex>): ParticleShape {
         vertexes = newVertexes;
-        for (vertex in vertexes) {
+        for (vertex in newVertexes) {
             vertex.transformedPoint = transform.xform(vertex.point);
         }
 
@@ -118,8 +140,17 @@ abstract class ParticleShape(particle: Particle, val spawnPoint: Location) {
     }
 
     // Options
+    fun visible(value: Boolean): ParticleShape {
+        this.visible = value;
+        return this;
+    }
+
+    fun isVisible(): Boolean {
+        return visible;
+    }
+
     open fun snapToFloor(maxDepth: Double = 0.0, startYOffset: Double = 0.0): ParticleShape {
-        val vertexes = build();
+        val vertexes = particleShapeBuilder.build()
 
         for (i in vertexes.indices) {
             val point = vertexes[i].point;
@@ -174,6 +205,11 @@ abstract class ParticleShape(particle: Particle, val spawnPoint: Location) {
 
     fun radialSpeed(speed: Double): ParticleShape {
         this.radialSpeed = speed;
+        return this;
+    }
+
+    fun heightPredicate(predicate: Predicate<Double>): ParticleShape {
+        this.heightPredicate = predicate;
         return this;
     }
 

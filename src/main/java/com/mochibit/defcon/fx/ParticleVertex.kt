@@ -1,4 +1,4 @@
-package com.mochibit.defcon.particles.shapes
+package com.mochibit.defcon.fx
 
 import com.mochibit.defcon.math.Vector3
 
