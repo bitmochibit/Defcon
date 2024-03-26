@@ -1,27 +1,26 @@
-package com.mochibit.defcon.fx.shapes
+package com.mochibit.defcon.vertexgeometry.shapes
 
-import com.mochibit.defcon.Defcon.Companion.Logger.info
-import com.mochibit.defcon.fx.AbstractShapeBuilder
-import com.mochibit.defcon.fx.ParticleVertex
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.utils.MathFunctions
+import com.mochibit.defcon.vertexgeometry.Vertex
+import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 import kotlin.math.*
 
-class CircleBuilder() : AbstractShapeBuilder() {
+class CircleBuilder() : VertexShapeBuilder {
     private var radiusX: Double = 0.0
     private var radiusZ: Double = 0.0
     private var extension: Double = 1.0
     private var rate: Double = 1.0
     private var maxAngle: Double = 0.0
     private var hollow: Boolean = false
-    override fun build(): Array<ParticleVertex> {
+    override fun build(): Array<Vertex> {
 
 
         if (hollow)
             return makeCircle(radiusX, radiusZ, rate).toTypedArray()
 
 
-        val result = HashSet<ParticleVertex>()
+        val result = HashSet<Vertex>()
         var x = 0.0
         var z = 0.0
         var dynamicRate = 0.0
@@ -45,8 +44,8 @@ class CircleBuilder() : AbstractShapeBuilder() {
         return result.toTypedArray();
     }
 
-    private fun makeCircle(radiusX: Double, radiusZ: Double, rate: Double) : HashSet<ParticleVertex> {
-        val result = HashSet<ParticleVertex>()
+    private fun makeCircle(radiusX: Double, radiusZ: Double, rate: Double) : HashSet<Vertex> {
+        val result = HashSet<Vertex>()
 
         val rateDiv = PI / abs(rate)
 
@@ -66,7 +65,7 @@ class CircleBuilder() : AbstractShapeBuilder() {
             val x = radiusX * cos(extension * theta)
             val z = radiusZ * sin(extension * theta)
 
-            result.add(ParticleVertex(Vector3(x, 0.0, z)))
+            result.add(Vertex(Vector3(x, 0.0, z)))
             theta += rateDiv
         }
 

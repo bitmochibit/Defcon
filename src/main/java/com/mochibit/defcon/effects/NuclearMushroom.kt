@@ -1,10 +1,10 @@
 package com.mochibit.defcon.effects
 
 import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.fx.ParticleShape
-import com.mochibit.defcon.fx.shapes.CylinderBuilder
+import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
+import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.math.Vector3
-import com.mochibit.defcon.fx.shapes.SphereBuilder
+import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Bukkit
 import org.bukkit.Color
 import org.bukkit.Location
@@ -175,7 +175,7 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
 
     private fun stretchCondensationCloud(delta: Double) {
         if (tickAlive % 40 != 0) return
-        val condensationCloudBuilder = (condensationCloud.particleShapeBuilder as SphereBuilder)
+        val condensationCloudBuilder = (condensationCloud.shapeBuilder as SphereBuilder)
 
         val currentRadiusXZ = condensationCloudBuilder.getRadiusXZ()
         if (currentRadiusXZ > 150) return

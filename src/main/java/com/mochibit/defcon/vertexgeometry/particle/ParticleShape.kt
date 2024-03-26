@@ -1,4 +1,4 @@
-package com.mochibit.defcon.fx
+package com.mochibit.defcon.vertexgeometry.particle
 
 import com.destroystokyo.paper.ParticleBuilder
 import com.mochibit.defcon.math.Transform3D
@@ -6,6 +6,8 @@ import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.utils.ColorUtils
 import com.mochibit.defcon.utils.Geometry
 import com.mochibit.defcon.utils.MathFunctions
+import com.mochibit.defcon.vertexgeometry.Vertex
+import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.Particle
@@ -13,16 +15,10 @@ import java.util.function.Predicate
 import kotlin.random.Random
 
 class ParticleShape(
-    val particleShapeBuilder : ParticleShapeBuilder,
-    particle: Particle,
-    val spawnPoint: Location
+    val shapeBuilder : VertexShapeBuilder,
+    var particle: Particle,
+    var spawnPoint: Location
 ) {
-    init{
-        particleShapeBuilder
-            .setParticle(particle)
-            .setSpawnPoint(spawnPoint)
-    }
-
     val particleBuilder = ParticleBuilder(particle)
 
 
@@ -54,13 +50,13 @@ class ParticleShape(
     var isTemperatureEmission: Boolean = false
     var radialSpeed = 0.0;
 
-    private var vertexes = emptyArray<ParticleVertex>()
+    private var particleVertixes = emptyArray<ParticleVertex>()
     var transform = Transform3D()
         set(value) {
             field = value;
-            synchronized(vertexes) {
-                for (vertex in vertexes) {
-                    vertex.transformedPoint = value.xform(vertex.point);
+            synchronized(particleVertixes) {
+                for (particleVertex in particleVertixes) {
+                    particleVertex.vertex.transformedPoint = value.xform(particleVertex.vertex.point);
                 }
             }
             transformedCenter = value.xform(center);
@@ -71,49 +67,46 @@ class ParticleShape(
     // Shape methods
     fun draw() {
         if (!visible) return;
-        for (vertex in vertexes) {
+        for (particleVertex in particleVertixes) {
             if (Random.nextInt(0, 100) < 99) continue;
             // Check if the vertex has been spawned in the last 1 second
-            if (System.currentTimeMillis() - vertex.spawnTime < 6000) continue;
+            if (System.currentTimeMillis() - particleVertex.spawnTime < 6000) continue;
 
-            val transformedVertex = vertex.transformedPoint;
+            val transformedVertex = particleVertex.vertex.transformedPoint;
             val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)
 
             if (isTemperatureEmission)
-                applyTemperatureEmission(vertex.point.y)
+                applyTemperatureEmission(particleVertex.vertex.point.y)
 
             if (isDirectional && radialSpeed != 0.0)
-                radialDirectionFromCenter(vertex);
+                radialDirectionFromCenter(particleVertex.vertex);
 
             if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y))
                 continue;
 
             particleBuilder.location(currentLoc);
             particleBuilder.spawn();
-            vertex.spawnTime = System.currentTimeMillis();
+            particleVertex.spawnTime = System.currentTimeMillis();
         }
     }
 
     fun buildAndAssign(): ParticleShape {
         assign(
-            particleShapeBuilder.build()
+            shapeBuilder.build()
         )
         return this
     }
 
-    fun assign(newVertexes: Array<ParticleVertex>): ParticleShape {
-        vertexes = newVertexes;
-        for (vertex in newVertexes) {
-            vertex.transformedPoint = transform.xform(vertex.point);
-        }
+    fun assign(newVertexes: Array<Vertex>): ParticleShape {
+        particleVertixes = newVertexes.map { ParticleVertex(Vertex(it.point, transform.xform(it.point)), System.currentTimeMillis()) }.toTypedArray();
 
-        val x = newVertexes.map { it.point.x }.average()
-        val y = newVertexes.map { it.point.y }.average();
-        val z = newVertexes.map { it.point.z }.average();
+        val x = particleVertixes.map { it.vertex.point.x }.average()
+        val y = particleVertixes.map { it.vertex.point.y }.average();
+        val z = particleVertixes.map { it.vertex.point.z }.average();
         this.center = Vector3(x, y, z);
 
-        minY = newVertexes.minOfOrNull { it.point.y } ?: 0.0;
-        maxY = newVertexes.maxOfOrNull { it.point.y } ?: 0.0;
+        minY = particleVertixes.minOfOrNull { it.vertex.point.y } ?: 0.0;
+        maxY = particleVertixes.maxOfOrNull { it.vertex.point.y } ?: 0.0;
 
         this.transformedCenter = transform.xform(center)
         return this;
@@ -130,7 +123,7 @@ class ParticleShape(
     }
 
     // Directional methods
-    private fun radialDirectionFromCenter(vertex: ParticleVertex): ParticleShape {
+    private fun radialDirectionFromCenter(vertex: Vertex): ParticleShape {
         val direction = vertex.point - center;
         val normalized = direction.normalized() * radialSpeed;
         // Use the normalized direction as offset for the particle
@@ -149,13 +142,13 @@ class ParticleShape(
         return visible;
     }
 
-    open fun snapToFloor(maxDepth: Double = 0.0, startYOffset: Double = 0.0): ParticleShape {
-        val vertexes = particleShapeBuilder.build()
+    fun snapToFloor(maxDepth: Double = 0.0, startYOffset: Double = 0.0): ParticleShape {
+        val vertexes = shapeBuilder.build()
 
         for (i in vertexes.indices) {
             val point = vertexes[i].point;
             val newLoc = Geometry.getMinY(spawnPoint.clone().add(point.x, point.y + startYOffset, point.z), maxDepth);
-            vertexes[i] = ParticleVertex(Vector3(point.x, (newLoc.y - spawnPoint.y) + 1, point.z));
+            vertexes[i] = Vertex(Vector3(point.x, (newLoc.y - spawnPoint.y) + 1, point.z));
         }
         assign(vertexes);
         return this;
@@ -195,6 +188,7 @@ class ParticleShape(
 
     fun particle(particle: Particle): ParticleShape {
         particleBuilder.particle(particle);
+        this.particle = particle;
         return this;
     }
 

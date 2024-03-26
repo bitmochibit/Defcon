@@ -1,8 +1,8 @@
-package com.mochibit.defcon.fx.shapes
+package com.mochibit.defcon.vertexgeometry.shapes
 
-import com.mochibit.defcon.fx.AbstractShapeBuilder
-import com.mochibit.defcon.fx.ParticleVertex
 import com.mochibit.defcon.math.Vector3
+import com.mochibit.defcon.vertexgeometry.Vertex
+import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 
 /**
  * This class represents a full sphere shape, which is a sphere that is filled with particles
@@ -13,7 +13,7 @@ import com.mochibit.defcon.math.Vector3
  * @param skipRadius The radius to skip (useful for creating holes in the sphere)
  * @constructor
  */
-class SphereBuilder() : AbstractShapeBuilder() {
+class SphereBuilder() : VertexShapeBuilder {
 
     private var radiusY: Double = .0
     private var radiusXZ: Double = .0
@@ -32,8 +32,8 @@ class SphereBuilder() : AbstractShapeBuilder() {
     private var ignoreBottomSurface: Boolean = false
 
 
-    override fun build(): Array<ParticleVertex> {
-        val sphere = HashSet<ParticleVertex>();
+    override fun build(): Array<Vertex> {
+        val sphere = HashSet<Vertex>();
         val incrementValue = 1.0 / density;
 
         var x = -radiusXZ
@@ -61,7 +61,7 @@ class SphereBuilder() : AbstractShapeBuilder() {
                     }
 
                     if (radiusCheck <= 1) {
-                        sphere.add(ParticleVertex(Vector3(x, y, z)))
+                        sphere.add(Vertex(Vector3(x, y, z)))
                     }
                     z += incrementValue
                 }
