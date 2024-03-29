@@ -15,7 +15,7 @@ class Shockwave(val center: Location, val shockwaveRadiusStart: Double, val shoc
             val explosionPower = 10f - (radius * 6f / shockwaveRadius)
 
             // From a radius to another, skip 3 radius
-            if (radius % (ceil(explosionPower/6)).roundToInt() != 0)
+            if (radius % (1.5*ceil(explosionPower/6)).roundToInt() != 0)
                 continue;
 
             Defcon.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(radius) {

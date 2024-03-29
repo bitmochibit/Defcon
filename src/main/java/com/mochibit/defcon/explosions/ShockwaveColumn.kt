@@ -4,6 +4,8 @@ import com.mochibit.defcon.utils.Geometry
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.block.BlockFace
+import org.bukkit.entity.LivingEntity
+import org.bukkit.util.Vector
 import kotlin.math.abs
 
 class ShockwaveColumn(
@@ -48,6 +50,7 @@ class ShockwaveColumn(
 
             location.world.createExplosion(currentYLocation, explosionPower, true, true);
             replaceBlocks(currentYLocation, explosionPower.toInt() * 2);
+            killNeabyEntities(currentYLocation);
             lastExplodedY = y;
         }
 
@@ -74,6 +77,16 @@ class ShockwaveColumn(
         }
 
 
+    }
+
+    private fun killNeabyEntities(location: Location) {
+        val power = explosionPower.toInt() * 3;
+
+        for (entity in location.world.getNearbyEntities(location, power.toDouble(), power.toDouble(), power.toDouble())) {
+            if (entity !is LivingEntity)
+                continue;
+            entity.damage(10000.0);
+        }
     }
 
 }
