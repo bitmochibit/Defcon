@@ -7,21 +7,23 @@ import org.bukkit.block.BlockFace
 import kotlin.math.abs
 
 class ShockwaveColumn(
-    val center: Location,
     val location: Location,
-    private val maxDeltaHeight: Double,
-    val radiusGroup: Int,
+    private val explosionPower: Float,
+    private val radiusGroup: Int,
     private val shockwave: Shockwave
 ) {
     // Clamped to the world height limit
     private val minHeight: Double =
-        Geometry.getMinY(location.clone().add(0.0, maxDeltaHeight, 0.0), maxDeltaHeight * 2).y;
+        Geometry.getMinY(location.clone().add(0.0, shockwave.shockwaveHeight, 0.0), shockwave.shockwaveHeight * 2).y;
 
     // Make the power start from the maximum 8f and decrease evenly with the radius to a minimum of 6f
-    private val explosionPower = 10f - (radiusGroup * 6f / shockwave.shockwaveRadius).toFloat();
+
 
     fun explode() {
         var lastExplodedY = -1000;
+        val center = shockwave.center;
+        val maxDeltaHeight = shockwave.shockwaveHeight;
+
         val direction = location.toVector().subtract(center.toVector()).normalize();
 
         for (y in (location.y + maxDeltaHeight).toInt()

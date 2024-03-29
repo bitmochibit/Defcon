@@ -72,6 +72,7 @@ class ParticleShape(
             // Check if the vertex has been spawned in the last 1 second
             if (System.currentTimeMillis() - particleVertex.spawnTime < 6000) continue;
 
+
             val transformedVertex = particleVertex.vertex.transformedPoint;
             val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)
 
@@ -98,7 +99,13 @@ class ParticleShape(
     }
 
     fun assign(newVertexes: Array<Vertex>): ParticleShape {
-        particleVertixes = newVertexes.map { ParticleVertex(Vertex(it.point, transform.xform(it.point)), System.currentTimeMillis()) }.toTypedArray();
+        val result = Array(newVertexes.size) { ParticleVertex(newVertexes[it]) }
+        for (i in newVertexes.indices) {
+            result[i] = ParticleVertex(
+                Vertex(newVertexes[i].point, transform.xform(newVertexes[i].point))
+            )
+        }
+        particleVertixes = result
 
         val x = particleVertixes.map { it.vertex.point.x }.average()
         val y = particleVertixes.map { it.vertex.point.y }.average();
@@ -114,6 +121,8 @@ class ParticleShape(
 
     // Color methods
     private fun applyTemperatureEmission(height: Double): ParticleShape {
+        if (particle != Particle.REDSTONE) return this;
+
         if (temperature > minTemperature)
             return this.also { it.color(ColorUtils.tempToRGB(temperature), baseSize.toFloat()) }
 
@@ -187,8 +196,9 @@ class ParticleShape(
     }
 
     fun particle(particle: Particle): ParticleShape {
-        particleBuilder.particle(particle);
         this.particle = particle;
+        particleBuilder.data(null)
+        particleBuilder.particle(particle)
         return this;
     }
 

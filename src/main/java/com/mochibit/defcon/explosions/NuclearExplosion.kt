@@ -4,7 +4,7 @@ import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.biomes.CustomBiomeHandler
 import com.mochibit.defcon.biomes.definitions.BurningAirBiome
 import com.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
-import com.mochibit.defcon.effects.NuclearMushroom
+import com.mochibit.defcon.effects.NuclearExplosion
 import com.mochibit.defcon.threading.jobs.SimpleCompositionJob
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.title.Title
@@ -12,7 +12,6 @@ import net.kyori.adventure.title.Title.Times
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
-import org.bukkit.Particle
 import java.time.Duration
 
 
@@ -71,9 +70,6 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         }
 
 
-        // Particle SFX
-        NuclearMushroom(center).instantiate(true);
-
 
         // Give fire damage to all entities in the radius of the thermal radiation (unless they are protected)
         // We will use ray-casting to check if the entity is in the radius of the thermal radiation
@@ -122,9 +118,10 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         }
 
         Defcon.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
-        Defcon.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(shockwaveRadius) {
-            Shockwave(center, 0.0, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
-        });
+        Shockwave(center, 0.0, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
+
+        // Particle SFX
+        NuclearExplosion(center).instantiate(true);
 
     }
 

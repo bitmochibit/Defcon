@@ -6,26 +6,28 @@ import com.mochibit.defcon.utils.Geometry
 import org.bukkit.Location
 import java.util.*
 import kotlin.math.ceil
+import kotlin.math.exp
+import kotlin.math.roundToInt
 
 class Shockwave(val center: Location, val shockwaveRadiusStart: Double, val shockwaveRadius: Double, val shockwaveHeight: Double) {
     fun explode() {
-        val columns: HashSet<ShockwaveColumn> = HashSet();
         for (radius in shockwaveRadiusStart.toInt()..shockwaveRadius.toInt()) {
-            columns.addAll(shockwaveCyl(center, radius.toDouble(), shockwaveHeight.toDouble()));
-        }
+            val explosionPower = 10f - (radius * 6f / shockwaveRadius)
 
-        // Convert columns to a thread-safe collection
-        val clonedColumns = Collections.synchronizedList(ArrayList(columns));
-        for (column in clonedColumns.sortedBy { it.radiusGroup }) {
+            // From a radius to another, skip 3 radius
+            if (radius % (ceil(explosionPower/6)).roundToInt() != 0)
+                continue;
 
-            Defcon.instance.scheduledRunnable.addWorkload(
-                SimpleCompositionJob(column) {
-                    it.explode();
+            Defcon.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(radius) {
+                for (column in shockwaveCyl(radius.toDouble(), explosionPower.toFloat())) {
+                    Defcon.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(column) {
+                        column.explode()
+                    })
                 }
-            );
+            });
         }
     }
-    private fun shockwaveCyl(center: Location, radius: Double, maxHeight: Double): HashSet<ShockwaveColumn> {
+    private fun shockwaveCyl(radius: Double, explosionPower: Float): HashSet<ShockwaveColumn> {
         val columns = HashSet<ShockwaveColumn>();
 
         val radiusX: Double = radius
@@ -60,30 +62,26 @@ class Shockwave(val center: Location, val shockwaveRadiusStart: Double, val shoc
 
 
                 columns.add(ShockwaveColumn(
-                    center,
                     center.clone().add(x.toDouble(), 0.0, z.toDouble()),
-                    maxHeight,
+                    explosionPower,
                     radius.toInt(),
-                    this
+                    this,
                 ));
                 columns.add(ShockwaveColumn(
-                    center,
                     center.clone().add(-x.toDouble(), 0.0, z.toDouble()),
-                    maxHeight,
+                    explosionPower,
                     radius.toInt(),
                     this
                 ));
                 columns.add(ShockwaveColumn(
-                    center,
                     center.clone().add(x.toDouble(), 0.0, -z.toDouble()),
-                    maxHeight,
+                    explosionPower,
                     radius.toInt(),
                     this
                 ));
                 columns.add(ShockwaveColumn(
-                    center,
                     center.clone().add(-x.toDouble(), 0.0, -z.toDouble()),
-                    maxHeight,
+                    explosionPower,
                     radius.toInt(),
                     this
                 ));

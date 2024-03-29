@@ -10,7 +10,7 @@ import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.Particle
 
-class NuclearMushroom(val center: Location) : AnimatedEffect() {
+class NuclearExplosion(val center: Location) : AnimatedEffect() {
     private val startingColor = Color.fromRGB(255, 229, 159)
     private val endingColor = Color.fromRGB(88, 87, 84);
     var maxTemp = 4000.0;
@@ -76,7 +76,7 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             .withHeight(90.0)
             .withRadiusX(4.0)
             .withRadiusZ(4.0)
-            .withRate(18.0)
+            .withRate(36.0)
             .hollow(true),
         Particle.REDSTONE,
         center
@@ -146,19 +146,17 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
         if (tickAlive > maxAliveTick)
             this.destroy();
 
-        // after 60 seconds, take the tertiarySpheroid and move transitionProgress from 0 to 1 over 20 seconds
-
-        tertiarySpheroid.transitionProgress = (tickAlive) / (10 * 20.0);
-        secondarySpheroid.transitionProgress = (tickAlive) / (10 * 20.0);
-
-
-        if (tickAlive > 20 * 15) {
-            stem.transitionProgress = (tickAlive - 20 * 15) / (20 * 20.0);
-            footCloudMain.transitionProgress = (tickAlive - 20 * 15) / (20 * 20.0);
-            footCloudSecondary.transitionProgress = (tickAlive - 20 * 15) / (20 * 20.0);
+        if (tickAlive > 40 * 20 && !primaryNeck.isVisible()) {
+            primaryNeck.visible(true)
         }
 
+        processTemperatureTransition(coreSpheroid, 0.0, 50.0)
+        processTemperatureTransition(secondarySpheroid, 0.0, 15.0)
+        processTemperatureTransition(tertiarySpheroid, 0.0, 15.0)
 
+        processTemperatureTransition(stem, 15.0, 10.0)
+        processTemperatureTransition(footCloudMain, 15.0, 10.0)
+        processTemperatureTransition(footCloudSecondary, 15.0, 10.0)
     }
 
     fun coolComponents() {
@@ -180,8 +178,10 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
         val currentRadiusXZ = condensationCloudBuilder.getRadiusXZ()
         if (currentRadiusXZ > 150) return
 
-        condensationCloudBuilder.withRadiusXZ(currentRadiusXZ + 10.0)
-        condensationCloudBuilder.withRadiusY(currentRadiusXZ + 8.0)
+        val currentRadiusY = condensationCloudBuilder.getRadiusY()
+
+        condensationCloudBuilder.withRadiusXZ(currentRadiusXZ + 15.0)
+        condensationCloudBuilder.withRadiusY(currentRadiusY + 20.0)
         condensationCloud.buildAndAssign()
     }
 
@@ -241,22 +241,24 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             .buildAndAssign()
             .snapToFloor(5.0, 5.0)
             .baseColor(endingColor)
-            .radialSpeed(0.05).
-            particleBuilder.count(0).offset(0.0, 0.05, 0.0)
+            .radialSpeed(0.01).
+            visible(false)
+            .particleBuilder.count(0).offset(0.0, -0.01, 0.0)
 
         stem
             .buildAndAssign()
             .baseColor(endingColor)
             .temperature(maxTemp, 1500.0, maxTemp)
-            .temperatureEmission(true).
-            particleBuilder.count(0).offset(0.0, 0.1, 0.0)
+            .temperatureEmission(true)
+            .heightPredicate(this::visibleWhenLessThanCurrentHeight)
+            .particleBuilder.count(0).offset(0.0, 0.1, 0.0)
 
         footCloudMain
             .buildAndAssign()
             .baseColor(endingColor)
             .temperature(maxTemp, 1500.0, maxTemp)
             .radialSpeed(0.01)
-            .particleBuilder.count(0).offset(0.0, 0.005, 0.0)
+            .particleBuilder.count(0).offset(0.0, 0.01, 0.0)
 
         footCloudSecondary
             .buildAndAssign()
@@ -270,14 +272,19 @@ class NuclearMushroom(val center: Location) : AnimatedEffect() {
             .buildAndAssign()
             .baseColor(Color.fromRGB(255, 255, 255))
             .radialSpeed(0.5)
+            .heightPredicate(this::stripesHeight)
             .particleBuilder.count(0).offset(0.0, 0.0, 0.0)
-
-        stem.heightPredicate(this::visibleWhenLessThanCurrentHeight)
-        condensationCloud.heightPredicate(this::stripesHeight)
     }
 
     override fun stop() {
         // Nothing to do here
+    }
+
+    private fun processTemperatureTransition(particleShape: ParticleShape, startAfterSeconds: Double, durationSeconds: Double, minTemperature: Double = 1500.0) {
+        if (particleShape.temperature > minTemperature) return
+        if (tickAlive < startAfterSeconds*20) return
+
+        particleShape.transitionProgress = (tickAlive - startAfterSeconds*20) / (durationSeconds*20.0)
     }
 
     fun stripesHeight(value: Double): Boolean {
