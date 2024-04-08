@@ -2,7 +2,8 @@ package com.mochibit.defcon.commands
 
 import com.mochibit.defcon.abstracts.GenericCommand
 import com.mochibit.defcon.annotations.CommandInfo
-import com.mochibit.defcon.services.Effector
+import com.mochibit.defcon.math.Vector3
+import com.mochibit.defcon.radiation.RadiationArea
 import org.bukkit.ChatColor
 import org.bukkit.Location
 import org.bukkit.entity.Player
@@ -33,6 +34,8 @@ class IrradiateZone : GenericCommand() {
             player.sendMessage(ChatColor.RED.toString() + "The radius must be greater than 0")
             return
         }
-        Effector.generateRadiationField(Location(player.world, x.toDouble(), y.toDouble(), z.toDouble()), radius)
+
+        RadiationArea.fromCenter(Location(player.world, x.toDouble(), y.toDouble(), z.toDouble()), radius)
+
     }
 }

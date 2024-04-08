@@ -9,7 +9,6 @@ import org.bukkit.Bukkit
 import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.Particle
-
 class NuclearExplosion(val center: Location) : AnimatedEffect() {
     private val startingColor = Color.fromRGB(255, 229, 159)
     private val endingColor = Color.fromRGB(88, 87, 84);
@@ -222,6 +221,7 @@ class NuclearExplosion(val center: Location) : AnimatedEffect() {
             condensationCloud.particleBuilder.receivers(entities)
         };
 
+
         coreSpheroid.buildAndAssign().color(startingColor, 5f)
             .temperature(maxTemp, 1500.0, maxTemp)
             .baseColor(endingColor)
@@ -291,7 +291,6 @@ class NuclearExplosion(val center: Location) : AnimatedEffect() {
         // Every 10 blocks show 20 blocks of stripes
         return value % 20 < 10;
     }
-
     fun visibleWhenLessThanCurrentHeight(value: Double): Boolean {
         return value < currentHeight-10;
     }

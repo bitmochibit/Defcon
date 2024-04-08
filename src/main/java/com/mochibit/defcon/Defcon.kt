@@ -4,6 +4,7 @@ import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.biomes.CustomBiomeHandler
 import com.mochibit.defcon.services.*
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
+import io.papermc.lib.PaperLib
 import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -21,6 +22,8 @@ class Defcon : JavaPlugin() {
     }
 
     override fun onEnable() {
+
+        PaperLib.suggestPaper(this)
 
         getLogger().info("[Defcon] has been enabled!")
 

@@ -1,6 +1,7 @@
 package com.mochibit.defcon.math
 
 import com.mochibit.defcon.utils.MathFunctions
+import org.bukkit.World
 import kotlin.math.atan2
 import kotlin.math.sqrt
 
@@ -300,6 +301,10 @@ class Vector3(
 
     fun toBukkitVector(): org.bukkit.util.Vector {
         return org.bukkit.util.Vector(x, y, z)
+    }
+
+    fun toLocation(world: World): org.bukkit.Location {
+        return org.bukkit.Location(world, x, y, z)
     }
 
 

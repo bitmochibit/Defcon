@@ -7,7 +7,7 @@ import com.mochibit.defcon.enums.StructureBehaviour
 import com.mochibit.defcon.exceptions.BlockNotRegisteredException
 import com.mochibit.defcon.interfaces.PluginBlock
 import com.mochibit.defcon.interfaces.StructureDefinition
-import com.mochibit.defcon.utils.FloodFiller
+import com.mochibit.defcon.utils.FloodFill3D
 import org.bukkit.Location
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -145,7 +145,7 @@ class StructureRegister() {
 
 
         // If not a structure block, find the structure by the location
-        var pluginBlockLocations = FloodFiller.getFloodFill(location, 200, customBlockOnly = true)
+        var pluginBlockLocations = FloodFill3D.getFloodFill(location, 200, customBlockOnly = true)
 
         if (pluginBlockLocations.isEmpty()) return StructureQuery(foundStructures, pluginBlockLocations)
 
