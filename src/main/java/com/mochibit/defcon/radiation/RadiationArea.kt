@@ -64,35 +64,34 @@ class RadiationArea(private val center: Location, private val maxFloodBlocks: In
 
     fun generate() {
         Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
-            FloodFill3D.getFloodFillAsync(center, maxFloodBlocks + 1, true).thenAcceptAsync {
-                info("Flood fill completed with ${it.size} blocks")
-                if (it.size > maxFloodBlocks) {
-                    synchronized(this.cuboidVertexes) {
-                        cuboidVertexes = HashSet(
-                            listOf(
-                                CuboidVertex(
-                                    center.x - cuboidRadius.x,
-                                    center.y - cuboidRadius.y,
-                                    center.z - cuboidRadius.z
-                                ),
-                                CuboidVertex(
-                                    center.x + cuboidRadius.x,
-                                    center.y + cuboidRadius.y,
-                                    center.z + cuboidRadius.z
-                                )
+            val locations = FloodFill3D.getFloodFillAsync(center, maxFloodBlocks + 1, true).join();
+            info("Flood fill completed with ${locations.size} blocks")
+            if (locations.size > maxFloodBlocks) {
+                synchronized(this.cuboidVertexes) {
+                    cuboidVertexes = HashSet(
+                        listOf(
+                            CuboidVertex(
+                                center.x - cuboidRadius.x,
+                                center.y - cuboidRadius.y,
+                                center.z - cuboidRadius.z
+                            ),
+                            CuboidVertex(
+                                center.x + cuboidRadius.x,
+                                center.y + cuboidRadius.y,
+                                center.z + cuboidRadius.z
                             )
                         )
-                        affectedChunks = HashSet()
-                    }
-                    return@thenAcceptAsync
+                    )
+                    affectedChunks = HashSet()
                 }
+                return@Runnable
+            }
 
-                info("${it.size} is less than $maxFloodBlocks, storing in chunks")
-                affectedChunks = HashSet()
-                for (location in it) {
-                    MetaManager.setBlockData(location, BlockDataKey.RadiationLevel, 1.0)
-                    affectedChunks.add(location.chunk)
-                }
+            info("${locations.size} is less than $maxFloodBlocks, storing in chunks")
+            affectedChunks = HashSet()
+            for (location in locations) {
+                MetaManager.setBlockData(location, BlockDataKey.RadiationLevel, 1.0)
+                affectedChunks.add(location.chunk)
             }
         })
     }

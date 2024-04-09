@@ -67,7 +67,7 @@ object FloodFill3D {
     }
 
 
-    // To optimize
+    //TODO: To optimize
     private fun isCustomBlock(loc: Location): Boolean {
         return BlockRegister.getBlock(loc) != null
     }
