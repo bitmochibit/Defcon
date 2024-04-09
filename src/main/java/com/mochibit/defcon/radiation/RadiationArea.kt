@@ -26,6 +26,32 @@ class RadiationArea(private val center: Location, private val maxFloodBlocks: In
             )
             return radiationAreas.last()
         }
+
+        fun checkIfInBounds(location: Location) : Boolean {
+            for (area in radiationAreas) {
+                if (area.checkIfInBounds(location))
+                    return true
+            }
+            return false
+        }
+    }
+
+    fun checkIfInBounds(location: Location) : Boolean {
+        if (cuboidVertexes.isEmpty()) {
+            return false
+        }
+
+        // Get the min coordinates and the max coordinates of the vertexes and check if the location is inside the cuboid
+        val min = cuboidVertexes.first()
+        val max = cuboidVertexes.last()
+
+        if (location.x >= min.x && location.x <= max.x &&
+            location.y >= min.y && location.y <= max.y &&
+            location.z >= min.z && location.z <= max.z) {
+            return true
+        }
+
+        return false
     }
 
     /**
