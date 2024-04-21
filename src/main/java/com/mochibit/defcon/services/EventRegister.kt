@@ -10,11 +10,13 @@ class EventRegister() {
     private var packageName: String = Defcon.instance.javaClass.getPackage().name
     var plugin: JavaPlugin = JavaPlugin.getPlugin(Defcon::class.java)
 
-    fun registerItemEvents(): EventRegister {
+
+    fun registerEvents() : EventRegister {
         plugin.getLogger().info("Registering events from $packageName.events")
-        for (listenerClass in Reflections("$packageName.events.items").getSubTypesOf(Listener::class.java)) {
+        for (listenerClass in Reflections("$packageName.events").getSubTypesOf(Listener::class.java)) {
             try {
-                plugin.server.pluginManager.registerEvents(listenerClass.getDeclaredConstructor().newInstance(),
+                plugin.server.pluginManager.registerEvents(
+                    listenerClass.getDeclaredConstructor().newInstance(),
                     plugin
                 )
             } catch (e: InstantiationException) {
@@ -27,24 +29,7 @@ class EventRegister() {
                 throw RuntimeException(e)
             }
         }
-        return this
-    }
 
-    fun registerBlockEvents(): EventRegister {
-        plugin.getLogger().info("Registering events from $packageName.events")
-        for (listenerClass in Reflections("$packageName.events.blocks").getSubTypesOf(Listener::class.java)) {
-            try {
-                plugin.server.pluginManager.registerEvents(listenerClass.getDeclaredConstructor().newInstance(), plugin)
-            } catch (e: InstantiationException) {
-                throw RuntimeException(e)
-            } catch (e: IllegalAccessException) {
-                throw RuntimeException(e)
-            } catch (e: InvocationTargetException) {
-                throw RuntimeException(e)
-            } catch (e: NoSuchMethodException) {
-                throw RuntimeException(e)
-            }
-        }
-        return this
+        return this;
     }
 }

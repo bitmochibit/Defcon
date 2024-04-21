@@ -1,4 +1,4 @@
-package com.mochibit.defcon.events.blocks
+package com.mochibit.defcon.events.player
 
 import com.mochibit.defcon.enums.BlockDataKey
 import com.mochibit.defcon.radiation.RadiationArea

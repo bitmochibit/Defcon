@@ -1,9 +1,11 @@
 package com.mochibit.defcon.commands
 
+import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.abstracts.GenericCommand
 import com.mochibit.defcon.annotations.CommandInfo
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.radiation.RadiationArea
+import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.Location
 import org.bukkit.entity.Player
@@ -35,7 +37,10 @@ class IrradiateZone : GenericCommand() {
             return
         }
 
-        RadiationArea.fromCenter(Location(player.world, x.toDouble(), y.toDouble(), z.toDouble()), radius)
+        Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
+            RadiationArea.fromCenter(Location(player.world, x.toDouble(), y.toDouble(), z.toDouble()), radius).join();
+        })
+
 
     }
 }

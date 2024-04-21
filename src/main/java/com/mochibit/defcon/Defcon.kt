@@ -1,7 +1,7 @@
 package com.mochibit.defcon
 
 import com.mochibit.defcon.Defcon.Companion.Logger.info
-import com.mochibit.defcon.biomes.CustomBiomeHandler
+import com.mochibit.defcon.save.savedata.RadiationAreaSave
 import com.mochibit.defcon.services.*
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import io.papermc.lib.PaperLib
@@ -32,9 +32,7 @@ class Defcon : JavaPlugin() {
 
 
         /* Register all plugin's events */
-        EventRegister()
-                .registerItemEvents()
-                .registerBlockEvents()
+        EventRegister().registerEvents()
 
         /* Register definitions items */
         if (!ItemRegister().registerItems()) {
@@ -43,7 +41,6 @@ class Defcon : JavaPlugin() {
 
         /* Register definitions blocks */
         BlockRegister().registerBlocks()
-
 
         /* Register commands */
         CommandRegister().registerCommands()

@@ -22,6 +22,14 @@ class Vector3(
 
         val FORWARD = Vector3(0.0, 0.0, 1.0)
         val BACKWARD = Vector3(0.0, 0.0, -1.0)
+
+        fun fromLocation(location: org.bukkit.Location): Vector3 {
+            return Vector3(location.x, location.y, location.z)
+        }
+
+        fun fromBukkitVector(vector: org.bukkit.util.Vector): Vector3 {
+            return Vector3(vector.x, vector.y, vector.z)
+        }
     }
 
     constructor() : this(0.0, 0.0, 0.0)
