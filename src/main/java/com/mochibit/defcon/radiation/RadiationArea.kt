@@ -11,22 +11,25 @@ import org.bukkit.Location
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 
-class RadiationArea(val center: Vector3) {
+class RadiationArea(val center: Vector3, val worldName: String) {
 
-    var cuboidVertexes: HashSet<CuboidVertex> = HashSet()
+
+    var minVertex: CuboidVertex = CuboidVertex(0, 0, 0)
+    var maxVertex: CuboidVertex = CuboidVertex(0, 0, 0)
 
     var affectedChunkCoordinates: HashSet<Vector3> = HashSet()
-
-    var maxUpperVertexRadius = Vector3(20000.0, 150.0, 20000.0)
-
-    var maxLowerVertexRadius = Vector3(-20000.0, -10.0, -20000.0)
 
     companion object {
         @Expose(serialize = false, deserialize = false)
         private val loadedRadiationAreas = ConcurrentHashMap.newKeySet<RadiationArea>()
-        fun fromCenter(center: Location, maxFloodBlocks: Int = 20000): CompletableFuture<RadiationArea> {
-            val area = RadiationArea(Vector3.fromLocation(center))
-            return area.generate(center, maxFloodBlocks)
+        fun fromCenter(
+            center: Location,
+            maxFloodBlocks: Int = 20000,
+            maxUpperVertexRadius: Vector3 = Vector3(20000.0, 150.0, 20000.0),
+            maxLowerVertexRadius: Vector3 = Vector3(-20000.0, -10.0, -20000.0)
+        ): CompletableFuture<RadiationArea> {
+            val area = RadiationArea(Vector3.fromLocation(center), center.world.name)
+            return area.generate(center, maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius)
         }
 
         fun getAreaAt(location: Location): RadiationArea? {
@@ -63,22 +66,12 @@ class RadiationArea(val center: Vector3) {
     }
 
     fun checkIfInBounds(location: Location): Boolean {
-        if (cuboidVertexes.isEmpty()) {
-            return false
-        }
+        if (worldName == "") return false
+        if (location.world.name != worldName) return false
 
-        // Get the min coordinates and the max coordinates of the vertexes and check if the location is inside the cuboid
-        val min = cuboidVertexes.first()
-        val max = cuboidVertexes.last()
-
-        if (location.x >= min.x && location.x <= max.x &&
-            location.y >= min.y && location.y <= max.y &&
-            location.z >= min.z && location.z <= max.z
-        ) {
-            return true
-        }
-
-        return false
+        return location.x >= minVertex.x && location.x <= maxVertex.x &&
+                location.y >= minVertex.y && location.y <= maxVertex.y &&
+                location.z >= minVertex.z && location.z <= maxVertex.z
     }
 
     fun blockRadiationLevel(location: Location): Double {
@@ -95,28 +88,27 @@ class RadiationArea(val center: Vector3) {
      * For keeping track of the areas, they will be stored in a file, containing the affected chunks.
      */
 
-    fun generate(center: Location, maxFloodBlocks: Int): CompletableFuture<RadiationArea> {
+    fun generate(
+        center: Location,
+        maxFloodBlocks: Int,
+        maxVertexRadius: Vector3,
+        minVertexRadius: Vector3
+    ): CompletableFuture<RadiationArea> {
         return CompletableFuture.supplyAsync result@{
             val locations = FloodFill3D.getFloodFillAsync(center, maxFloodBlocks + 1, true).join();
             affectedChunkCoordinates = HashSet()
             info("Flood fill completed with ${locations.size} blocks")
             if (locations.size > maxFloodBlocks) {
-                synchronized(this.cuboidVertexes) {
-                    cuboidVertexes = HashSet(
-                        listOf(
-                            CuboidVertex(
-                                center.x + maxUpperVertexRadius.x,
-                                center.y + maxUpperVertexRadius.y,
-                                center.z + maxUpperVertexRadius.z
-                            ),
-                            CuboidVertex(
-                                center.x + maxLowerVertexRadius.x,
-                                center.y + maxLowerVertexRadius.y,
-                                center.z + maxLowerVertexRadius.z
-                            )
-                        )
-                    )
-                }
+                minVertex = CuboidVertex(
+                    (center.x + minVertexRadius.x).toInt(),
+                    (center.y + minVertexRadius.y).toInt(),
+                    (center.z + minVertexRadius.z).toInt()
+                )
+                maxVertex = CuboidVertex(
+                    (center.x + maxVertexRadius.x).toInt(),
+                    (center.y + maxVertexRadius.y).toInt(),
+                    (center.z + maxVertexRadius.z).toInt()
+                )
             } else {
                 info("${locations.size} is less than $maxFloodBlocks, storing in chunks")
                 for (location in locations) {
