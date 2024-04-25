@@ -3,8 +3,7 @@ package com.mochibit.defcon
 import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.enums.BlockDataKey
 import com.mochibit.defcon.radiation.RadiationArea
-import com.mochibit.defcon.save.savedata.RadiationAreaSave
-import com.mochibit.defcon.services.*
+import com.mochibit.defcon.registers.*
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import com.mochibit.defcon.utils.MetaManager
 import io.papermc.lib.PaperLib

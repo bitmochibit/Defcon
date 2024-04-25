@@ -1,8 +1,6 @@
 package com.mochibit.defcon.commands
 
-import com.mochibit.defcon.abstracts.GenericCommand
-import com.mochibit.defcon.annotations.CommandInfo
-import com.mochibit.defcon.services.StructureRegister
+import com.mochibit.defcon.registers.StructureRegister
 import org.bukkit.ChatColor
 import org.bukkit.Location
 import org.bukkit.entity.Player

@@ -2,8 +2,8 @@ package com.mochibit.defcon.events.blocks
 
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.interfaces.PluginItem
-import com.mochibit.defcon.services.BlockRegister
-import com.mochibit.defcon.services.ItemRegister
+import com.mochibit.defcon.registers.BlockRegister
+import com.mochibit.defcon.registers.ItemRegister
 import org.bukkit.NamespacedKey
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener

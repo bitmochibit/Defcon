@@ -1,10 +1,7 @@
 package com.mochibit.defcon.utils
 
-import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.math.Vector3
-import com.mochibit.defcon.services.BlockRegister
-import io.papermc.lib.PaperLib
-import org.bukkit.Bukkit
+import com.mochibit.defcon.registers.BlockRegister
 import org.bukkit.Location
 import java.util.*
 import java.util.concurrent.CompletableFuture

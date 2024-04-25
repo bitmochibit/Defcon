@@ -1,10 +1,8 @@
 package com.mochibit.defcon.commands
 
-import com.mochibit.defcon.abstracts.GenericCommand
-import com.mochibit.defcon.annotations.CommandInfo
 import com.mochibit.defcon.exceptions.ItemNotRegisteredException
 import com.mochibit.defcon.interfaces.PluginItem
-import com.mochibit.defcon.services.ItemRegister
+import com.mochibit.defcon.registers.ItemRegister
 import org.bukkit.ChatColor
 import org.bukkit.entity.Player
 

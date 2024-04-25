@@ -1,9 +1,6 @@
 package com.mochibit.defcon.commands
 
 import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.abstracts.GenericCommand
-import com.mochibit.defcon.annotations.CommandInfo
-import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.radiation.RadiationArea
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor

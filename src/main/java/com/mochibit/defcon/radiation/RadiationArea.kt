@@ -3,16 +3,31 @@ package com.mochibit.defcon.radiation
 import com.google.gson.annotations.Expose
 import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.enums.BlockDataKey
+import com.mochibit.defcon.extensions.getBlockData
+import com.mochibit.defcon.extensions.toChunkCoordinate
 import com.mochibit.defcon.math.Vector3
+import com.mochibit.defcon.save.manager.RadiationAreaManager
 import com.mochibit.defcon.save.savedata.RadiationAreaSave
 import com.mochibit.defcon.utils.FloodFill3D
 import com.mochibit.defcon.utils.MetaManager
 import org.bukkit.Location
+import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 
-class RadiationArea(val center: Vector3, val worldName: String) {
-
+class RadiationArea (val center: Vector3, val worldName: String) {
+    //TODO: Convert this whole class to a Factory, and store the data in a dataclass
+    var id: Int = -1
+        set(value) {
+            if (field > -1) return
+            field = value
+        }
+        get() {
+            if (field == -1) {
+                throw IllegalStateException("Radiation area id is not set")
+            }
+            return field
+        }
 
     var minVertex: CuboidVertex = CuboidVertex(0, 0, 0)
     var maxVertex: CuboidVertex = CuboidVertex(0, 0, 0)
@@ -21,7 +36,7 @@ class RadiationArea(val center: Vector3, val worldName: String) {
 
     companion object {
         @Expose(serialize = false, deserialize = false)
-        private val loadedRadiationAreas = ConcurrentHashMap.newKeySet<RadiationArea>()
+        private val loadedRadiationAreas = ConcurrentHashMap<Int, RadiationArea>()
         fun fromCenter(
             center: Location,
             maxFloodBlocks: Int = 20000,
@@ -32,37 +47,64 @@ class RadiationArea(val center: Vector3, val worldName: String) {
             return area.generate(center, maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius)
         }
 
-        fun getAreaAt(location: Location): RadiationArea? {
-            val chunkCoordinates = toChunkCoordinate(location)
-            for (area in loadedRadiationAreas) {
-                if (!area.affectedChunkCoordinates.contains(chunkCoordinates)) continue
-                if (!area.checkIfInBounds(location)) continue
-                if (area.blockRadiationLevel(location).equals(0.0)) continue
+        fun getAreaAt(location: Location): List<RadiationArea> {
+            val result = HashSet<RadiationArea>()
+            val chunkCoordinates = location.toChunkCoordinate()
+            tryLoadFromLocation(location);
 
-                return area
+            val blockRadiationAreaId = blockRadiationAreaId(location)
+            if (blockRadiationAreaId != null) {
+                val radiationArea = loadedRadiationAreas[blockRadiationAreaId]
+                if (radiationArea != null) {
+                    result.add(radiationArea)
+                }
             }
-            return null
-        }
 
-        private fun toChunkCoordinate(location: Location): Vector3 {
-            return Vector3(location.chunk.x.toDouble(), .0, location.chunk.z.toDouble())
-        }
+            for (area in loadedRadiationAreas.values) {
+                if (area.checkIfInBounds(location)) {
+                    result.add(area)
+                }
+            }
 
+            return result.toList();
+        }
         fun checkIfInBounds(location: Location): Boolean {
-            for (area in loadedRadiationAreas) {
+            for (area in loadedRadiationAreas.values) {
                 if (area.checkIfInBounds(location))
                     return true
             }
             return false
         }
+        private fun tryLoadFromLocation(location: Location) {
+            val radiationAreaSave = RadiationAreaSave().load()
+            for (radiationArea in radiationAreaSave.saveData.radiationAreas) {
+                if (radiationArea.checkIfInBounds(location)) {
+                    loadRadiationArea(radiationArea)
+                    continue
+                }
+
+                if (blockRadiationAreaId(location) == radiationArea.id) {
+                    loadRadiationArea(radiationArea)
+                }
+            }
+        }
 
         fun loadRadiationArea(radiationArea: RadiationArea) {
-            loadedRadiationAreas.add(radiationArea)
+            loadedRadiationAreas[radiationArea.id] = radiationArea
         }
 
         fun unloadRadiationArea(radiationArea: RadiationArea) {
-            loadedRadiationAreas.remove(radiationArea)
+            loadedRadiationAreas.remove(radiationArea.id)
         }
+
+        fun blockRadiationLevel(location: Location): Double {
+            return location.getBlockData<Double>(BlockDataKey.RadiationLevel) ?: 0.0
+        }
+
+        fun blockRadiationAreaId(location: Location): Int? {
+            return location.getBlockData<Int>(BlockDataKey.RadiationAreaId)
+        }
+
     }
 
     fun checkIfInBounds(location: Location): Boolean {
@@ -72,11 +114,6 @@ class RadiationArea(val center: Vector3, val worldName: String) {
         return location.x >= minVertex.x && location.x <= maxVertex.x &&
                 location.y >= minVertex.y && location.y <= maxVertex.y &&
                 location.z >= minVertex.z && location.z <= maxVertex.z
-    }
-
-    fun blockRadiationLevel(location: Location): Double {
-        val blockData = MetaManager.getBlockData<Double>(location, BlockDataKey.RadiationLevel)
-        return blockData ?: 0.0
     }
 
 
@@ -95,6 +132,7 @@ class RadiationArea(val center: Vector3, val worldName: String) {
         minVertexRadius: Vector3
     ): CompletableFuture<RadiationArea> {
         return CompletableFuture.supplyAsync result@{
+
             val locations = FloodFill3D.getFloodFillAsync(center, maxFloodBlocks + 1, true).join();
             affectedChunkCoordinates = HashSet()
             info("Flood fill completed with ${locations.size} blocks")
@@ -113,13 +151,12 @@ class RadiationArea(val center: Vector3, val worldName: String) {
                 info("${locations.size} is less than $maxFloodBlocks, storing in chunks")
                 for (location in locations) {
                     MetaManager.setBlockData(location, BlockDataKey.RadiationLevel, 1.0 + blockRadiationLevel(location))
-                    affectedChunkCoordinates.add(toChunkCoordinate(location))
+                    MetaManager.setBlockData(location, BlockDataKey.RadiationAreaId, id)
+                    affectedChunkCoordinates.add(location.toChunkCoordinate())
                 }
             }
 
-            val radiationAreaSave = RadiationAreaSave()
-            radiationAreaSave.saveData.radiationAreas.add(this)
-            radiationAreaSave.save()
+            RadiationAreaManager().save(this)
 
             return@result this;
         }

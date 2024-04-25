@@ -3,8 +3,8 @@ package com.mochibit.defcon.events.items
 import com.mochibit.defcon.enums.BlockDataKey
 import com.mochibit.defcon.enums.ItemBehaviour
 import com.mochibit.defcon.enums.ItemDataKey
-import com.mochibit.defcon.services.ItemRegister
-import com.mochibit.defcon.services.StructureRegister
+import com.mochibit.defcon.registers.ItemRegister
+import com.mochibit.defcon.registers.StructureRegister
 import com.mochibit.defcon.utils.MetaManager
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener

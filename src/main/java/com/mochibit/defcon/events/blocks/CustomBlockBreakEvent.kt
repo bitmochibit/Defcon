@@ -1,7 +1,7 @@
 package com.mochibit.defcon.events.blocks
 
 import com.mochibit.defcon.interfaces.PluginBlock
-import com.mochibit.defcon.services.BlockRegister
+import com.mochibit.defcon.registers.BlockRegister
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent

@@ -1,7 +1,5 @@
 package com.mochibit.defcon.commands
 
-import com.mochibit.defcon.abstracts.GenericCommand
-import com.mochibit.defcon.annotations.CommandInfo
 import com.mochibit.defcon.explosions.NuclearComponent
 import com.mochibit.defcon.explosions.NuclearExplosion
 import org.bukkit.ChatColor
