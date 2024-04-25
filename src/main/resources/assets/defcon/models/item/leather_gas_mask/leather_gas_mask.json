@@ -1,11 +1,10 @@
 {
-	"credit": "Made with Blockbench",
+	"credit": "Made by Mochibit",
 	"textures": {
-		"1": "face_glass",
-		"2": "mask_body",
-		"3": "filter",
-		"5": "strips",
-		"particle": "mask_body"
+		"1": "item/leather_gas_mask/face_glass",
+		"2": "item/leather_gas_mask/mask_body",
+		"3": "item/leather_gas_mask/filter",
+		"5": "item/leather_gas_mask/strips"
 	},
 	"elements": [
 		{

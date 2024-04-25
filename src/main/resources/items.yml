@@ -29,9 +29,9 @@
 
 enabled-items:
   - geiger
-#  - radiation-inhibitor
-#  - gas-mask
-#  - gas-mask-filter
+  #  - radiation-inhibitor
+  - gas-mask
+  #  - gas-mask-filter
   - wrench
   - bomb-casing
   - bomb-core
@@ -41,6 +41,18 @@ enabled-items:
 #------------------------------------------------------------------------------
 # ITEMS
 #------------------------------------------------------------------------------
+gas-mask:
+  item-name: "Gas mask"
+  item-description: "&eProtects you from toxic gases"
+  item-minecraft-id: RABBIT_HIDE
+  item-data-model-id: 1
+  is-usable: true
+  is-equipable: true
+  is-droppable: true
+  max-stack-size: 1
+  is-transportable: true
+  behaviour: "gas_mask"
+
 geiger:
   item-name: "&#cbfb09G&#cff408e&#d3ed08i&#d8e607g&#dcdf06e&#e0d805r &#e4d105C&#e8ca04o&#ecc303u&#f1bc02n&#f5b502t&#f9ae01e&#fda700r"
   item-description: "&eThis item measures the radiation levels"
@@ -54,16 +66,16 @@ geiger:
   behaviour: "geiger_counter"
 
 wrench:
-    item-name: "Wrench"
-    item-description: "&eUsed to assemble structures"
-    item-minecraft-id: IRON_PICKAXE
-    item-data-model-id: 2
-    is-usable: true
-    is-equipable: true
-    is-droppable: true
-    max-stack-size: 1
-    is-transportable: true
-    behaviour: "wrench"
+  item-name: "Wrench"
+  item-description: "&eUsed to assemble structures"
+  item-minecraft-id: IRON_PICKAXE
+  item-data-model-id: 2
+  is-usable: true
+  is-equipable: true
+  is-droppable: true
+  max-stack-size: 1
+  is-transportable: true
+  behaviour: "wrench"
 
 #------------------------------------------------------------------------------
 # BLOCK ITEMS
@@ -82,27 +94,27 @@ bomb-casing:
   behaviour: "block"
 
 bomb-core:
-    item-name: "Bomb core"
-    item-description: "&eThe core of the bomb"
-    item-minecraft-id: BEACON
-    item-data-model-id: 1001
-    is-usable: true
-    is-equipable: true
-    is-droppable: true
-    is-transportable: true
-    max-stack-size: 64
-    custom-block-id: bomb-core
-    behaviour: "block"
+  item-name: "Bomb core"
+  item-description: "&eThe core of the bomb"
+  item-minecraft-id: BEACON
+  item-data-model-id: 1001
+  is-usable: true
+  is-equipable: true
+  is-droppable: true
+  is-transportable: true
+  max-stack-size: 64
+  custom-block-id: bomb-core
+  behaviour: "block"
 
 bomb-interface:
-    item-name: "Bomb interface"
-    item-description: "&eThe interface of the bomb"
-    item-minecraft-id: COMMAND_BLOCK
-    item-data-model-id: 1002
-    is-usable: true
-    is-equipable: true
-    is-droppable: true
-    is-transportable: true
-    max-stack-size: 64
-    custom-block-id: bomb-interface
-    behaviour: "block"
+  item-name: "Bomb interface"
+  item-description: "&eThe interface of the bomb"
+  item-minecraft-id: COMMAND_BLOCK
+  item-data-model-id: 1002
+  is-usable: true
+  is-equipable: true
+  is-droppable: true
+  is-transportable: true
+  max-stack-size: 64
+  custom-block-id: bomb-interface
+  behaviour: "block"

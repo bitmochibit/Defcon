@@ -3,6 +3,7 @@ package com.mochibit.defcon.registers
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.customassets.fonts.AbstractCustomFont
+import com.mochibit.defcon.customassets.items.AbstractCustomItemModel
 import com.mochibit.defcon.customassets.sounds.AbstractCustomSound
 import org.bukkit.Bukkit
 import org.json.simple.JSONArray
@@ -18,6 +19,7 @@ import java.util.*
 import java.util.jar.JarFile
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.collections.HashSet
 
 
 class ResourcePackRegister private constructor() : PackRegister {
@@ -155,6 +157,45 @@ class ResourcePackRegister private constructor() : PackRegister {
 
         val targetTexturesPath = Paths.get("$minecraftPath/textures")
         copyFoldersFromResource("assets/defcon/textures/", targetTexturesPath)
+
+        // Copy the "models" folder from the resources folder to the "models" folder in the minecraft folder
+        val targetModelsPath = Paths.get("$minecraftPath/models")
+        copyFoldersFromResource("assets/defcon/models/", targetModelsPath)
+        // Generate automatically the items definition for the custom items
+
+
+        val itemModels = HashSet<AbstractCustomItemModel>()
+        for (itemModel in Reflections("$packageName.customassets.items.definitions").getSubTypesOf(AbstractCustomItemModel::class.java)) {
+            val itemModelInstance = itemModel.getDeclaredConstructor().newInstance()
+            itemModels.add(itemModelInstance)
+        }
+
+        for (itemGroup in itemModels.groupBy { it.modelData.originalItemName }) {
+            val firstModelData = itemGroup.value.first().modelData
+
+            val model = JSONObject()
+            model["parent"] = firstModelData.parent.value
+            val textures = JSONObject()
+            textures["layer0"] = firstModelData.textures["layer0"]
+            model["textures"] = textures
+
+            // Overrides that should be aggregated based on the itemType
+            val overrides = JSONArray()
+            for (item in itemGroup.value) {
+                val customModelOverride = JSONObject()
+                val predicate = JSONObject()
+                customModelOverride["predicate"] = predicate
+                predicate["custom_model_data"] = item.modelData.customModelData
+
+                customModelOverride["model"] = item.modelData.model
+                overrides.add(customModelOverride)
+            }
+            model["overrides"] = overrides
+            Files.write(targetModelsPath.resolve("item/${itemGroup.key}.json"), model.toJSONString().toByteArray())
+        }
+
+
+
 
         // Zip the tempRootPath folder
         val zipPath = Paths.get("./DefconResourcePack.zip")
