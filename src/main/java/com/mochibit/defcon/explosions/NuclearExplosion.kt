@@ -34,6 +34,9 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         *  When all of this is happening, there will be a sound effect, and a particle effect, to simulate the explosion
         */
 
+        // Particle SFX
+        NuclearExplosion(center).instantiate(true);
+
         // Send to a nearby player the flash of the explosion (radius)
         center.world.getNearbyPlayers(center, 300.0).forEach { player ->
             // Custom font shows a flash screen
@@ -69,8 +72,6 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
                 player.playSound(center, "minecraft:nuke.set_distant_outer", 1.0f, 1.0f);
             }, delayInSeconds * 20);
         }
-
-
 
         // Give fire damage to all entities in the radius of the thermal radiation (unless they are protected)
         // We will use ray-casting to check if the entity is in the radius of the thermal radiation
@@ -120,9 +121,6 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
         Defcon.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
         Shockwave(center, 0.0, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
-
-        // Particle SFX
-        NuclearExplosion(center).instantiate(true);
 
     }
 

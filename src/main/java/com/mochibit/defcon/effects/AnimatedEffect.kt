@@ -18,7 +18,7 @@ abstract class AnimatedEffect : CycledObject()
             draw();
     }
 
-    open fun drawRate() : Int {
+     open fun drawRate() : Int {
         return 1;
     }
 }

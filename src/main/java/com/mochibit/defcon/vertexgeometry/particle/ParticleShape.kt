@@ -63,6 +63,8 @@ class ParticleShape(
         }
 
     private var heightPredicate : Predicate<Double>? = null
+    private var xPredicate : Predicate<Double>? = null
+    private var zPredicate : Predicate<Double>? = null
 
     // Shape methods
     fun draw() {
@@ -84,6 +86,13 @@ class ParticleShape(
 
             if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y))
                 continue;
+
+            if (xPredicate != null && !xPredicate!!.test(transformedVertex.x))
+                continue;
+
+            if (zPredicate != null && !zPredicate!!.test(transformedVertex.z))
+                continue;
+
 
             particleBuilder.location(currentLoc);
             particleBuilder.spawn();
@@ -214,6 +223,16 @@ class ParticleShape(
 
     fun heightPredicate(predicate: Predicate<Double>): ParticleShape {
         this.heightPredicate = predicate;
+        return this;
+    }
+
+    fun xPredicate(predicate: Predicate<Double>): ParticleShape {
+        this.xPredicate = predicate;
+        return this;
+    }
+
+    fun zPredicate(predicate: Predicate<Double>): ParticleShape {
+        this.zPredicate = predicate;
         return this;
     }
 

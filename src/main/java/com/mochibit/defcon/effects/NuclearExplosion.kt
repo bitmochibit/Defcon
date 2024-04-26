@@ -1,6 +1,7 @@
 package com.mochibit.defcon.effects
 
 import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.math.Vector3
@@ -9,6 +10,8 @@ import org.bukkit.Bukkit
 import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.Particle
+import kotlin.math.floor
+
 class NuclearExplosion(val center: Location) : AnimatedEffect() {
     private val startingColor = Color.fromRGB(255, 229, 159)
     private val endingColor = Color.fromRGB(88, 87, 84);
@@ -18,12 +21,16 @@ class NuclearExplosion(val center: Location) : AnimatedEffect() {
     var riseSpeed = 2;
     var currentHeight = 0.0;
 
+    override fun drawRate(): Int {
+        return 3;
+    }
+
     // Mushroom cloud components
     private val coreSpheroid = ParticleShape(
         SphereBuilder()
             .withRadiusXZ(14.0)
             .withRadiusY(20.0)
-            .withDensity(3.0)
+            .withDensity(4.0)
             .withYStart(-15.0)
             .withYEnd(-8.0)
             .hollow(true)
@@ -95,9 +102,9 @@ class NuclearExplosion(val center: Location) : AnimatedEffect() {
     private val footCloudSecondary = ParticleShape(
         CylinderBuilder()
             .withHeight(1.0)
-            .withRadiusX(20.0)
-            .withRadiusZ(20.0)
-            .withRate(16.0),
+            .withRadiusX(60.0)
+            .withRadiusZ(60.0)
+            .withRate(30.0),
         Particle.CAMPFIRE_SIGNAL_SMOKE,
         center
     )
@@ -129,6 +136,8 @@ class NuclearExplosion(val center: Location) : AnimatedEffect() {
 
         condensationCloud.draw();
     }
+
+
 
     override fun animate(delta: Double) {
         elevateSphere(delta);
@@ -186,7 +195,7 @@ class NuclearExplosion(val center: Location) : AnimatedEffect() {
 
 
     private fun elevateSphere(delta: Double) {
-        if (currentHeight > 100.0) return;
+        if (currentHeight > 80.0) return;
 
         val deltaMovement = riseSpeed * delta;
 
@@ -226,14 +235,17 @@ class NuclearExplosion(val center: Location) : AnimatedEffect() {
             .temperature(maxTemp, 1500.0, maxTemp)
             .baseColor(endingColor)
             .temperatureEmission(true)
+            .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
         secondarySpheroid.buildAndAssign().color(startingColor, 5f)
             .temperature(maxTemp, 1500.0, maxTemp)
             .baseColor(endingColor)
             .temperatureEmission(true)
+            .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
         tertiarySpheroid.buildAndAssign().color(startingColor, 5f)
             .baseColor(endingColor)
             .temperature(maxTemp, 1500.0, maxTemp)
             .temperatureEmission(true)
+            .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
 
 
         primaryNeck.transform = primaryNeck.transform.translated(Vector3(0.0, -14.0, 0.0))
@@ -264,8 +276,10 @@ class NuclearExplosion(val center: Location) : AnimatedEffect() {
             .buildAndAssign()
             .snapToFloor(5.0, 5.0)
             .baseColor(endingColor)
-            .radialSpeed(0.05).
-            particleBuilder.count(0).offset(0.0, 0.005, 0.0)
+            .radialSpeed(0.05)
+            .xPredicate(this::stripesWidth)
+            .zPredicate(this::stripesWidth)
+            .particleBuilder.count(0).offset(0.0, 0.005, 0.0)
 
         condensationCloud.transform = condensationCloud.transform.translated(Vector3(0.0, 20.0, 0.0))
         condensationCloud
@@ -293,6 +307,11 @@ class NuclearExplosion(val center: Location) : AnimatedEffect() {
     }
     fun visibleWhenLessThanCurrentHeight(value: Double): Boolean {
         return value < currentHeight-10;
+    }
+
+    fun stripesWidth(value: Double): Boolean {
+        // Every 5 blocks show 1 blocks of stripes
+        return floor(value) % 5 < 1;
     }
 
 
