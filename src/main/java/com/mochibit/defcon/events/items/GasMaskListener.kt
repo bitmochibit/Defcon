@@ -4,6 +4,8 @@ import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.enums.ItemBehaviour
 import com.mochibit.defcon.enums.ItemDataKey
 import com.mochibit.defcon.events.definitions.RadiationSuffocationEvent
+import com.mochibit.defcon.extensions.getBehaviour
+import com.mochibit.defcon.extensions.getCustomStackSize
 import com.mochibit.defcon.utils.MetaManager
 import org.bukkit.Material
 import org.bukkit.Sound
@@ -26,16 +28,11 @@ class GasMaskListener : Listener {
 
         info("Cursor: $cursor")
 
-        // Read item meta
-        val itemMeta = cursor.itemMeta ?: return
-        info("Item meta: $itemMeta")
-
         // Check if the item is a gas mask
-        val itemBehaviour = MetaManager.getItemData<String>(itemMeta, ItemDataKey.Behaviour)
-        if (itemBehaviour != ItemBehaviour.GAS_MASK.name) return
+        val itemBehaviour = cursor.getBehaviour()
+        if (itemBehaviour != ItemBehaviour.GAS_MASK) return
 
         event.isCancelled = true
-        val maxStackSize = MetaManager.getItemData<Int>(itemMeta, ItemDataKey.StackSize) ?: 64
 
         // Set the item in the helmet slot to the gas mask
         player.inventory.helmet = cursor
@@ -55,10 +52,9 @@ class GasMaskListener : Listener {
 
         // Check if the player has a gas mask
         val helmet = player.inventory.helmet ?: return
-        val itemMeta = helmet.itemMeta ?: return
 
-        val itemBehaviour = MetaManager.getItemData<String>(itemMeta, ItemDataKey.Behaviour)
-        if (itemBehaviour != ItemBehaviour.GAS_MASK.name) return
+        val itemBehaviour = helmet.getBehaviour()
+        if (itemBehaviour != ItemBehaviour.GAS_MASK) return
 
         // Cancel the event
         event.setCancelled(true)

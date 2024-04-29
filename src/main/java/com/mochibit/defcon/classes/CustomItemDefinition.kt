@@ -6,6 +6,7 @@ import com.mochibit.defcon.enums.ItemDataKey
 import com.mochibit.defcon.interfaces.PluginItem
 import com.mochibit.defcon.utils.ColorUtils
 import com.mochibit.defcon.utils.MetaManager
+import net.kyori.adventure.text.Component
 import org.bukkit.Material
 import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
@@ -17,7 +18,7 @@ import java.util.*
  */
 class CustomItemDefinition(
     override val id: String,
-    override val name: String,
+    name: String,
     override val description: String?,
     override val minecraftId: String,
     override val modelId: Int,
@@ -29,28 +30,31 @@ class CustomItemDefinition(
     override val isTransportable: Boolean,
     override val behaviour: ItemBehaviour
 ) : PluginItem {
-    /*Getting instance of the minecraft plugin (in theory O(1) complexity) */
-    private val plugin: JavaPlugin = JavaPlugin.getPlugin(Defcon::class.java)
+
+    override val name : String = name
+        get() = ColorUtils.stripColor(field)
 
     override val displayName: String
-        get() {
-            // Strip color codes from the name
-            return ColorUtils.stripColor(name)
-        }
+        get() = ColorUtils.parseColor(name)
+
 
     override val itemStack: ItemStack
-        /* Instantiation */ // Suppressing deprecation warning for the ItemStack constructor (Paper api is slightly different)
         get() {
-            val material = Material.getMaterial(minecraftId)
-                ?: throw IllegalArgumentException("Material $minecraftId does not exist")
+            val material = Material.getMaterial(minecraftId) ?: throw IllegalArgumentException("Material $minecraftId does not exist")
             val customItem = ItemStack(material)
 
             /* Meta assignment */
             val itemMeta = customItem.itemMeta
-            itemMeta.setDisplayName(ColorUtils.parseColor(name))
-            itemMeta.lore =
-                ColorUtils.parseColor(Arrays.asList(*description!!.split("\n".toRegex()).dropLastWhile { it.isEmpty() }
-                    .toTypedArray()))
+
+            itemMeta.displayName(
+                Component.text(displayName)
+            )
+
+            if (description != null) {
+                itemMeta.lore(
+                    description.split("\n").map { Component.text(ColorUtils.parseColor(it)) }
+                )
+            }
 
             MetaManager.setItemData(itemMeta, ItemDataKey.ItemID, id)
             MetaManager.setItemData(itemMeta, ItemDataKey.StackSize, stackSize)
@@ -59,12 +63,14 @@ class CustomItemDefinition(
             MetaManager.setItemData(itemMeta, ItemDataKey.Droppable, isDroppable)
             MetaManager.setItemData(itemMeta, ItemDataKey.Transportable, isTransportable)
             MetaManager.setItemData(itemMeta, ItemDataKey.Behaviour, behaviour.name)
+
             if (customBlockId != null) {
                 MetaManager.setItemData(itemMeta, ItemDataKey.CustomBlockId, customBlockId)
             }
 
             itemMeta.setCustomModelData(modelId)
             customItem.setItemMeta(itemMeta)
-            /* Properties assignment */return customItem
+
+            return customItem
         }
 }
