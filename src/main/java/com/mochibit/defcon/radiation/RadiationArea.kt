@@ -68,6 +68,23 @@ class RadiationArea (val center: Vector3, val worldName: String) {
 
             return result.toList();
         }
+
+        fun shouldSuffocate(location: Location): Pair<Boolean, HashSet<RadiationArea>> {
+            val results = HashSet<RadiationArea>()
+            val currBlockRadId = blockRadiationAreaId(location)
+            if (currBlockRadId != null) {
+                val radiationArea = loadedRadiationAreas[currBlockRadId]
+                if (radiationArea != null) {
+                    results.add(radiationArea)
+                }
+            }
+
+            for (area in loadedRadiationAreas.values) {
+                if (area.checkIfInBounds(location)) results.add(area)
+            }
+            return Pair(results.isNotEmpty(), results)
+        }
+
         fun checkIfInBounds(location: Location): Boolean {
             for (area in loadedRadiationAreas.values) {
                 if (area.checkIfInBounds(location))

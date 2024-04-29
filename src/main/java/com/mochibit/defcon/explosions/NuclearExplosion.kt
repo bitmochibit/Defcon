@@ -19,6 +19,8 @@ import java.time.Duration
 class NuclearExplosion(private val center: Location, private val nuclearComponent: NuclearComponent) : Explosion() {
 
     override fun explode() {
+        // TODO: Make this async to precalculate stuff and make a more appealing explosion
+
         /* The explosion is subdivided into some steps
         *
         *  The first one, assuming the bomb is a nuclear bomb, create a sphere of air blocks ( calculated with the explosive component ),

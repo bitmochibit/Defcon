@@ -7,7 +7,7 @@ import org.reflections.Reflections
 import java.lang.reflect.InvocationTargetException
 
 class CommandRegister() {
-    private val packageName: String = Defcon.Companion.instance!!.javaClass.getPackage().name
+    private val packageName: String = Defcon.instance.javaClass.getPackage().name
     private var plugin: JavaPlugin = JavaPlugin.getPlugin(Defcon::class.java)
 
     fun registerCommands() {
