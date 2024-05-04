@@ -12,8 +12,8 @@ class EventRegister() {
 
 
     fun registerEvents() : EventRegister {
-        plugin.getLogger().info("Registering events from $packageName.events")
-        for (listenerClass in Reflections("$packageName.events").getSubTypesOf(Listener::class.java)) {
+        plugin.getLogger().info("Registering listeners from $packageName.listeners")
+        for (listenerClass in Reflections("$packageName.listeners").getSubTypesOf(Listener::class.java)) {
             try {
                 plugin.server.pluginManager.registerEvents(
                     listenerClass.getDeclaredConstructor().newInstance(),

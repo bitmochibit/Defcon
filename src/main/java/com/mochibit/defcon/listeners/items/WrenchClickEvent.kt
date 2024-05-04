@@ -1,4 +1,4 @@
-package com.mochibit.defcon.events.items
+package com.mochibit.defcon.listeners.items
 
 import com.mochibit.defcon.enums.BlockDataKey
 import com.mochibit.defcon.enums.ItemBehaviour

@@ -1,4 +1,4 @@
-package com.mochibit.defcon.events.player
+package com.mochibit.defcon.listeners.player
 
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener

@@ -1,4 +1,4 @@
-package com.mochibit.defcon.events.definitions
+package com.mochibit.defcon.events.radiationarea
 
 import com.mochibit.defcon.radiation.RadiationArea
 import org.bukkit.entity.Player

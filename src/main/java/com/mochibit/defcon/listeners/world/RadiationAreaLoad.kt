@@ -1,16 +1,14 @@
-package com.mochibit.defcon.events.world
+package com.mochibit.defcon.listeners.world
 
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.radiation.RadiationArea
 import com.mochibit.defcon.save.manager.RadiationAreaManager
-import com.mochibit.defcon.save.savedata.RadiationAreaSave
 import org.bukkit.Bukkit
 import org.bukkit.Bukkit.getServer
 import org.bukkit.Location
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.world.ChunkLoadEvent
-import org.bukkit.event.world.ChunkUnloadEvent
 
 class RadiationAreaLoad: Listener {
     @EventHandler

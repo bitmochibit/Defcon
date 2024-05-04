@@ -1,7 +1,7 @@
 package com.mochibit.defcon
 
 import com.mochibit.defcon.Defcon.Companion.Logger.info
-import com.mochibit.defcon.events.definitions.RadiationSuffocationEvent
+import com.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
 import com.mochibit.defcon.radiation.RadiationArea
 import com.mochibit.defcon.registers.*
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
@@ -32,7 +32,7 @@ class Defcon : JavaPlugin() {
         ResourcePackRegister.get.registerPack()
 
 
-        /* Register all plugin's events */
+        /* Register all plugin's listeners */
         EventRegister().registerEvents()
 
         /* Register definitions items */

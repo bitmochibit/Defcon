@@ -1,4 +1,4 @@
-package com.mochibit.defcon.events.blocks
+package com.mochibit.defcon.listeners.blocks
 
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.interfaces.PluginItem

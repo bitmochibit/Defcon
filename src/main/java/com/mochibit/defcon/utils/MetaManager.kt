@@ -4,6 +4,8 @@ import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.enums.BlockDataKey
 import com.mochibit.defcon.enums.ItemDataKey
 import com.jeff_media.customblockdata.CustomBlockData
+import com.mochibit.defcon.extensions.toBoolean
+import com.mochibit.defcon.extensions.toByte
 import org.bukkit.Location
 import org.bukkit.NamespacedKey
 import org.bukkit.inventory.ItemStack
@@ -21,15 +23,21 @@ object MetaManager {
         val dataType = getPersistentDataType(T::class)
         val value: Any = blockData.get(key.key, dataType) ?: return null
 
+        // if the type is boolean, we need to convert the value to boolean
+        if (T::class == Boolean::class) {
+            return (value as Byte).toBoolean() as T
+        }
+
         return value as T
     }
 
     inline fun <reified T : Any> setBlockData(blockData: PersistentDataContainer, key: BlockDataKey, value: T): PersistentDataContainer {
-
+        // If the type is boolean, we need to convert value to byte
         if (T::class == Boolean::class) {
-            blockData.set(key.key, PersistentDataType.BYTE, if (value as Boolean) 1 else 0)
+            blockData.set(key.key, PersistentDataType.BYTE, (value as Boolean).toByte())
             return blockData
         }
+
         // Get the PersistentDataType from the function type
         @Suppress("UNCHECKED_CAST")
         val dataType = getPersistentDataType(T::class) as? PersistentDataType<T, T> ?: return blockData
@@ -59,14 +67,20 @@ object MetaManager {
 
         val value: Any = itemData.get(key.key, dataType) ?: return null
 
+        // if the type is boolean, we need to convert the value to boolean
+        if (T::class == Boolean::class) {
+            return (value as Byte).toBoolean() as T
+        }
+
         return value as T
     }
 
     inline fun <reified T : Any> setItemData(itemMeta: ItemMeta, key: ItemDataKey, value: T): ItemMeta {
         val itemData: PersistentDataContainer = itemMeta.persistentDataContainer
 
+        // If the type is boolean, we need to convert value to byte
         if (T::class == Boolean::class) {
-            itemData.set(key.key, PersistentDataType.BYTE, if (value as Boolean) 1 else 0)
+            itemData.set(key.key, PersistentDataType.BYTE, (value as Boolean).toByte())
             return itemMeta
         }
 
@@ -113,8 +127,6 @@ object MetaManager {
         val key = if (split.size == 1) split[0] else split[1]
         return NamespacedKey(namespace, key)
     }
-
-
 
 
 }
