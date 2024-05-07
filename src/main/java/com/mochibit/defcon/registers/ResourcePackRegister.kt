@@ -176,7 +176,9 @@ class ResourcePackRegister private constructor() : PackRegister {
             val model = JSONObject()
             model["parent"] = firstModelData.parent.value
             val textures = JSONObject()
-            textures["layer0"] = firstModelData.textures["layer0"]
+            for ((key, value) in firstModelData.textures) {
+                textures[key] = value
+            }
             model["textures"] = textures
 
             // Overrides that should be aggregated based on the itemType

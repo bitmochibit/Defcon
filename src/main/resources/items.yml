@@ -11,6 +11,9 @@
 
 # is-usable: If true, the item can be used to consume other items.
 # is-equipable: If true, the item can be equipped.
+# equip-slot-type: The slot type of the item. DEFAULT: ARMOR
+# equip-slot-number: The slot number of the item. DEFAULT: 0
+
 # is-droppable: If true, the item can be dropped.
 # max-stack-size: Number of how much stacks this item can compose.
 # is-transportable: If true, the item can be carried in the inventory.
@@ -44,10 +47,11 @@ enabled-items:
 gas-mask:
   item-name: "Gas mask"
   item-description: "&eProtects you from toxic gases"
-  item-minecraft-id: RABBIT_HIDE
+  item-minecraft-id: LEATHER_BOOTS
   item-data-model-id: 1
   is-usable: true
   is-equipable: true
+  equip-slot-number: 5
   is-droppable: true
   max-stack-size: 1
   is-transportable: true
@@ -59,7 +63,7 @@ geiger:
   item-minecraft-id: COMPASS
   item-data-model-id: 1
   is-usable: true
-  is-equipable: true
+  is-equipable: false
   is-droppable: true
   max-stack-size: 1
   is-transportable: true
@@ -71,7 +75,7 @@ wrench:
   item-minecraft-id: IRON_PICKAXE
   item-data-model-id: 2
   is-usable: true
-  is-equipable: true
+  is-equipable: false
   is-droppable: true
   max-stack-size: 1
   is-transportable: true

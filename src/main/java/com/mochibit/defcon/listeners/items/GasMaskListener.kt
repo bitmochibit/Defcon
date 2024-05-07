@@ -2,6 +2,7 @@ package com.mochibit.defcon.listeners.items
 
 import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.enums.ItemBehaviour
+import com.mochibit.defcon.events.customitems.CustomItemEquipEvent
 import com.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
 import com.mochibit.defcon.extensions.getBehaviour
 import com.mochibit.defcon.listeners.customitem.CustomItemEquipListener
@@ -15,7 +16,7 @@ import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryType
 import org.bukkit.inventory.ItemStack
 
-class GasMaskListener : CustomItemEquipListener(), Listener {
+class GasMaskListener : Listener {
     @EventHandler
     fun protectFromGas(event: RadiationSuffocationEvent) {
         val player = event.getPlayer()
@@ -31,18 +32,15 @@ class GasMaskListener : CustomItemEquipListener(), Listener {
         event.setCancelled(true)
     }
 
-    override fun onEquipSlot(equippedItem: ItemStack, player: HumanEntity): Boolean {
-        // Check if the item is a gas mask
-        val itemBehaviour = equippedItem.getBehaviour()
-        if (itemBehaviour != ItemBehaviour.GAS_MASK) return false
+    @EventHandler
+    fun onGasMaskEquip(event: CustomItemEquipEvent) {
+        val player = event.getPlayer()
+        val item = event.getEquippedItem()
 
-        // Play a sound
+        val itemBehaviour = item.getBehaviour()
+        if (itemBehaviour != ItemBehaviour.GAS_MASK) return event.setCancelled(true)
+
         player.world.playSound(player.location, Sound.ITEM_ARMOR_EQUIP_LEATHER, 1.0f, 1.0f)
-
-        return true
     }
 
-    override fun getArmorPos() : Int {
-        return 5
-    }
 }

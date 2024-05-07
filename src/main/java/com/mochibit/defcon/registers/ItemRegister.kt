@@ -40,15 +40,16 @@ class ItemRegister() {
             val itemName = itemConfig.getString("$item.item-name") ?: throw ItemNotRegisteredException(itemId)
             val itemDescription = itemConfig.getString("$item.item-description")
             val itemMinecraftId = itemConfig.getString("$item.item-minecraft-id") ?: throw ItemNotRegisteredException(itemId)
-            val itemDataModelId = itemConfig.getInt("$item.item-data-model-id")
-            val itemCustomBlockId = itemConfig.getString("$item.definitions-block-id")
+            val itemDataModelId = itemConfig.getInt("$item.item-data-model-id", 0)
+            val itemCustomBlockId = itemConfig.getString("$item.definitions-block-id", null)
 
             val itemStackSize = itemConfig.getInt("$item.max-stack-size")
-            val itemEquipable = itemConfig.getBoolean("$item.is-equipable")
             val itemUsable = itemConfig.getBoolean("$item.is-usable")
             val itemTransportable = itemConfig.getBoolean("$item.is-transportable")
             val itemDroppable = itemConfig.getBoolean("$item.is-droppable")
 
+            val itemEquipable = itemConfig.getBoolean("$item.is-equipable", false)
+            val itemEquipSlotNumber = itemConfig.getInt("$item.equip-slot-number", 0)
 
             var behaviourName = itemConfig.getString("$item.behaviour")
             if (behaviourName == null) {
@@ -63,6 +64,7 @@ class ItemRegister() {
                     minecraftId = itemMinecraftId,
                     modelId = itemDataModelId,
                     customBlockId = itemCustomBlockId,
+                    equipSlotNumber = itemEquipSlotNumber,
 
                     isEquipable = itemEquipable,
                     isUsable = itemUsable,

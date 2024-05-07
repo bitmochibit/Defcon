@@ -1,35 +1,140 @@
 package com.mochibit.defcon.listeners.customitem
 
+import com.mochibit.defcon.Defcon.Companion.Logger.info
+import com.mochibit.defcon.enums.ItemBehaviour
+import com.mochibit.defcon.events.customitems.CustomItemEquipEvent
+import com.mochibit.defcon.extensions.equipSlotNumber
+import com.mochibit.defcon.extensions.getBehaviour
 import com.mochibit.defcon.extensions.isEquipable
+import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.HumanEntity
+import org.bukkit.event.Event
 import org.bukkit.event.EventHandler
+import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
-import org.bukkit.event.inventory.InventoryClickEvent
-import org.bukkit.event.inventory.InventoryType
+import org.bukkit.event.inventory.*
 import org.bukkit.inventory.ItemStack
 
-abstract class CustomItemEquipListener {
-    @EventHandler
-    fun equipItemInArmor(event: InventoryClickEvent) {
+open class CustomItemEquipListener : Listener {
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun equipItemInArmorClick(event: InventoryClickEvent) {
         // Check if the slot is the helmet slot
         if (event.slotType != InventoryType.SlotType.ARMOR) return
         val cursor = event.cursor ?: return
         if (cursor.type == Material.AIR) return
-        if (!cursor.isEquipable()) return
+
+
+        if (!isEquipable(cursor, event.rawSlot)) {
+            event.isCancelled = true
+            event.result = Event.Result.DENY
+            return;
+        }
+
         val player = event.whoClicked
         val oldItem = event.currentItem
-        if (!onEquipSlot(cursor, player)) return
+
+        if (callCustomItemEquipEvent(cursor, player).isCancelled()) {
+            event.isCancelled = true
+            event.result = Event.Result.DENY
+            return
+        }
+
         event.isCancelled = true
+
         // Set the item in the helmet slot to the gas mask
         player.inventory.helmet = cursor
         // Set the cursor to the previous item
         player.setItemOnCursor(oldItem)
     }
 
-    open fun onEquipSlot(equippedItem: ItemStack, player: HumanEntity): Boolean {
-        return false;
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun shiftClickEquipItemInArmorClick(event: InventoryClickEvent) {
+        // Check if the slot is the helmet slot
+        val currentItem = event.currentItem ?: return
+        if (currentItem.type == Material.AIR) return
+
+        val player = event.whoClicked
+
+        if (event.click != ClickType.SHIFT_LEFT && event.click != ClickType.SHIFT_RIGHT) return
+        if (event.action != InventoryAction.MOVE_TO_OTHER_INVENTORY) return
+        if (!currentItem.isEquipable()) return
+        if (event.slotType == InventoryType.SlotType.CRAFTING) return
+        if (event.slotType == InventoryType.SlotType.ARMOR) return
+
+        info("SHIFT CLICKED AN EQUIPABLE ITEM")
+        info("Current item: $currentItem")
+
+        val equipmentSlot = rawSlotToEquipmentSlot(currentItem.equipSlotNumber())
+        val oldItem = player.inventory.getItem(equipmentSlot)
+
+        info ("Old item: $oldItem")
+        if (oldItem != null && oldItem.type != Material.AIR) {
+            event.isCancelled = true
+            event.result = Event.Result.DENY
+            return
+        }
+
+        if (callCustomItemEquipEvent(currentItem, player).isCancelled()) {
+            event.isCancelled = true
+            event.result = Event.Result.DENY
+            return
+        }
+
+        event.isCancelled = true
+
+        player.inventory.setItem(event.slot, null)
+        player.inventory.setItem(equipmentSlot, currentItem)
     }
 
-    abstract fun getArmorPos() : Int;
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun equipItemInArmorDrag(event: InventoryDragEvent) {
+        val cursor = event.oldCursor
+        val player = event.whoClicked
+        if (cursor.type == Material.AIR) return
+
+        if (!isEquipable(cursor, event.rawSlots.stream().findFirst().orElse(0))) {
+            event.isCancelled = true
+            event.result = Event.Result.DENY
+            return;
+        }
+
+        if (callCustomItemEquipEvent(cursor, player).isCancelled()) {
+            event.isCancelled = true
+            event.result = Event.Result.DENY
+            return
+        }
+
+        val oldItem = player.inventory.helmet
+
+        event.isCancelled = true
+
+        // Set the item in the helmet slot to the gas mask
+        player.inventory.helmet = cursor
+        // Set the cursor to the previous item
+        player.setItemOnCursor(oldItem)
+    }
+
+
+    private fun isEquipable(item: ItemStack, slot: Int): Boolean {
+        if (!item.isEquipable()) return false
+        if (item.equipSlotNumber() != slot) return false
+        return true
+    }
+
+    private fun callCustomItemEquipEvent(item: ItemStack, player: HumanEntity): CustomItemEquipEvent {
+        val customItemEquipEvent = CustomItemEquipEvent(item, player)
+        Bukkit.getServer().pluginManager.callEvent(customItemEquipEvent)
+        return customItemEquipEvent
+    }
+
+    private fun rawSlotToEquipmentSlot(rawSlot: Int): Int {
+        return when (rawSlot) {
+            5 -> 39
+            6 -> 38
+            7 -> 37
+            8 -> 36
+            else -> -1
+        }
+    }
 }

@@ -22,6 +22,10 @@ fun ItemStack.isEquipable(): Boolean {
     return this.getItemData<Boolean>(ItemDataKey.Equipable) ?: false
 }
 
+fun ItemStack.equipSlotNumber(): Int {
+    return this.getItemData<Int>(ItemDataKey.EquipSlotNumber) ?: 0
+}
+
 fun ItemStack.isDroppable(): Boolean {
     return this.getItemData<Boolean>(ItemDataKey.Droppable) ?: false
 }

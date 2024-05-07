@@ -7,7 +7,11 @@ import org.bukkit.Material
 
 class LeatherGasMask: AbstractCustomItemModel(
     ModelData(
-        originalItem = Material.RABBIT_HIDE,
+        originalItem = Material.LEATHER_BOOTS,
+        textures = mapOf(
+            "layer0" to "item/leather_boots",
+            "layer1" to "item/leather_boots_overlay"
+        ),
         modelName = "leather_gas_mask"
     )
 )

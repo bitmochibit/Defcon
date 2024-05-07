@@ -17,6 +17,7 @@ interface PluginItem {
     val customBlockId: String?
     val isUsable: Boolean
     val isEquipable: Boolean
+    val equipSlotNumber: Int
     val isDroppable: Boolean
     val stackSize: Int
     val isTransportable: Boolean
