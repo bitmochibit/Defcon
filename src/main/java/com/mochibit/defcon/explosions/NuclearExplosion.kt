@@ -1,6 +1,7 @@
 package com.mochibit.defcon.explosions
 
 import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.biomes.CustomBiomeHandler
 import com.mochibit.defcon.biomes.definitions.BurningAirBiome
 import com.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
@@ -13,6 +14,7 @@ import net.kyori.adventure.title.Title.Times
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
+import org.bukkit.util.BlockIterator
 import java.time.Duration
 
 
@@ -41,14 +43,33 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
         // Send to a nearby player the flash of the explosion (radius)
         center.world.getNearbyPlayers(center, 300.0).forEach { player ->
-            // Custom font shows a flash screen
-            val title = Title.title(
-                Component.text("\uE000"),
-                Component.empty(),
-                Times.times(Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(1))
-            );
+            val playerLocation = player.location.add(0.0, 1.0, 0.0);
+            val direction = playerLocation.clone().subtract(center).toVector().normalize();
+            val blockIterator =
+                BlockIterator(center.world, center.toVector(), direction, 0.0, 180);
 
-            player.showTitle(title);
+            // check if block iterator reaches the entity, if it does, apply fire damage
+            while (blockIterator.hasNext()) {
+                // if the block isn't transparent, isn't passable and it is solid, then break the loop
+                val block = blockIterator.next();
+                if (block.type.isOccluding && block.type.isSolid) {
+                    break;
+                }
+
+                if (block.location.distanceSquared(player.location) < 1.0) {
+                    val title = Title.title(
+                        Component.text("\uE000"),
+                        Component.empty(),
+                        Times.times(Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(1))
+                    );
+                    val angle = player.eyeLocation.direction.angle(direction.multiply(-1.0));
+                    info("Angle: $angle")
+                    if (angle < 1.74) {
+                        player.showTitle(title);
+                    }
+                    break;
+                }
+            }
         }
 
         // Send definitions explosion sounds to all players in the radius
@@ -66,7 +87,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
             player.playSound(center, "minecraft:nuke.ground_rumble", 1.0f, 1.0f);
         }
 
-        center.world.getNearbyPlayers(center,600.0).forEach { player ->
+        center.world.getNearbyPlayers(center, 600.0).forEach { player ->
             val distance = player.location.distance(center);
             val soundSpeed = 50 // blocks per second
             val delayInSeconds = (distance / soundSpeed).toLong();
@@ -77,8 +98,47 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
         // Give fire damage to all entities in the radius of the thermal radiation (unless they are protected)
         // We will use ray-casting to check if the entity is in the radius of the thermal radiation
-        val thermalRadius = nuclearComponent.thermalPower * 5;
-        // TODO: Implement thermal radiation
+        val thermalRadius = nuclearComponent.thermalPower * 30 * 6;
+
+        // For 10 seconds, send the thermal radiation damage
+        // TODO: REFACTOR
+        var secondsElapsed = 0;
+        Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, { task ->
+            secondsElapsed++;
+            if (secondsElapsed >= 10) {
+                task.cancel()
+                return@runTaskTimerAsynchronously;
+            }
+            Bukkit.getScheduler().runTask(Defcon.instance, Runnable {
+                center.world.getNearbyEntities(
+                    center, thermalRadius.toDouble(),
+                    thermalRadius.toDouble(), thermalRadius.toDouble()
+                ).forEach { entity ->
+                    if (entity is org.bukkit.entity.LivingEntity) {
+
+                        val direction = entity.location.subtract(center).toVector().normalize();
+                        val blockIterator =
+                            BlockIterator(center.world, center.toVector(), direction, 0.0, thermalRadius.toInt());
+
+                        // check if block iterator reaches the entity, if it does, apply fire damage
+                        while (blockIterator.hasNext()) {
+                            // if the block isn't transparent, isn't passable and it is solid, then break the loop
+                            val block = blockIterator.next();
+                            if (block.type.isOccluding && block.type.isSolid) {
+                                break;
+                            }
+
+                            if (block.location.distanceSquared(entity.location) < 1.0) {
+                                entity.setFireTicks(20 * 30);
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+            // After 10 seconds, cancel the task
+
+        }, 0, 20);
 
         val shockwaveRadius = nuclearComponent.blastPower * 30 * 5;
         val shockwaveHeight = nuclearComponent.blastPower * 100 * 2;

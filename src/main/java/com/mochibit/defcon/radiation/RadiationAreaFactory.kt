@@ -68,10 +68,10 @@ class RadiationAreaFactory () {
                         (center.y + maxVertexRadius.y).toInt(),
                         (center.z + maxVertexRadius.z).toInt()
                     )
-                    radiationArea = RadiationArea(minVertex, maxVertex)
+                    radiationArea = RadiationArea(minVertex, maxVertex, worldName = center.world.name)
                 } else {
                     info("${locations.size} is less than $maxFloodBlocks, storing in chunks")
-                    radiationArea = RadiationArea()
+                    radiationArea = RadiationArea(worldName = center.world.name)
                     for (location in locations) {
                         radiationArea.affectedChunkCoordinates.add(location.toChunkCoordinate())
                         MetaManager.setBlockData(location, BlockDataKey.RadiationLevel, 1.0)

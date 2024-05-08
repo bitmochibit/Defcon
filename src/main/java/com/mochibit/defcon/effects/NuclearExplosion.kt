@@ -25,6 +25,8 @@ class NuclearExplosion(val center: Location) : AnimatedEffect() {
         return 3;
     }
 
+    // TODO: Refactor this to a Composite pattern, to reduce alot of shapes
+
     // Mushroom cloud components
     private val coreSpheroid = ParticleShape(
         SphereBuilder()

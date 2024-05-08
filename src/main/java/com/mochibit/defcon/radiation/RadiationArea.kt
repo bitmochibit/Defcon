@@ -7,7 +7,8 @@ import org.bukkit.Location
 data class RadiationArea(
     val minVertex: CuboidVertex? = null,
     val maxVertex: CuboidVertex? = null,
-    val affectedChunkCoordinates: HashSet<Vector3> = HashSet()
+    val affectedChunkCoordinates: HashSet<Vector3> = HashSet(),
+    val worldName: String
 ) {
     val id: Int = RadiationAreaManager.getNextId()
 

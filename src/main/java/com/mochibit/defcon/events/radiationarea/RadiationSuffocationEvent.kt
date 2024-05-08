@@ -1,11 +1,12 @@
 package com.mochibit.defcon.events.radiationarea
 
+import com.mochibit.defcon.radiation.RadiationArea
 import com.mochibit.defcon.radiation.RadiationAreaFactory
 import org.bukkit.entity.Player
 import org.bukkit.event.Event
 import org.bukkit.event.HandlerList
 
-class RadiationSuffocationEvent(private val damagedPlayer: Player, private val fromArea: RadiationAreaFactory) : Event() {
+class RadiationSuffocationEvent(private val damagedPlayer: Player, private val fromArea: RadiationArea) : Event() {
     private var isCancelled = false
 
     companion object {
@@ -31,7 +32,7 @@ class RadiationSuffocationEvent(private val damagedPlayer: Player, private val f
         return damagedPlayer
     }
 
-    fun getRadiationArea(): RadiationAreaFactory {
+    fun getRadiationArea(): RadiationArea {
         return fromArea
     }
 

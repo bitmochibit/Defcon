@@ -17,6 +17,7 @@ class RadiationAreaLoad: Listener {
             val radiationAreas = RadiationAreaManager().getAll();
             for (radiationArea in radiationAreas) {
                 if (radiationArea.affectedChunkCoordinates.isNotEmpty()) continue
+                if (radiationArea.minVertex == null || radiationArea.maxVertex == null) continue
 
                 val minVertexLocation = Location(getServer().getWorld(radiationArea.worldName),
                     radiationArea.minVertex.x.toDouble(), radiationArea.minVertex.y.toDouble(), radiationArea.minVertex.z.toDouble()
