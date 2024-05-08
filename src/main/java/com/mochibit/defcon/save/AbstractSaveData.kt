@@ -10,6 +10,8 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 abstract class AbstractSaveData <T:SaveSchema> {
+    // TODO: Implement a system to split the save data into multiple files if it gets too large and index them
+
     private val saveDataInfo = this.javaClass.getAnnotation(SaveDataInfo::class.java)
 
     protected val path: Path = Paths.get(Defcon.instance.dataFolder.absolutePath, saveDataInfo.filePath)

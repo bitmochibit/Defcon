@@ -2,7 +2,7 @@ package com.mochibit.defcon
 
 import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
-import com.mochibit.defcon.radiation.RadiationArea
+import com.mochibit.defcon.radiation.RadiationAreaFactory
 import com.mochibit.defcon.registers.*
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import io.papermc.lib.PaperLib
@@ -63,7 +63,7 @@ class Defcon : JavaPlugin() {
             this, Runnable {
                 // Loop through every player and check if they are in a radiation area
                 for (player in Bukkit.getOnlinePlayers()) {
-                    val radCheck = RadiationArea.shouldSuffocate( player.location.add(0.0, 1.0, 0.0))
+                    val radCheck = RadiationAreaFactory.shouldSuffocate( player.location.add(0.0, 1.0, 0.0))
                     if (!radCheck.first) {
                         continue;
                     }

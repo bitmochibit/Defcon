@@ -1,7 +1,7 @@
 package com.mochibit.defcon.listeners.world
 
 import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.radiation.RadiationArea
+import com.mochibit.defcon.radiation.RadiationAreaFactory
 import com.mochibit.defcon.save.manager.RadiationAreaManager
 import org.bukkit.Bukkit
 import org.bukkit.Bukkit.getServer
@@ -29,7 +29,7 @@ class RadiationAreaLoad: Listener {
                 // Check if chunk is in between the min and max vertex chunk
                 if (minVertexLocation.chunk.x <= event.chunk.x && event.chunk.x <= maxVertexLocation.chunk.x &&
                     minVertexLocation.chunk.z <= event.chunk.z && event.chunk.z <= maxVertexLocation.chunk.z) {
-                    RadiationArea.loadRadiationArea(radiationArea)
+                    RadiationAreaFactory.loadRadiationArea(radiationArea)
                 }
             }
         })

@@ -1,8 +1,6 @@
 package com.mochibit.defcon.events.customitems
 
-import com.mochibit.defcon.radiation.RadiationArea
 import org.bukkit.entity.HumanEntity
-import org.bukkit.entity.Player
 import org.bukkit.event.Event
 import org.bukkit.event.HandlerList
 import org.bukkit.inventory.ItemStack
