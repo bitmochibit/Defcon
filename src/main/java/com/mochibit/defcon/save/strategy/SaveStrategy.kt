@@ -1,8 +1,12 @@
 package com.mochibit.defcon.save.strategy
 
-interface SaveStrategy<T> {
-    fun save(data: T)
-    fun get(id: Int): T
-    fun getAll(): HashSet<T>
-    fun delete(data: T)
+import com.mochibit.defcon.save.savedata.SaveDataInfo
+import com.mochibit.defcon.save.schemas.SaveSchema
+import javassist.bytecode.SignatureAttribute.ClassType
+
+sealed interface SaveStrategy {
+    fun init(saveDataInfo: SaveDataInfo): SaveStrategy
+    fun save(schema: SaveSchema)
+    fun load(schema: SaveSchema): SaveSchema
+
 }

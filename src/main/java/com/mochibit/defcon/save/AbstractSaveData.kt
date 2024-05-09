@@ -5,41 +5,36 @@ import com.google.gson.GsonBuilder
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.save.schemas.SaveSchema
 import com.mochibit.defcon.save.savedata.SaveDataInfo
+import com.mochibit.defcon.save.strategy.JsonSaver
+import com.mochibit.defcon.save.strategy.SaveStrategy
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
 abstract class AbstractSaveData <T:SaveSchema> {
-    // TODO: Implement a system to split the save data into multiple files if it gets too large and index them
-
     private val saveDataInfo = this.javaClass.getAnnotation(SaveDataInfo::class.java)
 
-    protected val path: Path = Paths.get(Defcon.instance.dataFolder.absolutePath, saveDataInfo.filePath)
-    protected val file: Path = Paths.get(saveDataInfo.fileName + ".json")
-    protected val completePath: Path = Paths.get(path.toString(), file.toString())
-
     lateinit var saveData: T
+    private var saveStrategy: SaveStrategy = JsonSaver().init(saveDataInfo)
 
-    private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
     fun save() {
-        val json = getJson()
-        // Create folder if it doesn't exist
-        if (!Files.exists(path)) {
-            Files.createDirectories(path)
-        }
+        saveStrategy.save(saveData)
+    }
 
-        Files.write(completePath, json.toByteArray())
-    }
-    open fun getJson(): String {
-        return gson.toJson(this.saveData)
-    }
     open fun load(): AbstractSaveData<T> {
-        if (!this.completePath.toFile().exists()) {
-            return this
-        }
-        val jsonReader = this.completePath.toFile().bufferedReader()
-        val json = jsonReader.use { it.readText() }
-        this.saveData = gson.fromJson(json, this.saveData::class.java)
-        return this;
+        val loadedData = saveStrategy.load(saveData)
+        // Check if loadedData type is T
+        if (loadedData::class !== saveData::class)
+            throw IllegalArgumentException("Loaded data is not of type ${saveData::class.simpleName}")
+
+        @Suppress("UNCHECKED_CAST")
+        saveData = loadedData as T
+        return this
+    }
+
+    fun setSaveStrategy(saveStrategy: SaveStrategy): AbstractSaveData<T> {
+        this.saveStrategy = saveStrategy
+        saveStrategy.init(saveDataInfo)
+        return this
     }
 }
