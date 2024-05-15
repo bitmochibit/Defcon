@@ -11,15 +11,13 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
-class JsonSaver() : SaveStrategy {
-    // TODO: Implement a system to split the save data into multiple files if it gets too large and index them
-
+class JsonSaver<T: SaveSchema>() : SaveStrategy<T> {
     lateinit var path: Path
     lateinit var file: Path
     lateinit var completePath: Path
 
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
-    override fun save(schema: SaveSchema) {
+    override fun save(schema: T) {
         val json = getJson(schema)
         // Create folder if it doesn't exist
         if (!Files.exists(path)) {
@@ -29,7 +27,7 @@ class JsonSaver() : SaveStrategy {
         Files.write(completePath, json.toByteArray())
     }
 
-    override fun load(schema: SaveSchema): SaveSchema {
+    override fun load(schema: T): T {
         if (!this.completePath.toFile().exists()) {
             return schema
         }
@@ -42,7 +40,7 @@ class JsonSaver() : SaveStrategy {
         return gson.toJson(schema)
     }
 
-    override fun init(saveDataInfo: SaveDataInfo): SaveStrategy {
+    override fun init(saveDataInfo: SaveDataInfo): SaveStrategy<T> {
         path = Paths.get(Defcon.instance.dataFolder.absolutePath, saveDataInfo.filePath)
         file = Paths.get(saveDataInfo.fileName + ".json")
         completePath = Paths.get(path.toString(), file.toString())

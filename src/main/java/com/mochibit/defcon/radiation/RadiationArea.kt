@@ -1,16 +1,16 @@
 package com.mochibit.defcon.radiation
 
 import com.mochibit.defcon.math.Vector3
-import com.mochibit.defcon.save.manager.RadiationAreaManager
+import com.mochibit.defcon.save.savedata.RadiationAreaSave
 import org.bukkit.Location
 
 data class RadiationArea(
     val center : Vector3,
     val worldName: String,
-    val minVertex: CuboidVertex? = null,
-    val maxVertex: CuboidVertex? = null,
+    val minVertex: Vector3? = null,
+    val maxVertex: Vector3? = null,
     val affectedChunkCoordinates: HashSet<Vector3> = HashSet(),
-    val id: Int = RadiationAreaManager.getNextId(),
+    val id: Int = 0
 ) {
     fun checkIfInBounds(location: Location): Boolean {
         if (minVertex == null || maxVertex == null) {

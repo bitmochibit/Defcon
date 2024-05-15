@@ -11,30 +11,33 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
-abstract class AbstractSaveData <T:SaveSchema> {
-    private val saveDataInfo = this.javaClass.getAnnotation(SaveDataInfo::class.java)
+abstract class AbstractSaveData<T : SaveSchema> {
+    private val saveDataInfo = this.javaClass.getAnnotation(SaveDataInfo::class.java) ?: throw IllegalStateException("SaveDataInfo annotation not found")
 
     lateinit var saveData: T
-    private var saveStrategy: SaveStrategy = JsonSaver().init(saveDataInfo)
+    private var saveStrategy: SaveStrategy<T> = JsonSaver<T>().init(saveDataInfo)
 
     fun save() {
+        if (!::saveData.isInitialized) {
+            throw IllegalStateException("saveData has not been initialized")
+        }
         saveStrategy.save(saveData)
     }
 
-    open fun load(): AbstractSaveData<T> {
-        val loadedData = saveStrategy.load(saveData)
-        // Check if loadedData type is T
-        if (loadedData::class !== saveData::class)
-            throw IllegalArgumentException("Loaded data is not of type ${saveData::class.simpleName}")
-
-        @Suppress("UNCHECKED_CAST")
-        saveData = loadedData as T
+    fun load(): AbstractSaveData<T> {
+        if (!::saveData.isInitialized) {
+            throw IllegalStateException("saveData has not been initialized")
+        }
+        saveData = saveStrategy.load(saveData)
         return this
     }
 
-    fun setSaveStrategy(saveStrategy: SaveStrategy): AbstractSaveData<T> {
+
+    fun setSaveStrategy(saveStrategy: SaveStrategy<T>): AbstractSaveData<T> {
         this.saveStrategy = saveStrategy
         saveStrategy.init(saveDataInfo)
         return this
     }
+
+
 }

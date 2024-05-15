@@ -2,7 +2,6 @@ package com.mochibit.defcon.listeners.world
 
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.radiation.RadiationAreaFactory
-import com.mochibit.defcon.save.manager.RadiationAreaManager
 import org.bukkit.Bukkit
 import org.bukkit.Bukkit.getServer
 import org.bukkit.Location
