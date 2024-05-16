@@ -2,6 +2,7 @@ package com.mochibit.defcon.listeners.world
 
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.radiation.RadiationAreaFactory
+import com.mochibit.defcon.save.savedata.RadiationAreaSave
 import org.bukkit.Bukkit
 import org.bukkit.Bukkit.getServer
 import org.bukkit.Location
@@ -13,7 +14,7 @@ class RadiationAreaLoad: Listener {
     @EventHandler
     fun loadRadiationArea(event : ChunkLoadEvent) {
         Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
-            val radiationAreas = RadiationAreaManager().getAll();
+            val radiationAreas = RadiationAreaSave.getAll();
             for (radiationArea in radiationAreas) {
                 if (radiationArea.affectedChunkCoordinates.isNotEmpty()) continue
                 if (radiationArea.minVertex == null || radiationArea.maxVertex == null) continue

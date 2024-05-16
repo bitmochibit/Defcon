@@ -86,7 +86,7 @@ class RadiationAreaFactory() {
                     maxVertex = maxVertex,
                     affectedChunkCoordinates = affectedChunkCoordinates
                 )
-                val indexedRA = RadiationAreaSave().addRadiationArea(radiationArea)
+                val indexedRA = RadiationAreaSave.addRadiationArea(radiationArea)
 
                 if (locations.size < maxFloodBlocks) {
                     for (location in locations) {
@@ -123,7 +123,7 @@ class RadiationAreaFactory() {
         }
 
         private fun tryLoadFromLocation(location: Location): List<RadiationArea> {
-            val radiationAreaSave = RadiationAreaSave().load()
+            val radiationAreaSave = RadiationAreaSave.load()
 
             val loadedRadiationAreas = ArrayList<RadiationArea>()
             val radiationAreaId = location.getRadiationAreaId()
