@@ -14,7 +14,15 @@ import java.nio.file.Paths
 class JsonSaver<T: SaveSchema>() : SaveStrategy<T> {
     lateinit var path: Path
     lateinit var file: Path
-    lateinit var completePath: Path
+    var fileNameSuffix : String = ""
+    val fileExtension = ".json"
+    var completePath: Path
+        get() = Paths.get(path.toString(), file.toString() + fileNameSuffix + fileExtension)
+        set(value) {
+            file = value
+        }
+
+
 
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
     override fun save(schema: T) {
@@ -42,8 +50,7 @@ class JsonSaver<T: SaveSchema>() : SaveStrategy<T> {
 
     override fun init(saveDataInfo: SaveDataInfo): SaveStrategy<T> {
         path = Paths.get(Defcon.instance.dataFolder.absolutePath, saveDataInfo.filePath)
-        file = Paths.get(saveDataInfo.fileName + ".json")
-        completePath = Paths.get(path.toString(), file.toString())
+        file = Paths.get(saveDataInfo.fileName)
         return this
     }
 }

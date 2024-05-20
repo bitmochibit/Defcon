@@ -48,7 +48,7 @@ data class RadiationArea(
             val radiationAreaId = location.getRadiationAreaId()
 
 
-            for (radiationArea in radiationAreaSave.saveData.radiationAreas) {
+            for (radiationArea in radiationAreaSave.saveSchema.radiationAreas) {
                 if (radiationArea.checkIfInBounds(location)) {
                     loadedRadiationAreas.add(radiationArea)
                     continue
