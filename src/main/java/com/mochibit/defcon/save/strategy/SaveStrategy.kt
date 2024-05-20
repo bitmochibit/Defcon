@@ -7,5 +7,5 @@ import javassist.bytecode.SignatureAttribute.ClassType
 sealed interface SaveStrategy<T : SaveSchema> {
     fun init(saveDataInfo: SaveDataInfo): SaveStrategy<T>
     fun save(schema: T)
-    fun load(schema: T): T
+    fun load(): T?
 }

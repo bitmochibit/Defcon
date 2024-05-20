@@ -12,9 +12,9 @@ object RadiationAreaSave : AbstractSaveData<RadiationAreaSchema>(RadiationAreaSc
     fun addRadiationArea(radiationArea: RadiationArea): RadiationArea {
         lock.withLock {
             this.load()
-            val id = saveSchema.radiationAreas.maxByOrNull { it.id }?.id ?: 0
+            val id = schema.radiationAreas.maxByOrNull { it.id }?.id ?: 0
             val indexedRadiationArea = radiationArea.copy(id = id + 1)
-            saveSchema.radiationAreas.add(indexedRadiationArea)
+            schema.radiationAreas.add(indexedRadiationArea)
             this.save()
             return indexedRadiationArea
         }
@@ -22,18 +22,18 @@ object RadiationAreaSave : AbstractSaveData<RadiationAreaSchema>(RadiationAreaSc
 
     fun getAll(): Set<RadiationArea> { // Load the data
         this.load()
-        return saveSchema.radiationAreas.toSet()
+        return schema.radiationAreas.toSet()
     }
 
     fun get(id: Int): RadiationArea? {
         this.load()
-        return saveSchema.radiationAreas.find { it.id == id }
+        return schema.radiationAreas.find { it.id == id }
     }
 
     fun delete(id: Int) {
         lock.withLock {
             val areaToRemove = get(id) ?: return
-            saveSchema.radiationAreas.remove(areaToRemove)
+            schema.radiationAreas.remove(areaToRemove)
             this.save()
         }
     }

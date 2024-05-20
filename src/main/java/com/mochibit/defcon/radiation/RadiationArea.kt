@@ -42,13 +42,13 @@ data class RadiationArea(
         }
 
         private fun tryLoadFromLocation(location: Location): List<RadiationArea> {
-            val radiationAreaSave = RadiationAreaSave.load()
+            val radiationAreaSave = RadiationAreaSave.load() ?: return ArrayList()
 
             val loadedRadiationAreas = ArrayList<RadiationArea>()
             val radiationAreaId = location.getRadiationAreaId()
 
 
-            for (radiationArea in radiationAreaSave.saveSchema.radiationAreas) {
+            for (radiationArea in radiationAreaSave.radiationAreas) {
                 if (radiationArea.checkIfInBounds(location)) {
                     loadedRadiationAreas.add(radiationArea)
                     continue
