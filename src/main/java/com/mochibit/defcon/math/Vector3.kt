@@ -128,6 +128,17 @@ class Vector3(
         )
     }
 
+    fun distanceSquared(other: Vector3): Double {
+        val dx = x - other.x
+        val dy = y - other.y
+        val dz = z - other.z
+        return dx * dx + dy * dy + dz * dz
+    }
+
+    fun distance(other: Vector3): Double {
+        return sqrt(distanceSquared(other))
+    }
+
     fun lerp(other: Vector3, t: Double): Vector3 {
         return Vector3(
             MathFunctions.lerp(x, other.x, t),

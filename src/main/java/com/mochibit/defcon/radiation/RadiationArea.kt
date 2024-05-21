@@ -42,7 +42,7 @@ data class RadiationArea(
         }
 
         private fun tryLoadFromLocation(location: Location): List<RadiationArea> {
-            val radiationAreaSave = RadiationAreaSave.load() ?: return ArrayList()
+            val radiationAreaSave = RadiationAreaSave.getSave(location.world).load() ?: return ArrayList()
 
             val loadedRadiationAreas = ArrayList<RadiationArea>()
             val radiationAreaId = location.getRadiationAreaId()

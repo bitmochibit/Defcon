@@ -1,8 +1,8 @@
 package com.mochibit.defcon.listeners.world
 
 import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.radiation.RadiationArea
-import com.mochibit.defcon.radiation.RadiationAreaFactory
 import com.mochibit.defcon.save.savedata.RadiationAreaSave
 import org.bukkit.Bukkit
 import org.bukkit.Bukkit.getServer
@@ -15,16 +15,17 @@ class RadiationAreaLoad: Listener {
     @EventHandler
     fun loadRadiationArea(event : ChunkLoadEvent) {
         Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
-            val radiationAreas = RadiationAreaSave.getAll();
+            val correctSave = RadiationAreaSave.getSave(event.chunk.world)
+            val radiationAreas = correctSave.getAll();
             for (radiationArea in radiationAreas) {
                 if (radiationArea.affectedChunkCoordinates.isNotEmpty()) continue
                 if (radiationArea.minVertex == null || radiationArea.maxVertex == null) continue
 
                 val minVertexLocation = Location(getServer().getWorld(radiationArea.worldName),
-                    radiationArea.minVertex.x.toDouble(), radiationArea.minVertex.y.toDouble(), radiationArea.minVertex.z.toDouble()
+                    radiationArea.minVertex.x, radiationArea.minVertex.y, radiationArea.minVertex.z
                 )
                 val maxVertexLocation = Location(getServer().getWorld(radiationArea.worldName),
-                    radiationArea.maxVertex.x.toDouble(), radiationArea.maxVertex.y.toDouble(), radiationArea.maxVertex.z.toDouble()
+                    radiationArea.maxVertex.x, radiationArea.maxVertex.y, radiationArea.maxVertex.z
                 )
 
 

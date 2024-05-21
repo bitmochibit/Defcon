@@ -82,7 +82,7 @@ object RadiationAreaFactory {
                 maxVertex = maxVertex,
                 affectedChunkCoordinates = affectedChunkCoordinates
             )
-            val indexedRA = RadiationAreaSave.addRadiationArea(radiationArea)
+            val indexedRA = RadiationAreaSave.getSave(center.world).addRadiationArea(radiationArea)
 
             if (locations.size < maxFloodBlocks) {
                 for (location in locations) {

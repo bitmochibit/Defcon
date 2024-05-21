@@ -3,6 +3,7 @@ package com.mochibit.defcon.save.strategy
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.save.savedata.SaveDataInfo
 import com.mochibit.defcon.save.schemas.SaveSchema
 import java.nio.file.Files
@@ -15,9 +16,13 @@ class JsonSaver <T: SaveSchema> (private val schemaClass: KClass<out T>) : SaveS
     lateinit var path: Path
     lateinit var file: Path
     var fileNameSuffix : String = ""
+    var filePage : Int? = null
+    private val filePageString : String
+        get() = if (filePage == null) "" else "-$filePage";
+
     val fileExtension = ".json"
     var completePath: Path
-        get() = Paths.get(path.toString(), file.toString() + fileNameSuffix + fileExtension)
+        get() = Paths.get(path.toString(), file.toString() + fileNameSuffix + filePageString + fileExtension)
         set(value) {
             file = value
         }
@@ -46,10 +51,29 @@ class JsonSaver <T: SaveSchema> (private val schemaClass: KClass<out T>) : SaveS
         return gson.toJson(schema)
     }
 
+    fun pageExists(): Boolean {
+        return Files.exists(completePath)
+    }
 
-    override fun init(saveDataInfo: SaveDataInfo): SaveStrategy<T> {
+    fun nextPage() {
+        if (this.filePage == null) return;
+        this.filePage = this.filePage!! + 1;
+    }
+
+    fun setPage(page: Int) {
+        this.filePage = page;
+    }
+
+    fun previousPage() {
+        if (this.filePage!! <= 0) return;
+        this.filePage = this.filePage!! - 1;
+    }
+
+    override fun init(saveDataInfo: SaveDataInfo, paginate: Boolean): SaveStrategy<T> {
         path = Paths.get(Defcon.instance.dataFolder.absolutePath, saveDataInfo.filePath)
         file = Paths.get(saveDataInfo.fileName)
+        if (paginate) filePage = 0;
+
         return this
     }
 
