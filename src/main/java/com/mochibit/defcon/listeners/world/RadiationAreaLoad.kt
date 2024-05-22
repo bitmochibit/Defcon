@@ -1,6 +1,7 @@
 package com.mochibit.defcon.listeners.world
 
 import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.radiation.RadiationArea
 import com.mochibit.defcon.save.savedata.RadiationAreaSave
@@ -18,7 +19,7 @@ class RadiationAreaLoad: Listener {
             val correctSave = RadiationAreaSave.getSave(event.chunk.world)
             val radiationAreas = correctSave.getAll();
             for (radiationArea in radiationAreas) {
-                if (radiationArea.affectedChunkCoordinates.isNotEmpty()) continue
+                if (radiationArea.affectedChunkCoordinates.isEmpty()) continue
                 if (radiationArea.minVertex == null || radiationArea.maxVertex == null) continue
 
                 val minVertexLocation = Location(getServer().getWorld(radiationArea.worldName),

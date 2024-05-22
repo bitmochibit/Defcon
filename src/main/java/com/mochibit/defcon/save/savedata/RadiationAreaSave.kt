@@ -65,7 +65,7 @@ class RadiationAreaSave private constructor(private val worldName: String) :
                 allRadiationAreas.addAll(schema.radiationAreas)
                 page++
             }
-            return schema.radiationAreas.toSet()
+            return allRadiationAreas
         }
     }
 
