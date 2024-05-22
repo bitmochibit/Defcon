@@ -17,7 +17,7 @@ class RadiationAreaSave private constructor(private val worldName: String) :
     private val maxPerFile: Int = 50
     private var cachedMaxId = AtomicInteger(0)
     init {
-        propertySupplier = Supplier { worldName }
+        setSuffixSupplier { "-$worldName" }
         getMaximumId()
     }
     companion object {
@@ -36,20 +36,14 @@ class RadiationAreaSave private constructor(private val worldName: String) :
     fun addRadiationArea(radiationArea: RadiationArea): RadiationArea {
         lock.withLock {
             // get the available save file which the list size is less than maxPerFile and get the max id from all files
-            info("CACHED MAX ID: ${cachedMaxId.get()}")
-            info("Loading radiation areas")
-            while (pageExists()) {
+            while (pageExists(currentPage ?: 0)) {
                 this.load()
-                info(schema.radiationAreas.size.toString())
                 if (schema.radiationAreas.size < maxPerFile) {
-                    info("Found a save file with less than $maxPerFile radiation areas")
                     break
                 }
-                info("Moving to next page")
                 schema.radiationAreas.clear()
                 nextPage()
             }
-
             val indexedRadiationArea = radiationArea.copy(id = cachedMaxId.get() + 1)
             schema.radiationAreas.add(indexedRadiationArea)
             this.save()
@@ -61,26 +55,34 @@ class RadiationAreaSave private constructor(private val worldName: String) :
     fun getAll(): Set<RadiationArea> {
         lock.withLock {
             val allRadiationAreas = mutableSetOf<RadiationArea>()
-            while (pageExists()) {
-                this.load()
-                allRadiationAreas.addAll(load()?.radiationAreas ?: emptySet())
-                nextPage()
+            var page = 0
+            while (pageExists(page)) {
+                val schema = getSchema(page)
+                if (schema == null) {
+                    page++
+                    continue
+                }
+                allRadiationAreas.addAll(schema.radiationAreas)
+                page++
             }
-            this.setPage(0)
-
             return schema.radiationAreas.toSet()
         }
     }
 
-    fun get(id: Int): RadiationArea? {
+    fun get(id: Int): Pair<RadiationArea, Int>? {
         lock.withLock {
-            while (pageExists()) {
-                this.load()
+            var page = 0
+            while (pageExists(page)) {
+                val schema = getSchema(page)
+                if (schema == null) {
+                    page++
+                    continue
+                }
                 val area = schema.radiationAreas.find { it.id == id }
                 if (area != null) {
-                    return area
+                    return Pair(area, page)
                 }
-                nextPage()
+                page++
             }
             return null
         }
@@ -89,25 +91,29 @@ class RadiationAreaSave private constructor(private val worldName: String) :
     fun delete(id: Int) {
         lock.withLock {
             val areaToRemove = get(id) ?: return
-            schema.radiationAreas.remove(areaToRemove)
-            this.save()
+            val schema = getSchema(areaToRemove.second) ?: return
+            schema.radiationAreas.remove(areaToRemove.first)
+            this.saveSchema(schema, areaToRemove.second)
         }
     }
 
     private fun getMaximumId() {
         lock.withLock {
             var maxId = 0
-            while (pageExists()) {
-                this.load()
+            var page = 0
+            while (pageExists(page)) {
+                val schema = getSchema(page)
+                if (schema == null) {
+                    page++
+                    continue
+                }
                 val max = schema.radiationAreas.maxByOrNull { it.id }?.id ?: 0
                 if (max > maxId) {
                     maxId = max
                 }
-                nextPage()
+                page++
             }
             cachedMaxId.set(maxId)
-            setPage(0)
-            this.load()
         }
     }
 }

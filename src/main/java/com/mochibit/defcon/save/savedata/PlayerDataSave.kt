@@ -13,7 +13,7 @@ class PlayerDataSave(val uuid: String) :
         private val cachedPlayerData = ConcurrentHashMap<String, PlayerDataSchema>()
     }
     init {
-        propertySupplier = Supplier { uuid }
+        setSuffixSupplier { "-$uuid" }
     }
     private fun getCacheOrLoad(): PlayerDataSchema {
         if (cachedPlayerData.containsKey(uuid)) {

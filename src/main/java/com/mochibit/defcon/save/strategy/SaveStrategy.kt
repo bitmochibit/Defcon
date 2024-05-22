@@ -5,7 +5,7 @@ import com.mochibit.defcon.save.schemas.SaveSchema
 import javassist.bytecode.SignatureAttribute.ClassType
 
 sealed interface SaveStrategy<T : SaveSchema> {
-    fun init(saveDataInfo: SaveDataInfo, paginate: Boolean): SaveStrategy<T>
-    fun save(schema: T)
-    fun load(): T?
+    fun save(schema: T, page: Int? = null)
+    fun load(page: Int? = null): T?
+    fun pageExists(page: Int): Boolean
 }
