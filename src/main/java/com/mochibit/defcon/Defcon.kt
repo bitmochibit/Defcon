@@ -2,9 +2,12 @@ package com.mochibit.defcon
 
 import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
+import com.mochibit.defcon.extensions.getRadiationLevel
+import com.mochibit.defcon.extensions.increaseRadiationLevel
 import com.mochibit.defcon.radiation.RadiationArea
 import com.mochibit.defcon.radiation.RadiationAreaFactory
 import com.mochibit.defcon.registers.*
+import com.mochibit.defcon.save.savedata.PlayerDataSave
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import io.papermc.lib.PaperLib
 import org.bukkit.Bukkit
@@ -78,9 +81,37 @@ class Defcon : JavaPlugin() {
                         }
 
                         player.damage(1.0)
+                        player.increaseRadiationLevel(0.5)
                     }
 
+                    player.increaseRadiationLevel(0.1)
+                }
+            },
+            0, 20
+        )
 
+        Bukkit.getScheduler().runTaskTimer(
+            this, Runnable {
+
+                for (player in Bukkit.getOnlinePlayers()) {
+                    val radLevel = player.getRadiationLevel()
+                    // Decrease max health
+                    player.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH)?.baseValue = 20.0 - radLevel.coerceAtMost(20.0)
+
+                    if (radLevel > 5.0) {
+                        // Give nausea effect
+                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.GLOWING, 100, 1))
+                    }
+                    if (radLevel > 10.0) {
+                        // Give poison effect
+                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.CONFUSION, 100, 1))
+                    }
+
+                    if (radLevel > 15.0) {
+                        // Give poison effect
+                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.SLOW, 100, 1))
+                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.SLOW_DIGGING, 100, 1))
+                    }
                 }
             },
             0, 20

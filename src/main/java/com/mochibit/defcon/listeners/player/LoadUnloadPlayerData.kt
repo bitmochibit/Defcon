@@ -17,14 +17,6 @@ class LoadUnloadPlayerData : Listener {
 
 
     @EventHandler
-    fun onPlayerJoin(event: AsyncPlayerPreLoginEvent){
-        // Get the player's UUID
-        val playerUUID = event.uniqueId.toString()
-        // Load the player's data
-         PlayerDataSave(playerUUID).setRadiationLevel(3.0)
-    }
-
-    @EventHandler
     fun onPlayerLeave(event: PlayerQuitEvent){
         Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
             // Get the player's UUID

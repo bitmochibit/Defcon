@@ -1,5 +1,6 @@
 package com.mochibit.defcon.save.savedata
 
+import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.save.AbstractSaveData
 import com.mochibit.defcon.save.schemas.PlayerDataSchema
 import java.util.*
@@ -39,8 +40,26 @@ class PlayerDataSave(val uuid: String) :
     fun setRadiationLevel(radiationLevel: Double) {
         getCacheOrLoad()
         this.schema.radiationLevel = radiationLevel
-        save()
-        cachedPlayerData.remove(uuid)
+    }
+
+    fun increaseRadiationLevel(double: Double): Double {
+        getCacheOrLoad()
+        this.schema.radiationLevel += double
+        return this.schema.radiationLevel
+    }
+
+    fun decreaseRadiationLevel(double: Double): Double {
+        getCacheOrLoad()
+        this.schema.radiationLevel -= double
+        return this.schema.radiationLevel
+    }
+
+    fun resetRadiationLevel() {
+        val schemaTest = getCacheOrLoad()
+        this.schema.radiationLevel = 0.0
+        info(schemaTest.toString())
+        info("VS")
+        info(this.schema.toString())
     }
 }
 
