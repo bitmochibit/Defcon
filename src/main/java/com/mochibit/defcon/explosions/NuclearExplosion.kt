@@ -5,9 +5,7 @@ import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.biomes.CustomBiomeHandler
 import com.mochibit.defcon.biomes.definitions.BurningAirBiome
 import com.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
-import com.mochibit.defcon.effects.NuclearExplosion
-import com.mochibit.defcon.threading.jobs.SimpleCompositionJob
-import com.mochibit.defcon.utils.FloodFill3D
+import com.mochibit.defcon.effects.NuclearExplosionSFX
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.title.Title
 import net.kyori.adventure.title.Title.Times
@@ -39,7 +37,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         */
 
         // Particle SFX
-        NuclearExplosion(center).instantiate(true);
+        NuclearExplosionSFX(center).instantiate(true);
 
         // Send to a nearby player the flash of the explosion (radius)
         center.world.getNearbyPlayers(center, 300.0).forEach { player ->
@@ -181,7 +179,6 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
             }
         }
 
-        Defcon.Companion.Logger.info("Shockwave radius: $shockwaveRadius, Shockwave height: $shockwaveHeight");
         Shockwave(center, 0.0, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode();
 
     }

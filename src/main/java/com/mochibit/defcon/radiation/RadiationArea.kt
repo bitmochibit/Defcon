@@ -13,12 +13,13 @@ data class RadiationArea(
     val minVertex: Vector3? = null,
     val maxVertex: Vector3? = null,
     val affectedChunkCoordinates: HashSet<Vector3> = HashSet(),
+    val radiationLevel: Double = 0.0,
     val id: Int = 0
 ) {
     companion object {
         @Expose(serialize = false, deserialize = false)
         val loadedRadiationAreas = ConcurrentHashMap<Int, RadiationArea>()
-        fun shouldSuffocate(location: Location): Pair<Boolean, HashSet<RadiationArea>> {
+        fun getAtLocation(location: Location): HashSet<RadiationArea> {
             val results = HashSet<RadiationArea>()
             val currBlockRadId = location.getRadiationAreaId()
             if (currBlockRadId != null) {
@@ -27,10 +28,11 @@ data class RadiationArea(
                     results.add(radiationArea)
                 }
             }
+
             for (area in loadedRadiationAreas.values) {
                 if (area.checkIfInBounds(location)) results.add(area)
             }
-            return Pair(results.isNotEmpty(), results)
+            return results
         }
 
         fun checkIfInBounds(location: Location): Boolean {

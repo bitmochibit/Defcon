@@ -14,6 +14,7 @@ class IrradiateZone : GenericCommand() {
         val y: Int
         val z: Int
         val radius: Int
+        val radLevel: Double
         // The first, second and third are the coordinates of the center;
         // The fourth is the radius;
         if (args.size < 4) {
@@ -25,6 +26,7 @@ class IrradiateZone : GenericCommand() {
             y = args[1].toInt()
             z = args[2].toInt()
             radius = args[3].toInt()
+            radLevel = args[4].toDouble()
         } catch (ex: NumberFormatException) {
             player.sendMessage(ChatColor.RED.toString() + "The parameters must be integers")
             return
@@ -35,7 +37,7 @@ class IrradiateZone : GenericCommand() {
         }
 
         Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
-            RadiationAreaFactory.fromCenter(Location(player.world, x.toDouble(), y.toDouble(), z.toDouble()), radius).join();
+            RadiationAreaFactory.fromCenter(Location(player.world, x.toDouble(), y.toDouble(), z.toDouble()), radius, radLevel = radLevel).join();
         })
 
 

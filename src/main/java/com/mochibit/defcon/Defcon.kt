@@ -1,6 +1,7 @@
 package com.mochibit.defcon
 
 import com.mochibit.defcon.Defcon.Companion.Logger.info
+import com.mochibit.defcon.events.customitems.GeigerDetectEvent
 import com.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
 import com.mochibit.defcon.extensions.getRadiationLevel
 import com.mochibit.defcon.extensions.increaseRadiationLevel
@@ -67,24 +68,26 @@ class Defcon : JavaPlugin() {
             this, Runnable {
                 // Loop through every player and check if they are in a radiation area
                 for (player in Bukkit.getOnlinePlayers()) {
-                    val radCheck = RadiationArea.shouldSuffocate( player.location.add(0.0, 1.0, 0.0))
-                    if (!radCheck.first) {
-                        continue;
-                    }
+                    val radiationAreas = RadiationArea.getAtLocation( player.location.add(0.0, 1.0, 0.0))
+                    if (radiationAreas.isEmpty()) continue
 
-                    for (radiationArea in radCheck.second) {
+                    val totalRadiation = radiationAreas.sumOf { it.radiationLevel } / radiationAreas.size
+                    if (totalRadiation == 0.0) continue
+
+                    val geigerDetectEvent = GeigerDetectEvent(player, totalRadiation)
+                    Bukkit.getPluginManager().callEvent(geigerDetectEvent)
+
+                    for (radiationArea in radiationAreas) {
+                        if (radiationArea.radiationLevel < 3.0) continue;
                         val radSuffocateEvent = RadiationSuffocationEvent(player, radiationArea)
                         Bukkit.getPluginManager().callEvent(radSuffocateEvent)
-
                         if (radSuffocateEvent.isCancelled()) {
                             continue
                         }
-
                         player.damage(1.0)
-                        player.increaseRadiationLevel(0.5)
                     }
 
-                    player.increaseRadiationLevel(0.1)
+                    player.increaseRadiationLevel(totalRadiation / 20)
                 }
             },
             0, 20
@@ -95,6 +98,8 @@ class Defcon : JavaPlugin() {
 
                 for (player in Bukkit.getOnlinePlayers()) {
                     val radLevel = player.getRadiationLevel()
+                    if (radLevel <= 0.0) continue
+
                     // Decrease max health
                     player.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH)?.baseValue = 20.0 - radLevel.coerceAtMost(20.0)
 
@@ -121,8 +126,6 @@ class Defcon : JavaPlugin() {
 
     override fun onDisable() {
         getLogger().info("[Defcon] has been disabled!")
-        // Disconnect from all databases
-        //Database.disconnectAll()
     }
 
     companion object {

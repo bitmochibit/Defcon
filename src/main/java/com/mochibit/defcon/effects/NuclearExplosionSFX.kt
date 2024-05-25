@@ -1,7 +1,6 @@
 package com.mochibit.defcon.effects
 
 import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.math.Vector3
@@ -12,7 +11,7 @@ import org.bukkit.Location
 import org.bukkit.Particle
 import kotlin.math.floor
 
-class NuclearExplosion(val center: Location) : AnimatedEffect() {
+class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
     private val startingColor = Color.fromRGB(255, 229, 159)
     private val endingColor = Color.fromRGB(88, 87, 84);
     var maxTemp = 4000.0;
@@ -121,7 +120,7 @@ class NuclearExplosion(val center: Location) : AnimatedEffect() {
             .withYEnd(20.0)
             .hollow(true)
             .ignoreBottomSurface(true),
-        Particle.CLOUD,
+        Particle.EXPLOSION_LARGE,
         center
     )
 

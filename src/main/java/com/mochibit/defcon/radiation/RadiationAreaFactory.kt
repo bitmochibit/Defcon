@@ -22,9 +22,10 @@ object RadiationAreaFactory {
         center: Location,
         maxFloodBlocks: Int = 20000,
         maxUpperVertexRadius: Vector3 = Vector3(20000.0, 150.0, 20000.0),
-        maxLowerVertexRadius: Vector3 = Vector3(-20000.0, -10.0, -20000.0)
+        maxLowerVertexRadius: Vector3 = Vector3(-20000.0, -10.0, -20000.0),
+        radLevel : Double = 1.0
     ): CompletableFuture<RadiationArea> {
-        return generate(center, maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius)
+        return generate(center, maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius, radLevel)
     }
 
     fun fromCenter(
@@ -32,21 +33,23 @@ object RadiationAreaFactory {
         worldName: String,
         maxFloodBlocks: Int = 20000,
         maxUpperVertexRadius: Vector3 = Vector3(20000.0, 150.0, 20000.0),
-        maxLowerVertexRadius: Vector3 = Vector3(-20000.0, -10.0, -20000.0)
+        maxLowerVertexRadius: Vector3 = Vector3(-20000.0, -10.0, -20000.0),
+        radLevel : Double = 1.0
     ): CompletableFuture<RadiationArea> {
         val world = Bukkit.getWorld(worldName)
         if (world == null) {
             info("World $worldName not found")
             return CompletableFuture.completedFuture(null)
         }
-        return fromCenter(center.toLocation(world), maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius)
+        return fromCenter(center.toLocation(world), maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius, radLevel)
     }
 
     private fun generate(
         center: Location,
         maxFloodBlocks: Int,
         maxVertexRadius: Vector3,
-        minVertexRadius: Vector3
+        minVertexRadius: Vector3,
+        radLevel : Double = 1.0
     ): CompletableFuture<RadiationArea> {
         return CompletableFuture.supplyAsync result@{
             var radiationArea: RadiationArea? = null
@@ -80,13 +83,14 @@ object RadiationAreaFactory {
                 worldName = center.world.name,
                 minVertex = minVertex,
                 maxVertex = maxVertex,
-                affectedChunkCoordinates = affectedChunkCoordinates
+                affectedChunkCoordinates = affectedChunkCoordinates,
+                radiationLevel = radLevel
             )
             val indexedRA = RadiationAreaSave.getSave(center.world).addRadiationArea(radiationArea)
 
             if (locations.size < maxFloodBlocks) {
                 for (location in locations) {
-                    MetaManager.setBlockData(location, BlockDataKey.RadiationLevel, 1.0)
+                    MetaManager.setBlockData(location, BlockDataKey.RadiationLevel, indexedRA.radiationLevel)
                     MetaManager.setBlockData(location, BlockDataKey.RadiationAreaId, indexedRA.id)
                 }
 
