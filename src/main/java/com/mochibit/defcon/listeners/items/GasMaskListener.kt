@@ -34,8 +34,8 @@ class GasMaskListener : Listener {
 
     @EventHandler
     fun onGasMaskEquip(event: CustomItemEquipEvent) {
-        val player = event.getPlayer()
-        val item = event.getEquippedItem()
+        val player = event.player
+        val item = event.equippedItem
 
         val itemBehaviour = item.getBehaviour()
         if (itemBehaviour != ItemBehaviour.GAS_MASK) return event.setCancelled(true)

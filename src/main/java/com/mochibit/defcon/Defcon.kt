@@ -86,7 +86,6 @@ class Defcon : JavaPlugin() {
                         }
                         player.damage(1.0)
                     }
-
                     player.increaseRadiationLevel(totalRadiation / 20)
                 }
             },
