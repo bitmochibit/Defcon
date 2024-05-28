@@ -19,21 +19,35 @@
 
 package com.mochibit.defcon.listeners.blocks
 
-import com.mochibit.defcon.interfaces.PluginBlock
-import com.mochibit.defcon.registers.BlockRegister
+import com.mochibit.defcon.radiation.RadiationArea
+import com.mochibit.defcon.radiation.RadiationAreaFactory
+import org.bukkit.block.BlockFace
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent
 
-class CustomBlockBreakEvent : Listener {
+class RadiationAreaExpand: Listener {
+
+    // On block update, if the block has a neighbor wich is a radioactive block, expand the radiation area
+
     @EventHandler
     fun onBlockBreak(event: BlockBreakEvent) {
-        // Get the item in the player's hand
-        val customBlock: PluginBlock
-        val block = event.block
+        // Check if the neighbor block has a radiation level
+        // If it has, expand the radiation area
+        return;
 
-        customBlock = BlockRegister.getBlock(block.location)?: return
-        customBlock.removeBlock(block.location)
+        // Loop every direction and get the adjacent block
+        for (direction in BlockFace.entries) {
+            val adjacentBlock = event.block.getRelative(direction)
+            // Check if the block is a radioactive block
+
+            val areas = RadiationArea.getAtLocation(adjacentBlock.location);
+            if (areas.isEmpty()) continue
+
+            val firstArea = areas.first()
+            // Expand the radiation area
+            RadiationAreaFactory.fromCenter(adjacentBlock.location, )
+        }
     }
 
 }

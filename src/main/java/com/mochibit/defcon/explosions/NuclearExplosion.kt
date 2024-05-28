@@ -1,3 +1,22 @@
+/*
+ *
+ * DEFCON: Nuclear warfare plugin for minecraft servers.
+ * Copyright (c) 2024 mochibit.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package com.mochibit.defcon.explosions
 
 import com.mochibit.defcon.Defcon
@@ -6,6 +25,7 @@ import com.mochibit.defcon.biomes.CustomBiomeHandler
 import com.mochibit.defcon.biomes.definitions.BurningAirBiome
 import com.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
 import com.mochibit.defcon.effects.NuclearExplosionSFX
+import com.mochibit.defcon.radiation.RadiationAreaFactory
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.title.Title
 import net.kyori.adventure.title.Title.Times
@@ -19,7 +39,7 @@ import java.time.Duration
 class NuclearExplosion(private val center: Location, private val nuclearComponent: NuclearComponent) : Explosion() {
 
     override fun explode() {
-        // TODO: Make this async to precalculate stuff and make a more appealing explosion
+        //TODO: Make this async to precalculate stuff and make a more appealing explosion
 
         /* The explosion is subdivided into some steps
         *
@@ -163,6 +183,14 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
             }
         }, 20 * 30);
 
+
+        Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
+            RadiationAreaFactory.fromCenter(
+                center,
+                radLevel = 3.0,
+                20000
+            ).join();
+        }, 40 * 20)
 
         // Create a sphere of air blocks
         val obliterationRadius = nuclearComponent.blastPower * 30;
