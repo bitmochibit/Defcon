@@ -33,12 +33,14 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.net.URI
+import java.net.URISyntaxException
 import java.nio.file.*
+import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
 import java.util.jar.JarFile
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.collections.HashSet
 
 
 class ResourcePackRegister private constructor() : PackRegister {
@@ -302,6 +304,7 @@ fun copyFoldersFromResource(
             val initialPath = entry.name.substring(resourceFolderPath.length)
             val target = targetPath.resolve(initialPath)
             if (entry.isDirectory) {
+                info ("Creating directory $target")
                 Files.createDirectories(target)
             } else {
                 Files.copy(jar.getInputStream(entry), target, StandardCopyOption.REPLACE_EXISTING)
