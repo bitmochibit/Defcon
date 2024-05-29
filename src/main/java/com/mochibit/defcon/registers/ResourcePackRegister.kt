@@ -191,7 +191,7 @@ class ResourcePackRegister private constructor() : PackRegister {
             itemModels.add(itemModelInstance)
         }
 
-        for (itemGroup in itemModels.groupBy { it.modelData.originalItemName }) {
+        for (itemGroup in itemModels.sortedBy { it.modelData.customModelData }.groupBy { it.modelData.originalItemName }) {
             val firstModelData = itemGroup.value.first().modelData
 
             val model = JSONObject()
