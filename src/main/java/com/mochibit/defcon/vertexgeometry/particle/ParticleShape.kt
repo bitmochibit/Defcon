@@ -21,8 +21,6 @@ package com.mochibit.defcon.vertexgeometry.particle
 
 import com.destroystokyo.paper.ParticleBuilder
 import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.Defcon.Companion.Logger.info
-import com.mochibit.defcon.extensions.toVector3
 import com.mochibit.defcon.math.Transform3D
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.utils.ColorUtils
@@ -32,10 +30,9 @@ import com.mochibit.defcon.vertexgeometry.Vertex
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 import org.bukkit.*
 import org.bukkit.entity.Display
-import org.bukkit.entity.Entity
-import org.bukkit.entity.EntityType
 import org.bukkit.entity.ItemDisplay
 import org.bukkit.inventory.ItemStack
+import org.bukkit.inventory.meta.LeatherArmorMeta
 import java.util.function.Predicate
 import kotlin.random.Random
 
@@ -97,10 +94,7 @@ class ParticleShape(
     fun draw() {
         if (!visible) return;
         for (particleVertex in particleVertixes) {
-            // Randomly skip
-            if (Random.nextDouble() > 0.5) continue;
 
-            if (System.currentTimeMillis() - particleVertex.spawnTime < 100) continue;
             // Treat particles vertexes as particle emitters
             val transformedVertex = particleVertex.vertex.transformedPoint;
             val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)
@@ -112,8 +106,8 @@ class ParticleShape(
 //            if (isDirectional && radialSpeed != 0.0)
 //                radialDirectionFromCenter(particleVertex.vertex);
 
-            if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y))
-                continue;
+//            if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y))
+//                continue;
 
 //            if (xPredicate != null && !xPredicate!!.test(transformedVertex.x))
 //                continue;
@@ -122,33 +116,46 @@ class ParticleShape(
 //                continue;
 
             Bukkit.getScheduler().runTask(Defcon.instance, Runnable {
-                val displayItemEntity = spawnPoint.world!!.spawnEntity(currentLoc, EntityType.ITEM_DISPLAY) as ItemDisplay;
-                displayItemEntity.billboard = Display.Billboard.CENTER;
-                // Apply velocity and scale with transformation matrix
-                displayItemEntity.interpolationDuration = 0;
-                displayItemEntity.transformation = displayItemEntity.transformation.apply {
-                    scale.set(10.0, 10.0, 10.0);
-                }
+                val smokeParticle = spawnPoint.world.spawn(currentLoc, ItemDisplay::class.java) {
+                    it.billboard = Display.Billboard.VERTICAL;
+                    // Apply velocity and scale with transformation matrix
+                    it.interpolationDuration = 0;
+                    it.transformation = it.transformation.apply {
+                        scale.set(5.0, 5.0, 5.0);
+                    }
 
+                    // Get leather boots with custom model data to 2
+                    val itemStack = ItemStack(Material.LEATHER_BOOTS)
+                    val leatherMeta = itemStack.itemMeta as LeatherArmorMeta
+                    leatherMeta.apply {
+                        leatherMeta.setCustomModelData(2)
+                        leatherMeta.setColor(applyTemperatureEmission(particleVertex.vertex.point.y))
+                    }
+                    itemStack.itemMeta = leatherMeta
+                    it.itemStack = itemStack;
+
+                    // Every 15 ticks, change model data to 3 ... 8 (8 frames) and loop
+                    Bukkit.getScheduler().runTaskTimer(Defcon.instance, { task ->
+                        it.itemStack = ItemStack(Material.LEATHER_BOOTS).apply {
+                            itemMeta = leatherMeta.apply {
+                                if (customModelData >= 9) {
+                                    task.cancel();
+                                    it.remove();
+                                }
+                                val newModelData = customModelData + 1
+                                setCustomModelData( newModelData )
+                            }
+                        }
+                    }, 0, 15);
+
+                };
                 // Compute next position using velocity
-                displayItemEntity.interpolationDuration = 200;
-                displayItemEntity.interpolationDelay = -1;
-                displayItemEntity.transformation = displayItemEntity.transformation.apply {
-                    translation.set(velocity.x, velocity.y, velocity.z);
+                smokeParticle.interpolationDuration = 40;
+                smokeParticle.interpolationDelay = -1;
+                smokeParticle.transformation = smokeParticle.transformation.apply {
+                    translation.set(velocity.x.toFloat(), velocity.y.toFloat(), velocity.z.toFloat());
                 }
-                // Get leather boots with custom model data to 2
-                val itemStack = ItemStack(Material.LEATHER_BOOTS)
-                itemStack.itemMeta = itemStack.itemMeta!!.apply {
-                    setCustomModelData(2)
-                    val leatherMeta = itemStack.itemMeta as org.bukkit.inventory.meta.LeatherArmorMeta
-                    leatherMeta.setColor(applyTemperatureEmission(particleVertex.vertex.point.y))
-                }
-                displayItemEntity.itemStack = itemStack;
 
-                // Automatically remove the entity after 300 ticks
-                Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable {
-                    displayItemEntity.remove();
-                }, 300L);
                 particleVertex.spawnTime = System.currentTimeMillis();
             });
             //particleBuilder.location(currentLoc);

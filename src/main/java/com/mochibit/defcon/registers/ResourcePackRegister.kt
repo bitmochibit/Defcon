@@ -185,9 +185,29 @@ class ResourcePackRegister private constructor() : PackRegister {
         // Generate automatically the items definition for the custom items
 
 
-        val itemModels = HashSet<AbstractCustomItemModel>()
+        val itemModels = ArrayList<AbstractCustomItemModel>()
         for (itemModel in Reflections("$packageName.customassets.items.definitions").getSubTypesOf(AbstractCustomItemModel::class.java)) {
             val itemModelInstance = itemModel.getDeclaredConstructor().newInstance()
+            if (itemModelInstance.modelData.animationFrames.isNotEmpty()) {
+                for ((index, frameName) in itemModelInstance.modelData.animationFrames) {
+                    // Create a model for each frame
+                    val modelPath = targetModelsPath.resolve("item/${itemModelInstance.modelData.modelName}/${itemModelInstance.modelData.modelName}.json")
+                    // copy to "models/item/modelname/frame-n.json"
+                    val frameModelPath = targetModelsPath.resolve("item/${itemModelInstance.modelData.modelName}/$frameName.json")
+                    Files.copy(modelPath, frameModelPath, StandardCopyOption.REPLACE_EXISTING)
+                    // Update the model.json with the new texture
+                    val modelReader = Files.newBufferedReader(frameModelPath)
+                    val modelJson = jsonParser.parse(modelReader) as JSONObject
+                    val textures = modelJson["textures"] as JSONObject
+                    textures["0"] = "item/${itemModelInstance.modelData.modelName}/$frameName"
+                    Files.write(frameModelPath, modelJson.toJSONString().toByteArray())
+                    val newInstance = itemModel.getDeclaredConstructor().newInstance()
+                    newInstance.modelData = itemModelInstance.modelData.copy( model = "item/${itemModelInstance.modelData.modelName}/$frameName",
+                        customModelData = itemModelInstance.modelData.customModelData + index)
+                    itemModels.add(newInstance)
+                }
+                continue
+            }
             itemModels.add(itemModelInstance)
         }
 
@@ -213,6 +233,8 @@ class ResourcePackRegister private constructor() : PackRegister {
                 customModelOverride["model"] = item.modelData.model
                 overrides.add(customModelOverride)
             }
+
+
             model["overrides"] = overrides
             Files.write(targetModelsPath.resolve("item/${itemGroup.key}.json"), model.toJSONString().toByteArray())
         }

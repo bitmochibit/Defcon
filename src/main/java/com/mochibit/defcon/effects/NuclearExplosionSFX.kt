@@ -48,7 +48,7 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
     // Mushroom cloud components
     private val coreSpheroid = ParticleShape(
         CylinderBuilder()
-            .withHeight(5.0)
+            .withHeight(1.0)
             .withRadiusX(14.0)
             .withRadiusZ(14.0)
             .withRate(15.0)
@@ -59,7 +59,7 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
     )
     private val secondarySpheroid = ParticleShape(
         CylinderBuilder()
-            .withHeight(5.0)
+            .withHeight(1.0)
             .withRadiusX(20.0)
             .withRadiusZ(20.0)
             .withRate(15.0)
@@ -70,7 +70,7 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
     )
     private val tertiarySpheroid = ParticleShape(
         CylinderBuilder()
-            .withHeight(5.0)
+            .withHeight(1.0)
             .withRadiusX(25.0)
             .withRadiusZ(25.0)
             .withRate(15.0)

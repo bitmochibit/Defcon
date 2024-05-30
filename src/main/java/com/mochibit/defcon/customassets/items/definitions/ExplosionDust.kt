@@ -32,5 +32,15 @@ class ExplosionDust: AbstractCustomItemModel(
         ),
         modelName = "explosion_dust",
         customModelData = 2,
+        animationFrames = mapOf(
+            0 to "frame-0",
+            1 to "frame-1",
+            2 to "frame-2",
+            3 to "frame-3",
+            4 to "frame-4",
+            5 to "frame-5",
+            6 to "frame-6",
+            7 to "frame-7",
+        )
     )
 )

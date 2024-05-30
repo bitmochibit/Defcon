@@ -1,7 +1,7 @@
 {
 	"credit": "Made by Mochibit",
 	"textures": {
-		"0": "item/explosion_dust/animated_sh_smoke_t"
+		"0": "defcon:item/explosion_dust/frame-0"
 	},
 	"elements": [
 		{
@@ -13,6 +13,5 @@
 				"south": {"uv": [0, 0, 16, 16], "rotation": 180, "texture": "#0", "cullface": "up", "tintindex": 0}
 			}
 		}
-	],
-	"display": {}
+	]
 }

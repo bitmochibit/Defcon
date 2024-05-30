@@ -30,5 +30,6 @@ data class ModelData(
     val parent: ParentType = ParentType.ITEM_GENERATED,
     val textures: Map<String, String> = mapOf("layer0" to "${if (originalItem.isBlock) "block" else "item"}/${originalItemName}"),
     val customModelData: Int = 1,
-    val model: String = "${if (originalItem.isBlock) "block" else "item"}/$modelName/$modelName"
+    val model: String = "${if (originalItem.isBlock) "block" else "item"}/$modelName/$modelName",
+    val animationFrames: Map<Int, String> = mapOf(),
     )
