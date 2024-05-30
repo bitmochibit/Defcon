@@ -13,5 +13,6 @@
 				"south": {"uv": [0, 0, 16, 16], "rotation": 180, "texture": "#0", "cullface": "up", "tintindex": 0}
 			}
 		}
-	]
+	],
+	"display": {}
 }

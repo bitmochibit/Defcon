@@ -20,6 +20,9 @@
 package com.mochibit.defcon.vertexgeometry.particle
 
 import com.destroystokyo.paper.ParticleBuilder
+import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.Defcon.Companion.Logger.info
+import com.mochibit.defcon.extensions.toVector3
 import com.mochibit.defcon.math.Transform3D
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.utils.ColorUtils
@@ -27,9 +30,12 @@ import com.mochibit.defcon.utils.Geometry
 import com.mochibit.defcon.utils.MathFunctions
 import com.mochibit.defcon.vertexgeometry.Vertex
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
-import org.bukkit.Color
-import org.bukkit.Location
-import org.bukkit.Particle
+import org.bukkit.*
+import org.bukkit.entity.Display
+import org.bukkit.entity.Entity
+import org.bukkit.entity.EntityType
+import org.bukkit.entity.ItemDisplay
+import org.bukkit.inventory.ItemStack
 import java.util.function.Predicate
 import kotlin.random.Random
 
@@ -85,37 +91,68 @@ class ParticleShape(
     private var xPredicate : Predicate<Double>? = null
     private var zPredicate : Predicate<Double>? = null
 
+    private var velocity = Vector3.ZERO
+
     // Shape methods
     fun draw() {
         if (!visible) return;
         for (particleVertex in particleVertixes) {
-            if (Random.nextInt(0, 100) < 99) continue;
-            // Check if the vertex has been spawned in the last 1 second
-            if (System.currentTimeMillis() - particleVertex.spawnTime < 6000) continue;
+            // Randomly skip
+            if (Random.nextDouble() > 0.5) continue;
 
-
+            if (System.currentTimeMillis() - particleVertex.spawnTime < 100) continue;
+            // Treat particles vertexes as particle emitters
             val transformedVertex = particleVertex.vertex.transformedPoint;
             val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)
 
-            if (isTemperatureEmission)
-                applyTemperatureEmission(particleVertex.vertex.point.y)
+            // spawn a display entity
 
-            if (isDirectional && radialSpeed != 0.0)
-                radialDirectionFromCenter(particleVertex.vertex);
+
+
+//            if (isDirectional && radialSpeed != 0.0)
+//                radialDirectionFromCenter(particleVertex.vertex);
 
             if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y))
                 continue;
 
-            if (xPredicate != null && !xPredicate!!.test(transformedVertex.x))
-                continue;
+//            if (xPredicate != null && !xPredicate!!.test(transformedVertex.x))
+//                continue;
 
-            if (zPredicate != null && !zPredicate!!.test(transformedVertex.z))
-                continue;
+//            if (zPredicate != null && !zPredicate!!.test(transformedVertex.z))
+//                continue;
 
+            Bukkit.getScheduler().runTask(Defcon.instance, Runnable {
+                val displayItemEntity = spawnPoint.world!!.spawnEntity(currentLoc, EntityType.ITEM_DISPLAY) as ItemDisplay;
+                displayItemEntity.billboard = Display.Billboard.CENTER;
+                // Apply velocity and scale with transformation matrix
+                displayItemEntity.interpolationDuration = 0;
+                displayItemEntity.transformation = displayItemEntity.transformation.apply {
+                    scale.set(10.0, 10.0, 10.0);
+                }
 
-            particleBuilder.location(currentLoc);
-            particleBuilder.spawn();
-            particleVertex.spawnTime = System.currentTimeMillis();
+                // Compute next position using velocity
+                displayItemEntity.interpolationDuration = 200;
+                displayItemEntity.interpolationDelay = -1;
+                displayItemEntity.transformation = displayItemEntity.transformation.apply {
+                    translation.set(velocity.x, velocity.y, velocity.z);
+                }
+                // Get leather boots with custom model data to 2
+                val itemStack = ItemStack(Material.LEATHER_BOOTS)
+                itemStack.itemMeta = itemStack.itemMeta!!.apply {
+                    setCustomModelData(2)
+                    val leatherMeta = itemStack.itemMeta as org.bukkit.inventory.meta.LeatherArmorMeta
+                    leatherMeta.setColor(applyTemperatureEmission(particleVertex.vertex.point.y))
+                }
+                displayItemEntity.itemStack = itemStack;
+
+                // Automatically remove the entity after 300 ticks
+                Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable {
+                    displayItemEntity.remove();
+                }, 300L);
+                particleVertex.spawnTime = System.currentTimeMillis();
+            });
+            //particleBuilder.location(currentLoc);
+            //particleBuilder.spawn();
         }
     }
 
@@ -148,15 +185,13 @@ class ParticleShape(
     }
 
     // Color methods
-    private fun applyTemperatureEmission(height: Double): ParticleShape {
-        if (particle != Particle.REDSTONE) return this;
-
+    private fun applyTemperatureEmission(height: Double): Color {
         if (temperature > minTemperature)
-            return this.also { it.color(ColorUtils.tempToRGB(temperature), baseSize.toFloat()) }
+            return ColorUtils.tempToRGB(temperature);
 
         // Remap the height to a value between 0 and 1 using the minY and maxY and use the transitionProgress to control how much the height affects the color
         val ratio = MathFunctions.remap(height, minY, maxY, transitionProgress, 1.0) * transitionProgress;
-        return this.also { it.color(ColorUtils.lerpColor(minimumColor, baseColor, ratio), baseSize.toFloat()) }
+        return ColorUtils.lerpColor(minimumColor, baseColor, ratio)
     }
 
     // Directional methods
@@ -252,6 +287,11 @@ class ParticleShape(
 
     fun zPredicate(predicate: Predicate<Double>): ParticleShape {
         this.zPredicate = predicate;
+        return this;
+    }
+
+    fun velocity(vel: Vector3): ParticleShape {
+        this.velocity = vel;
         return this;
     }
 

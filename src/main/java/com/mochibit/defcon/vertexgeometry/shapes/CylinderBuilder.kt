@@ -29,6 +29,7 @@ class CylinderBuilder() : VertexShapeBuilder {
     private var radiusX: Double = 1.0
     private var radiusZ: Double = 1.0
     private var rate: Double = 1.0
+    private var heightRate: Double = 0.1
     private var hollow = false
     override fun build(): Array<Vertex> {
         val result = HashSet<Vertex>();
@@ -51,7 +52,7 @@ class CylinderBuilder() : VertexShapeBuilder {
                     Vertex(Vector3(vertex.point.x, y, vertex.point.z))
                 }
             )
-            y += 0.1
+            y += heightRate
         }
         return result.toTypedArray();
     }
@@ -74,6 +75,11 @@ class CylinderBuilder() : VertexShapeBuilder {
 
     fun withRate(rate: Double): CylinderBuilder {
         this.rate = rate
+        return this
+    }
+
+    fun withHeightRate(heightRate: Double): CylinderBuilder {
+        this.heightRate = heightRate
         return this
     }
 
