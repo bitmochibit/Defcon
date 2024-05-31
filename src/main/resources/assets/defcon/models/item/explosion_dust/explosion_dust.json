@@ -6,12 +6,13 @@
 	"elements": [
 		{
 			"name": "particle",
-			"from": [0, 0, 9],
-			"to": [16, 16, 10],
+			"from": [0, 0, 8],
+			"to": [16, 16, 8],
 			"rotation": {"angle": 0, "axis": "y", "origin": [0, 0, 9]},
 			"faces": {
-				"south": {"uv": [0, 0, 16, 16], "rotation": 180, "texture": "#0", "cullface": "up", "tintindex": 0}
+				"north": {"uv": [0, 0, 16, 16], "rotation": 180, "texture": "#0", "cullface": "up", "tintindex": 0}
 			}
 		}
-	]
+	],
+	"display": {}
 }

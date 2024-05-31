@@ -77,7 +77,7 @@ class DatapackRegister private constructor() : PackRegister {
         // Create .mcmeta file for the datapack
         val mcmeta = JSONObject()
         val pack = JSONObject()
-        pack["pack_format"] = ResourcePackFormatVersion.valueOf("V${serverVersion.replace(".", "_")}").getVersion()
+        pack["pack_format"] = DatapackFormatVersion.valueOf("V${serverVersion.replace(".", "_")}").getVersion()
         pack["description"] = "Defcon datapack"
         mcmeta["pack"] = pack
         // Write the .mcmeta file to the rootPath
@@ -240,7 +240,8 @@ enum class DatapackFormatVersion(private val version: Int) {
     V1_18(8), V1_18_1(8),
     V1_18_2(9),
     V1_19(10), V1_19_1(10), V1_19_2(10), V1_19_3(10),
-    V1_19_4(12);
+    V1_19_4(12),
+    V1_20_2(18);
 
     fun getVersion(): Int {
         return version

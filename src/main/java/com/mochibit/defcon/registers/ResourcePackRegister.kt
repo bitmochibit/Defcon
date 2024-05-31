@@ -224,6 +224,16 @@ class ResourcePackRegister private constructor() : PackRegister {
 
             // Overrides that should be aggregated based on the itemType
             val overrides = JSONArray()
+            // Add default overrides:
+            for (defaultOverride in firstModelData.overrides) {
+                val defaultModelOverride = JSONObject()
+                val predicate = JSONObject()
+                defaultModelOverride["predicate"] = predicate
+                predicate[defaultOverride.predicate.key] = defaultOverride.predicate.value
+                defaultModelOverride["model"] = defaultOverride.model
+                overrides.add(defaultModelOverride)
+            }
+
             for (item in itemGroup.value) {
                 val customModelOverride = JSONObject()
                 val predicate = JSONObject()
@@ -343,8 +353,8 @@ enum class ResourcePackFormatVersion(private val version: Int) {
     V1_18(8), V1_18_2(8),
     V1_19(9), V1_19_1(9), V1_19_2(9),
     V1_19_3(12),
-    V1_19_4(13);
-
+    V1_19_4(13),
+    V1_20_2(18);
     fun getVersion(): Int {
         return version
     }

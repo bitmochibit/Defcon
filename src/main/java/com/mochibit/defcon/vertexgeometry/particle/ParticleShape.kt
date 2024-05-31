@@ -94,7 +94,7 @@ class ParticleShape(
     fun draw() {
         if (!visible) return;
         for (particleVertex in particleVertixes) {
-
+            if (Random.nextInt(0, 100) < 60) continue;
             // Treat particles vertexes as particle emitters
             val transformedVertex = particleVertex.vertex.transformedPoint;
             val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)
@@ -117,45 +117,42 @@ class ParticleShape(
 
             Bukkit.getScheduler().runTask(Defcon.instance, Runnable {
                 val smokeParticle = spawnPoint.world.spawn(currentLoc, ItemDisplay::class.java) {
-                    it.billboard = Display.Billboard.VERTICAL;
+                    it.billboard = Display.Billboard.CENTER;
                     // Apply velocity and scale with transformation matrix
                     it.interpolationDuration = 0;
                     it.transformation = it.transformation.apply {
                         scale.set(5.0, 5.0, 5.0);
                     }
-
-                    // Get leather boots with custom model data to 2
-                    val itemStack = ItemStack(Material.LEATHER_BOOTS)
-                    val leatherMeta = itemStack.itemMeta as LeatherArmorMeta
-                    leatherMeta.apply {
-                        leatherMeta.setCustomModelData(2)
-                        leatherMeta.setColor(applyTemperatureEmission(particleVertex.vertex.point.y))
-                    }
-                    itemStack.itemMeta = leatherMeta
-                    it.itemStack = itemStack;
-
-                    // Every 15 ticks, change model data to 3 ... 8 (8 frames) and loop
-                    Bukkit.getScheduler().runTaskTimer(Defcon.instance, { task ->
-                        it.itemStack = ItemStack(Material.LEATHER_BOOTS).apply {
-                            itemMeta = leatherMeta.apply {
-                                if (customModelData >= 9) {
-                                    task.cancel();
-                                    it.remove();
-                                }
-                                val newModelData = customModelData + 1
-                                setCustomModelData( newModelData )
-                            }
-                        }
-                    }, 0, 15);
-
+                    it.teleportDuration = 59;
                 };
-                // Compute next position using velocity
-                smokeParticle.interpolationDuration = 40;
-                smokeParticle.interpolationDelay = -1;
-                smokeParticle.transformation = smokeParticle.transformation.apply {
-                    translation.set(velocity.x.toFloat(), velocity.y.toFloat(), velocity.z.toFloat());
+                // Get leather boots with custom model data to 2
+                val itemStack = ItemStack(Material.LEATHER_BOOTS)
+                val leatherMeta = itemStack.itemMeta as LeatherArmorMeta
+                leatherMeta.apply {
+                    leatherMeta.setCustomModelData(2)
+                    leatherMeta.setColor(applyTemperatureEmission(particleVertex.vertex.point.y))
                 }
+                itemStack.itemMeta = leatherMeta
+                smokeParticle.itemStack = itemStack;
 
+                // Every 15 ticks, change model data to 3 ... 8 (8 frames) and loop
+                Bukkit.getScheduler().runTaskTimer(Defcon.instance, { task ->
+                    smokeParticle.itemStack = ItemStack(Material.LEATHER_BOOTS).apply {
+                        itemMeta = leatherMeta.apply {
+                            if (customModelData >= 9) {
+                                task.cancel();
+                                smokeParticle.remove();
+                            }
+                            val newModelData = customModelData + 1
+                            setCustomModelData( newModelData )
+                        }
+                    }
+                }, 0, 15);
+
+
+                Bukkit.getScheduler().runTaskLater(Defcon.instance, { task ->
+                    smokeParticle.teleport(currentLoc.add(velocity.toBukkitVector()));
+                }, 1L);
                 particleVertex.spawnTime = System.currentTimeMillis();
             });
             //particleBuilder.location(currentLoc);
