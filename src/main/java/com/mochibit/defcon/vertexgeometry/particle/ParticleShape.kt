@@ -94,7 +94,7 @@ class ParticleShape(
     fun draw() {
         if (!visible) return;
         for (particleVertex in particleVertixes) {
-            if (Random.nextInt(0, 100) < 60) continue;
+            if (Random.nextInt(0, 100) < 95) continue;
             // Treat particles vertexes as particle emitters
             val transformedVertex = particleVertex.vertex.transformedPoint;
             val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)

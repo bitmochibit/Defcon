@@ -48,34 +48,34 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
     // Mushroom cloud components
     private val coreSpheroid = ParticleShape(
         CylinderBuilder()
-            .withHeight(1.0)
+            .withHeight(10.0)
             .withRadiusX(14.0)
             .withRadiusZ(14.0)
             .withRate(15.0)
-            .withHeightRate(5.0)
+            .withHeightRate(1.0)
             .hollow(false),
         Particle.REDSTONE,
         center
     )
     private val secondarySpheroid = ParticleShape(
         CylinderBuilder()
-            .withHeight(1.0)
+            .withHeight(5.0)
             .withRadiusX(20.0)
             .withRadiusZ(20.0)
             .withRate(15.0)
-            .withHeightRate(3.0)
-            .hollow(true),
+            .withHeightRate(1.0)
+            .hollow(false),
         Particle.REDSTONE,
         center
     )
     private val tertiarySpheroid = ParticleShape(
         CylinderBuilder()
-            .withHeight(1.0)
+            .withHeight(2.0)
             .withRadiusX(25.0)
             .withRadiusZ(25.0)
             .withRate(15.0)
             .withHeightRate(1.0)
-            .hollow(true),
+            .hollow(false),
         Particle.REDSTONE,
         center
     )
@@ -174,9 +174,9 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
 //            primaryNeck.visible(true)
 //        }
 
-        processTemperatureTransition(coreSpheroid, 0.0, 50.0)
-        processTemperatureTransition(secondarySpheroid, 0.0, 15.0)
-        processTemperatureTransition(tertiarySpheroid, 0.0, 15.0)
+        processTemperatureTransition(coreSpheroid, 0.0, 70.0)
+        processTemperatureTransition(secondarySpheroid, 0.0, 50.0)
+        processTemperatureTransition(tertiarySpheroid, 0.0, 30.0)
 
 //        processTemperatureTransition(stem, 15.0, 10.0)
 //        processTemperatureTransition(footCloudMain, 15.0, 10.0)
@@ -184,10 +184,10 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
     }
 
     fun coolComponents() {
-        coreSpheroid.temperature -= 15;
+        coreSpheroid.temperature -= 5;
 
-        secondarySpheroid.temperature -= 50;
-        tertiarySpheroid.temperature -= 50;
+        secondarySpheroid.temperature -= 10;
+        tertiarySpheroid.temperature -= 15;
 
 //        stem.temperature -= 25;
 //        footCloudMain.temperature -= 40;
@@ -251,19 +251,19 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
             .temperature(maxTemp, 1500.0, maxTemp)
             .baseColor(endingColor)
             .temperatureEmission(true)
-            .velocity(Vector3(0.0, 11.0, 0.0))
+            .velocity(Vector3(0.0, 9.0, 0.0))
             .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
         secondarySpheroid.buildAndAssign().color(startingColor, 5f)
             .temperature(maxTemp, 1500.0, maxTemp)
             .baseColor(endingColor)
             .temperatureEmission(true)
-            .velocity(Vector3(0.0, 4.0, 0.0))
+            .velocity(Vector3(0.0, 5.0, 0.0))
             .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
         tertiarySpheroid.buildAndAssign().color(startingColor, 5f)
             .baseColor(endingColor)
             .temperature(maxTemp, 1500.0, maxTemp)
             .temperatureEmission(true)
-            .velocity(Vector3(0.0, -8.0, 0.0))
+            .velocity(Vector3(0.0, -2.0, 0.0))
             // Draw every ten blocks
             .heightPredicate { value -> value % 10 < 1 }
             .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
