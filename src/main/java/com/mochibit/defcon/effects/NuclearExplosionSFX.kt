@@ -36,46 +36,49 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
     var maxTemp = 4000.0;
     val maxAliveTick = 20 * 60 * 3;
 
-    var riseSpeed = 2;
+    var riseSpeed = 1;
     var currentHeight = 0.0;
 
     override fun drawRate(): Int {
-        return 3;
+        return 1;
     }
 
     // TODO: Refactor this to a Composite pattern, to reduce alot of shapes
 
     // Mushroom cloud components
     private val coreSpheroid = ParticleShape(
-        CylinderBuilder()
-            .withHeight(10.0)
-            .withRadiusX(14.0)
-            .withRadiusZ(14.0)
-            .withRate(15.0)
-            .withHeightRate(1.0)
-            .hollow(false),
+        SphereBuilder()
+            .withRadiusXZ(25.0)
+            .withRadiusY(40.0)
+            .withDensity(.8)
+            .withYStart(-20.0)
+            .hollow(false)
+            .ignoreBottomSurface(true)
+            .ignoreBottomSurface(true),
         Particle.REDSTONE,
         center
     )
     private val secondarySpheroid = ParticleShape(
-        CylinderBuilder()
-            .withHeight(5.0)
-            .withRadiusX(20.0)
-            .withRadiusZ(20.0)
-            .withRate(15.0)
-            .withHeightRate(1.0)
-            .hollow(false),
+        SphereBuilder()
+            .withRadiusXZ(40.0)
+            .withRadiusY(30.0)
+            .withDensity(.9)
+            .withYStart(-10.0)
+            .skipRadiusXZ(25.0)
+            .hollow(false)
+            .ignoreBottomSurface(true),
         Particle.REDSTONE,
         center
     )
     private val tertiarySpheroid = ParticleShape(
-        CylinderBuilder()
-            .withHeight(2.0)
-            .withRadiusX(25.0)
-            .withRadiusZ(25.0)
-            .withRate(15.0)
-            .withHeightRate(1.0)
-            .hollow(false),
+        SphereBuilder()
+            .withRadiusXZ(60.0)
+            .withRadiusY(35.0)
+            .withYStart(-20.0)
+            .skipRadiusXZ(40.0)
+            .withDensity(.9)
+            .hollow(false)
+            .ignoreTopSurface(true),
         Particle.REDSTONE,
         center
     )
@@ -140,9 +143,9 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
 //    )
 
     override fun draw() {
-        coreSpheroid.draw();
-        secondarySpheroid.draw();
-        tertiarySpheroid.draw();
+        coreSpheroid.randomDraw(0.4);
+        secondarySpheroid.randomDraw(0.8);
+        tertiarySpheroid.randomDraw(1.0);
 
         //primaryNeck.draw();
 
@@ -251,22 +254,22 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
             .temperature(maxTemp, 1500.0, maxTemp)
             .baseColor(endingColor)
             .temperatureEmission(true)
-            .velocity(Vector3(0.0, 9.0, 0.0))
+            .velocity(Vector3(0.0, 4.0, 0.0))
             .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
         secondarySpheroid.buildAndAssign().color(startingColor, 5f)
             .temperature(maxTemp, 1500.0, maxTemp)
             .baseColor(endingColor)
             .temperatureEmission(true)
-            .velocity(Vector3(0.0, 5.0, 0.0))
+            .velocity(Vector3(0.0, 4.0, 0.0))
             .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
+
         tertiarySpheroid.buildAndAssign().color(startingColor, 5f)
             .baseColor(endingColor)
             .temperature(maxTemp, 1500.0, maxTemp)
             .temperatureEmission(true)
             .velocity(Vector3(0.0, -2.0, 0.0))
-            // Draw every ten blocks
-            .heightPredicate { value -> value % 10 < 1 }
             .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
+
 
 
 //        primaryNeck.transform = primaryNeck.transform.translated(Vector3(0.0, -14.0, 0.0))

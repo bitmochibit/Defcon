@@ -28,6 +28,8 @@ class CylinderBuilder() : VertexShapeBuilder {
     private var height: Double = 1.0
     private var radiusX: Double = 1.0
     private var radiusZ: Double = 1.0
+    private var minimumRadiusX: Double = 0.0
+    private var minimumRadiusZ: Double = 0.0
     private var rate: Double = 1.0
     private var heightRate: Double = 0.1
     private var hollow = false
@@ -43,6 +45,8 @@ class CylinderBuilder() : VertexShapeBuilder {
             .withRadiusZ(radiusZ)
             .withRate(rate)
             .hollow(hollow)
+            .withMinRadiusX(minimumRadiusX)
+            .withMinRadiusZ(minimumRadiusZ)
 
         val circle = circleBuilder.build()
 
@@ -88,6 +92,16 @@ class CylinderBuilder() : VertexShapeBuilder {
         return this
     }
 
+    fun withMinRadiusX(minimumRadiusX: Double): CylinderBuilder {
+        this.minimumRadiusX = minimumRadiusX
+        return this
+    }
+
+    fun withMinRadiusZ(minimumRadiusZ: Double): CylinderBuilder {
+        this.minimumRadiusZ = minimumRadiusZ
+        return this
+    }
+
     fun getHollow(): Boolean {
         return hollow
     }
@@ -106,6 +120,14 @@ class CylinderBuilder() : VertexShapeBuilder {
 
     fun getRate(): Double {
         return rate
+    }
+
+    fun getMinRadiusX(): Double {
+        return minimumRadiusX
+    }
+
+    fun getMinRadiusZ(): Double {
+        return minimumRadiusZ
     }
 
 }

@@ -32,6 +32,8 @@ class CircleBuilder() : VertexShapeBuilder {
     private var rate: Double = 1.0
     private var maxAngle: Double = 0.0
     private var hollow: Boolean = false
+    private var minRadiusX: Double = 0.0;
+    private var minRadiusZ: Double = 0.0;
     override fun build(): Array<Vertex> {
 
 
@@ -44,7 +46,8 @@ class CircleBuilder() : VertexShapeBuilder {
         var z = 0.0
         var dynamicRate = 0.0
         val radiusRate = 3.0
-        while (x < radiusX || z < radiusZ) {
+        while ( (x < radiusX || z < radiusZ)) {
+
             dynamicRate += rate / (radiusX / radiusRate)
 
             result.addAll(makeCircle(x,z, dynamicRate))
@@ -52,11 +55,8 @@ class CircleBuilder() : VertexShapeBuilder {
             x += radiusRate
             z += radiusRate
 
-            if (x > radiusX)
-                x = radiusX
-
-            if (z > radiusZ)
-                z = radiusZ
+            x = x.coerceIn(minRadiusX, radiusX);
+            z = z.coerceIn(minRadiusZ, radiusZ);
         }
 
 
@@ -122,6 +122,18 @@ class CircleBuilder() : VertexShapeBuilder {
         return this
     }
 
+    fun withMinRadiusX(minRadiusX: Double): CircleBuilder {
+        this.minRadiusX = minRadiusX
+        return this
+    }
+
+    fun withMinRadiusZ(minRadiusZ: Double): CircleBuilder {
+        this.minRadiusZ = minRadiusZ
+        return this
+    }
+
+
+
     // Getters
 
     fun getRadiusX(): Double {
@@ -146,6 +158,14 @@ class CircleBuilder() : VertexShapeBuilder {
 
     fun isHollow(): Boolean {
         return hollow
+    }
+
+    fun getMinRadiusX(): Double {
+        return minRadiusX
+    }
+
+    fun getMinRadiusZ(): Double {
+        return minRadiusZ
     }
 
 }

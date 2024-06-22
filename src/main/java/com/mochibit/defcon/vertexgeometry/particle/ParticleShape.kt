@@ -91,18 +91,24 @@ class ParticleShape(
     private var velocity = Vector3.ZERO
 
     // Shape methods
-    fun draw() {
+
+    fun randomDraw(chance : Double = 0.8, repetitions : Int = 10) {
         if (!visible) return;
-        for (particleVertex in particleVertixes) {
-            if (Random.nextInt(0, 100) < 95) continue;
-            // Treat particles vertexes as particle emitters
-            val transformedVertex = particleVertex.vertex.transformedPoint;
-            val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)
+        if (particleVertixes.isEmpty()) return;
+        // Call draw (emitter), get a random vertex and draw it a random number of times consecutively
+        val randomCount = Random.nextInt(1, repetitions) * (if (Random.nextDouble() < chance) 1 else 0);
+        for (i in 0 until randomCount) {
+            draw(particleVertixes.random())
+        }
 
-            // spawn a display entity
+    }
+    fun draw(particleVertex: ParticleVertex) {
+        if (!visible) return;
+        // Treat particles vertexes as particle emitters
+        val transformedVertex = particleVertex.vertex.transformedPoint;
+        val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)
 
-
-
+        // spawn a display entity
 //            if (isDirectional && radialSpeed != 0.0)
 //                radialDirectionFromCenter(particleVertex.vertex);
 
@@ -115,49 +121,52 @@ class ParticleShape(
 //            if (zPredicate != null && !zPredicate!!.test(transformedVertex.z))
 //                continue;
 
-            Bukkit.getScheduler().runTask(Defcon.instance, Runnable {
-                val smokeParticle = spawnPoint.world.spawn(currentLoc, ItemDisplay::class.java) {
-                    it.billboard = Display.Billboard.CENTER;
-                    // Apply velocity and scale with transformation matrix
-                    it.interpolationDuration = 0;
-                    it.transformation = it.transformation.apply {
-                        scale.set(5.0, 5.0, 5.0);
-                    }
-                    it.teleportDuration = 59;
-                };
-                // Get leather boots with custom model data to 2
-                val itemStack = ItemStack(Material.LEATHER_BOOTS)
-                val leatherMeta = itemStack.itemMeta as LeatherArmorMeta
-                leatherMeta.apply {
-                    leatherMeta.setCustomModelData(2)
-                    leatherMeta.setColor(applyTemperatureEmission(particleVertex.vertex.point.y))
+        Bukkit.getScheduler().runTask(Defcon.instance, Runnable {
+            val smokeParticle = spawnPoint.world.spawn(currentLoc, ItemDisplay::class.java) {
+                it.billboard = Display.Billboard.CENTER;
+                // Apply velocity and scale with transformation matrix
+                it.interpolationDuration = 0;
+                it.transformation = it.transformation.apply {
+                    scale.set(10.0, 10.0, 10.0);
                 }
-                itemStack.itemMeta = leatherMeta
-                smokeParticle.itemStack = itemStack;
+                it.teleportDuration = 59;
+                it.viewRange = 500F;
+            };
+            // Get leather boots with custom model data to 2
+            val itemStack = ItemStack(Material.LEATHER_BOOTS)
+            val leatherMeta = itemStack.itemMeta as LeatherArmorMeta
+            leatherMeta.apply {
+                leatherMeta.setCustomModelData(2)
+                leatherMeta.setColor(randomizeColorDarkness(applyTemperatureEmission(particleVertex.vertex.point.y)))
+            }
+            itemStack.itemMeta = leatherMeta
+            smokeParticle.itemStack = itemStack;
 
-                // Every 15 ticks, change model data to 3 ... 8 (8 frames) and loop
-                Bukkit.getScheduler().runTaskTimer(Defcon.instance, { task ->
-                    smokeParticle.itemStack = ItemStack(Material.LEATHER_BOOTS).apply {
-                        itemMeta = leatherMeta.apply {
-                            if (customModelData >= 9) {
-                                task.cancel();
-                                smokeParticle.remove();
-                            }
-                            val newModelData = customModelData + 1
-                            setCustomModelData( newModelData )
-                        }
-                    }
-                }, 0, 15);
+            // Every 15 ticks, change model data to 3 ... 8 (8 frames) and loop
+//            Bukkit.getScheduler().runTaskTimer(Defcon.instance, { task ->
+//                smokeParticle.itemStack = ItemStack(Material.LEATHER_BOOTS).apply {
+//                    itemMeta = leatherMeta.apply {
+//                        if (customModelData >= 9) {
+//                            task.cancel();
+//                            smokeParticle.remove();
+//                        }
+//                        val newModelData = customModelData + 1
+//                        setCustomModelData( newModelData )
+//                    }
+//                }
+//            }, 0, 15);
+            Bukkit.getScheduler().runTaskLater(Defcon.instance, { task ->
+                smokeParticle.remove();
+            }, 15L * 8L);
 
 
-                Bukkit.getScheduler().runTaskLater(Defcon.instance, { task ->
-                    smokeParticle.teleport(currentLoc.add(velocity.toBukkitVector()));
-                }, 1L);
-                particleVertex.spawnTime = System.currentTimeMillis();
-            });
-            //particleBuilder.location(currentLoc);
-            //particleBuilder.spawn();
-        }
+            Bukkit.getScheduler().runTaskLater(Defcon.instance, { task ->
+                smokeParticle.teleport(currentLoc.add(velocity.toBukkitVector()));
+            }, 1L);
+            particleVertex.spawnTime = System.currentTimeMillis();
+        });
+        //particleBuilder.location(currentLoc);
+        //particleBuilder.spawn();
     }
 
     fun buildAndAssign(): ParticleShape {
@@ -189,6 +198,10 @@ class ParticleShape(
     }
 
     // Color methods
+    private fun randomizeColorDarkness(color: Color) : Color {
+        val random = Random.nextDouble(0.8, 1.0);
+        return ColorUtils.darkenColor(color, random);
+    }
     private fun applyTemperatureEmission(height: Double): Color {
         if (temperature > minTemperature)
             return ColorUtils.tempToRGB(temperature);

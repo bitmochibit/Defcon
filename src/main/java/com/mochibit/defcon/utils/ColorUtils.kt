@@ -111,4 +111,11 @@ object ColorUtils {
         return Color.fromRGB(r.toInt(), g.toInt(), bl.toInt())
     }
 
+    fun darkenColor(color: Color, factor: Double): Color {
+        val r = (color.red * factor).toInt()
+        val g = (color.green * factor).toInt()
+        val b = (color.blue * factor).toInt()
+        return Color.fromRGB(r, g, b)
+    }
+
 }
