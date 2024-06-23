@@ -102,7 +102,15 @@ class SphereBuilder() : VertexShapeBuilder {
         if (skipRadiusY <= 0 && skipRadiusXZ <= 0)
             return false;
 
-        return (x * x) / (skipRadiusXZ * skipRadiusXZ) + (y * y) / (skipRadiusY * skipRadiusY) + (z * z) / (skipRadiusXZ * skipRadiusXZ) <= 1
+        var xzComponent = 0.0;
+        if (skipRadiusXZ > 0)
+            xzComponent = (x * x) / (skipRadiusXZ * skipRadiusXZ) + (z * z) / (skipRadiusXZ * skipRadiusXZ);
+
+        var yComponent = 0.0;
+        if (skipRadiusY > 0)
+            yComponent = (y * y) / (skipRadiusY * skipRadiusY);
+
+        return xzComponent + yComponent <= 1
     }
 
     private fun radiusCheck(x: Double, y: Double, z: Double): Double {

@@ -36,7 +36,7 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
     var maxTemp = 4000.0;
     val maxAliveTick = 20 * 60 * 3;
 
-    var riseSpeed = 1;
+    var riseSpeed = 4.5;
     var currentHeight = 0.0;
 
     override fun drawRate(): Int {
@@ -48,37 +48,32 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
     // Mushroom cloud components
     private val coreSpheroid = ParticleShape(
         SphereBuilder()
-            .withRadiusXZ(25.0)
-            .withRadiusY(40.0)
-            .withDensity(.8)
-            .withYStart(-20.0)
-            .hollow(false)
-            .ignoreBottomSurface(true)
-            .ignoreBottomSurface(true),
+            .withRadiusXZ(30.0)
+            .withRadiusY( 50.0)
+            .withYStart(0.0)
+        ,
         Particle.REDSTONE,
         center
     )
     private val secondarySpheroid = ParticleShape(
         SphereBuilder()
-            .withRadiusXZ(40.0)
-            .withRadiusY(30.0)
-            .withDensity(.9)
+            .withRadiusXZ(50.0)
+            .withRadiusY( 55.0)
+            .skipRadiusXZ(20.0)
             .withYStart(-10.0)
-            .skipRadiusXZ(25.0)
-            .hollow(false)
-            .ignoreBottomSurface(true),
+        ,
+
         Particle.REDSTONE,
         center
     )
     private val tertiarySpheroid = ParticleShape(
         SphereBuilder()
             .withRadiusXZ(60.0)
-            .withRadiusY(35.0)
-            .withYStart(-20.0)
+            .withRadiusY( 50.0)
             .skipRadiusXZ(40.0)
-            .withDensity(.9)
-            .hollow(false)
-            .ignoreTopSurface(true),
+            .withYStart(-15.0)
+        ,
+
         Particle.REDSTONE,
         center
     )
@@ -95,17 +90,17 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
 //        center
 //    )
 //
-//    // Mushroom cloud stem
-//    private val stem = ParticleShape(
-//        CylinderBuilder()
-//            .withHeight(90.0)
-//            .withRadiusX(4.0)
-//            .withRadiusZ(4.0)
-//            .withRate(36.0)
-//            .hollow(true),
-//        Particle.REDSTONE,
-//        center
-//    )
+    // Mushroom cloud stem
+    private val stem = ParticleShape(
+        CylinderBuilder()
+            .withHeight(90.0)
+            .withRadiusX(15.0)
+            .withRadiusZ(15.0)
+            .withRate(30.0)
+            .hollow(false),
+        Particle.REDSTONE,
+        center
+    )
 //
 //    // Mushroom cloud foot
 //    private val footCloudMain = ParticleShape(
@@ -149,7 +144,7 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
 
         //primaryNeck.draw();
 
-        //stem.draw();
+        stem.randomDraw(1.0);
         //footCloudMain.draw();
         //footCloudSecondary.draw();
 
@@ -181,18 +176,18 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
         processTemperatureTransition(secondarySpheroid, 0.0, 50.0)
         processTemperatureTransition(tertiarySpheroid, 0.0, 30.0)
 
-//        processTemperatureTransition(stem, 15.0, 10.0)
+        processTemperatureTransition(stem, 15.0, 20.0)
 //        processTemperatureTransition(footCloudMain, 15.0, 10.0)
 //        processTemperatureTransition(footCloudSecondary, 15.0, 10.0)
     }
 
     fun coolComponents() {
-        coreSpheroid.temperature -= 5;
+        coreSpheroid.temperature -= 0.1;
 
-        secondarySpheroid.temperature -= 10;
-        tertiarySpheroid.temperature -= 15;
+        secondarySpheroid.temperature -= 1;
+        tertiarySpheroid.temperature -= 5;
 
-//        stem.temperature -= 25;
+        stem.temperature -= 10;
 //        footCloudMain.temperature -= 40;
 //        footCloudSecondary.temperature -= 70;
     }
@@ -281,13 +276,14 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
 //            visible(false)
 //            .particleBuilder.count(0).offset(0.0, -0.01, 0.0)
 //
-//        stem
-//            .buildAndAssign()
-//            .baseColor(endingColor)
-//            .temperature(maxTemp, 1500.0, maxTemp)
-//            .temperatureEmission(true)
-//            .heightPredicate(this::visibleWhenLessThanCurrentHeight)
-//            .particleBuilder.count(0).offset(0.0, 0.1, 0.0)
+        stem
+            .buildAndAssign()
+            .baseColor(endingColor)
+            .temperature(maxTemp, 1500.0, maxTemp)
+            .temperatureEmission(true)
+            .velocity(Vector3(0.0, 4.5, 0.0))
+            .heightPredicate(this::visibleWhenLessThanCurrentHeight)
+            .particleBuilder.count(0).offset(0.0, 0.1, 0.0)
 //
 //        footCloudMain
 //            .buildAndAssign()

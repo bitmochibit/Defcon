@@ -37,7 +37,7 @@ import java.util.function.Predicate
 import kotlin.random.Random
 
 class ParticleShape(
-    val shapeBuilder : VertexShapeBuilder,
+    val shapeBuilder: VertexShapeBuilder,
     var particle: Particle,
     var spawnPoint: Location
 ) {
@@ -84,15 +84,15 @@ class ParticleShape(
             transformedCenter = value.xform(center);
         }
 
-    private var heightPredicate : Predicate<Double>? = null
-    private var xPredicate : Predicate<Double>? = null
-    private var zPredicate : Predicate<Double>? = null
+    private var heightPredicate: Predicate<Double>? = null
+    private var xPredicate: Predicate<Double>? = null
+    private var zPredicate: Predicate<Double>? = null
 
     private var velocity = Vector3.ZERO
 
     // Shape methods
 
-    fun randomDraw(chance : Double = 0.8, repetitions : Int = 10) {
+    fun randomDraw(chance: Double = 0.8, repetitions: Int = 10) {
         if (!visible) return;
         if (particleVertixes.isEmpty()) return;
         // Call draw (emitter), get a random vertex and draw it a random number of times consecutively
@@ -102,6 +102,7 @@ class ParticleShape(
         }
 
     }
+
     fun draw(particleVertex: ParticleVertex) {
         if (!visible) return;
         // Treat particles vertexes as particle emitters
@@ -112,18 +113,19 @@ class ParticleShape(
 //            if (isDirectional && radialSpeed != 0.0)
 //                radialDirectionFromCenter(particleVertex.vertex);
 
-//            if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y))
-//                continue;
+        if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y))
+            return
 
-//            if (xPredicate != null && !xPredicate!!.test(transformedVertex.x))
-//                continue;
+        if (xPredicate != null && !xPredicate!!.test(transformedVertex.x))
+            return
 
-//            if (zPredicate != null && !zPredicate!!.test(transformedVertex.z))
-//                continue;
+        if (zPredicate != null && !zPredicate!!.test(transformedVertex.z))
+            return;
 
         Bukkit.getScheduler().runTask(Defcon.instance, Runnable {
             val smokeParticle = spawnPoint.world.spawn(currentLoc, ItemDisplay::class.java) {
                 it.billboard = Display.Billboard.CENTER;
+                it.brightness = Display.Brightness(15, 15);
                 // Apply velocity and scale with transformation matrix
                 it.interpolationDuration = 0;
                 it.transformation = it.transformation.apply {
@@ -137,7 +139,7 @@ class ParticleShape(
             val leatherMeta = itemStack.itemMeta as LeatherArmorMeta
             leatherMeta.apply {
                 leatherMeta.setCustomModelData(2)
-                leatherMeta.setColor(randomizeColorDarkness(applyTemperatureEmission(particleVertex.vertex.point.y)))
+                leatherMeta.setColor(randomizeColorBrightness(applyTemperatureEmission(particleVertex.vertex.point.y)))
             }
             itemStack.itemMeta = leatherMeta
             smokeParticle.itemStack = itemStack;
@@ -198,10 +200,12 @@ class ParticleShape(
     }
 
     // Color methods
-    private fun randomizeColorDarkness(color: Color) : Color {
-        val random = Random.nextDouble(0.8, 1.0);
-        return ColorUtils.darkenColor(color, random);
+    private fun randomizeColorBrightness(color: Color): Color {
+        return if (Random.nextBoolean())
+            ColorUtils.darkenColor(color, Random.nextDouble(0.8, 1.0))
+            else ColorUtils.lightenColor(color, Random.nextDouble(0.2, 0.3));
     }
+
     private fun applyTemperatureEmission(height: Double): Color {
         if (temperature > minTemperature)
             return ColorUtils.tempToRGB(temperature);
@@ -311,8 +315,6 @@ class ParticleShape(
         this.velocity = vel;
         return this;
     }
-
-
 
 
 }
