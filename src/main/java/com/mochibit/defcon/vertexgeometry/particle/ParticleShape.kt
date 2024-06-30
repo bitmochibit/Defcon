@@ -105,6 +105,7 @@ class ParticleShape(
 
     fun draw(particleVertex: ParticleVertex) {
         if (!visible) return;
+
         // Treat particles vertexes as particle emitters
         val transformedVertex = particleVertex.vertex.transformedPoint;
         val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)
@@ -126,6 +127,7 @@ class ParticleShape(
             val smokeParticle = spawnPoint.world.spawn(currentLoc, ItemDisplay::class.java) {
                 it.billboard = Display.Billboard.CENTER;
                 it.brightness = Display.Brightness(15, 15);
+                it.shadowStrength = 0.0F;
                 // Apply velocity and scale with transformation matrix
                 it.interpolationDuration = 0;
                 it.transformation = it.transformation.apply {
@@ -133,7 +135,10 @@ class ParticleShape(
                 }
                 it.teleportDuration = 59;
                 it.viewRange = 500F;
+                it.isPersistent = false;
             };
+
+
             // Get leather boots with custom model data to 2
             val itemStack = ItemStack(Material.LEATHER_BOOTS)
             val leatherMeta = itemStack.itemMeta as LeatherArmorMeta
@@ -167,6 +172,8 @@ class ParticleShape(
             }, 1L);
             particleVertex.spawnTime = System.currentTimeMillis();
         });
+
+
         //particleBuilder.location(currentLoc);
         //particleBuilder.spawn();
     }
@@ -203,7 +210,7 @@ class ParticleShape(
     private fun randomizeColorBrightness(color: Color): Color {
         return if (Random.nextBoolean())
             ColorUtils.darkenColor(color, Random.nextDouble(0.8, 1.0))
-            else ColorUtils.lightenColor(color, Random.nextDouble(0.2, 0.3));
+            else ColorUtils.lightenColor(color, Random.nextDouble(0.1, 0.2));
     }
 
     private fun applyTemperatureEmission(height: Double): Color {

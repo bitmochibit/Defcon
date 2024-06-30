@@ -179,7 +179,7 @@ class Basis() : Cloneable {
 
     fun transpose() {
         // Swap the elements
-        rows[0][1] = rows[1][0].also { rows[1][0] = rows[0][1]  }
+        rows[0][1] = rows[1][0].also { rows[1][0] = rows[0][1] }
         rows[0][2] = rows[2][0].also { rows[2][0] = rows[0][2] }
         rows[1][2] = rows[2][1].also { rows[2][1] = rows[1][2] }
     }

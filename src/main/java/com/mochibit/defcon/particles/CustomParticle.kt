@@ -19,8 +19,9 @@
 
 package com.mochibit.defcon.particles
 
-class ExplosionDustParticle : CustomParticle() {
+abstract class CustomParticle() : PluginParticle {
     override fun spawn() {
-
+        
     }
+
 }

@@ -19,6 +19,6 @@
 
 package com.mochibit.defcon.particles
 
-abstract class AbstractParticle {
-
+interface PluginParticle {
+    fun spawn()
 }
