@@ -23,6 +23,7 @@ import com.destroystokyo.paper.ParticleBuilder
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.math.Transform3D
 import com.mochibit.defcon.math.Vector3
+import com.mochibit.defcon.particles.PluginParticle
 import com.mochibit.defcon.utils.ColorUtils
 import com.mochibit.defcon.utils.Geometry
 import com.mochibit.defcon.utils.MathFunctions
@@ -38,11 +39,9 @@ import kotlin.random.Random
 
 class ParticleShape(
     val shapeBuilder: VertexShapeBuilder,
-    var particle: Particle,
+    var particle: PluginParticle,
     var spawnPoint: Location
 ) {
-    val particleBuilder = ParticleBuilder(particle)
-
 
     var center: Vector3 = Vector3.ZERO
     private var transformedCenter = Vector3.ZERO
@@ -125,7 +124,7 @@ class ParticleShape(
 
         Bukkit.getScheduler().runTask(Defcon.instance, Runnable {
 
-
+            val smokeParticle = particle.spawn(currentLoc);
 
             // Get leather boots with custom model data to 2
             val itemStack = ItemStack(Material.LEATHER_BOOTS)
