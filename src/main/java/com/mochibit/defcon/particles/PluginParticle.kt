@@ -19,6 +19,9 @@
 
 package com.mochibit.defcon.particles
 
+import org.bukkit.Location
+
 interface PluginParticle {
-    fun spawn()
+    fun spawn(location: Location)
+    fun remove()
 }

@@ -124,19 +124,7 @@ class ParticleShape(
             return;
 
         Bukkit.getScheduler().runTask(Defcon.instance, Runnable {
-            val smokeParticle = spawnPoint.world.spawn(currentLoc, ItemDisplay::class.java) {
-                it.billboard = Display.Billboard.CENTER;
-                it.brightness = Display.Brightness(15, 15);
-                it.shadowStrength = 0.0F;
-                // Apply velocity and scale with transformation matrix
-                it.interpolationDuration = 0;
-                it.transformation = it.transformation.apply {
-                    scale.set(10.0, 10.0, 10.0);
-                }
-                it.teleportDuration = 59;
-                it.viewRange = 500F;
-                it.isPersistent = false;
-            };
+
 
 
             // Get leather boots with custom model data to 2
