@@ -21,27 +21,15 @@ package com.mochibit.defcon.particles
 
 import org.bukkit.Location
 import org.bukkit.entity.Display
-import org.bukkit.entity.Display.Billboard
-import org.bukkit.entity.Display.Brightness
-import org.bukkit.util.Transformation
-import org.joml.Matrix4f
 
-abstract class CustomParticle(private val particleHandler: ParticleEntityHandler) : PluginParticle {
+
+abstract class CustomParticle(properties: DisplayParticleProperties) : PluginParticle {
+
     override fun spawn(location: Location) {
-        particleHandler.spawn(location);
+
     }
 
     override fun remove() {
-        particleHandler.remove();
-    }
 
-
-
-    fun getHandler(): ParticleEntityHandler = particleHandler;
-
-    companion object {
-        fun availableHandler(): ParticleEntityHandler {
-            return DisplayParticleHandler();
-        }
     }
 }
