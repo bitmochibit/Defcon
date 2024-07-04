@@ -23,6 +23,7 @@ import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.math.Vector3
+import com.mochibit.defcon.particles.ExplosionDustParticle
 import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Bukkit
 import org.bukkit.Color
@@ -52,7 +53,7 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
             .withRadiusY( 50.0)
             .withYStart(0.0)
         ,
-        Particle.REDSTONE,
+        ExplosionDustParticle(),
         center
     )
     private val secondarySpheroid = ParticleShape(
@@ -62,8 +63,7 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
             .skipRadiusXZ(20.0)
             .withYStart(-10.0)
         ,
-
-        Particle.REDSTONE,
+        ExplosionDustParticle(),
         center
     )
     private val tertiarySpheroid = ParticleShape(
@@ -73,8 +73,7 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
             .skipRadiusXZ(40.0)
             .withYStart(-15.0)
         ,
-
-        Particle.REDSTONE,
+        ExplosionDustParticle(),
         center
     )
 
@@ -98,7 +97,7 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
             .withRadiusZ(15.0)
             .withRate(30.0)
             .hollow(false),
-        Particle.REDSTONE,
+        ExplosionDustParticle(),
         center
     )
 //
@@ -230,9 +229,9 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
         Bukkit.getScheduler().callSyncMethod(Defcon.instance) {
             // Get nearby entities
             val entities = center.world.getNearbyPlayers(center, 300.0, 300.0, 300.0)
-            coreSpheroid.particleBuilder.receivers(entities)
-            secondarySpheroid.particleBuilder.receivers(entities)
-            tertiarySpheroid.particleBuilder.receivers(entities)
+//            coreSpheroid.particleBuilder.receivers(entities)
+//            secondarySpheroid.particleBuilder.receivers(entities)
+//            tertiarySpheroid.particleBuilder.receivers(entities)
 
             //primaryNeck.particleBuilder.receivers(entities)
 
@@ -250,20 +249,20 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
             .baseColor(endingColor)
             .temperatureEmission(true)
             .velocity(Vector3(0.0, 4.0, 0.0))
-            .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
+            //.particleBuilder.count(0).offset(1.0, 1.0, 1.0)
         secondarySpheroid.buildAndAssign().color(startingColor, 5f)
             .temperature(maxTemp, 1500.0, maxTemp)
             .baseColor(endingColor)
             .temperatureEmission(true)
             .velocity(Vector3(0.0, 4.0, 0.0))
-            .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
+            //.particleBuilder.count(0).offset(1.0, 1.0, 1.0)
 
         tertiarySpheroid.buildAndAssign().color(startingColor, 5f)
             .baseColor(endingColor)
             .temperature(maxTemp, 1500.0, maxTemp)
             .temperatureEmission(true)
             .velocity(Vector3(0.0, -2.0, 0.0))
-            .particleBuilder.count(0).offset(1.0, 1.0, 1.0)
+            //.particleBuilder.count(0).offset(1.0, 1.0, 1.0)
 
 
 
@@ -283,7 +282,7 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
             .temperatureEmission(true)
             .velocity(Vector3(0.0, 4.5, 0.0))
             .heightPredicate(this::visibleWhenLessThanCurrentHeight)
-            .particleBuilder.count(0).offset(0.0, 0.1, 0.0)
+           // .particleBuilder.count(0).offset(0.0, 0.1, 0.0)
 //
 //        footCloudMain
 //            .buildAndAssign()

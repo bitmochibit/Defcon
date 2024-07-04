@@ -19,19 +19,20 @@
 
 package com.mochibit.defcon.particles
 
+import org.bukkit.Material
 import org.bukkit.entity.Display
+import org.bukkit.inventory.ItemStack
 import org.joml.Vector3f
 
-class ExplosionDustParticle(handler: ParticleEntityHandler = availableHandler()) : CustomParticle(handler) {
-    init {
-        handler
-            .setBillboard(Display.Billboard.CENTER)
-            .setBrightness(Display.Brightness(15, 15))
-            .setShadowStrength(0.0f)
-            .setInterpolationDuration(0)
-            .setScale(Vector3f(10.0F, 10.0F, 10.0F))
-            .setTeleportDuration(59)
-            .setViewRange(500.0f)
-            .setPersistent(false)
-    }
+class ExplosionDustParticle() : CustomParticle(
+    DisplayParticleProperties(
+        itemStack = ItemStack(Material.LEATHER_BOOTS),
+        teleportDuration = 59,
+        viewRange = 500.0f,
+        scale = Vector3f(10.0f, 10.0f, 10.0f),
+        modelData = 2
+    )
+)
+{
+
 }

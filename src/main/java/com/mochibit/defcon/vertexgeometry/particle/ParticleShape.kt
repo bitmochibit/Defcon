@@ -66,7 +66,7 @@ class ParticleShape(
     var transitionProgress = 0.0;
 
     val isDirectional: Boolean
-        get() = particleBuilder.count() == 0
+        get() = false
 
     var isTemperatureEmission: Boolean = false
     var radialSpeed = 0.0;
@@ -122,19 +122,9 @@ class ParticleShape(
         if (zPredicate != null && !zPredicate!!.test(transformedVertex.z))
             return;
 
+        val smokeParticle = particle.spawn(currentLoc);
         Bukkit.getScheduler().runTask(Defcon.instance, Runnable {
 
-            val smokeParticle = particle.spawn(currentLoc);
-
-            // Get leather boots with custom model data to 2
-            val itemStack = ItemStack(Material.LEATHER_BOOTS)
-            val leatherMeta = itemStack.itemMeta as LeatherArmorMeta
-            leatherMeta.apply {
-                leatherMeta.setCustomModelData(2)
-                leatherMeta.setColor(randomizeColorBrightness(applyTemperatureEmission(particleVertex.vertex.point.y)))
-            }
-            itemStack.itemMeta = leatherMeta
-            smokeParticle.itemStack = itemStack;
 
             // Every 15 ticks, change model data to 3 ... 8 (8 frames) and loop
 //            Bukkit.getScheduler().runTaskTimer(Defcon.instance, { task ->
@@ -149,14 +139,14 @@ class ParticleShape(
 //                    }
 //                }
 //            }, 0, 15);
-            Bukkit.getScheduler().runTaskLater(Defcon.instance, { task ->
-                smokeParticle.remove();
-            }, 15L * 8L);
+//            Bukkit.getScheduler().runTaskLater(Defcon.instance, { task ->
+//                smokeParticle.remove();
+//            }, 15L * 8L);
 
 
-            Bukkit.getScheduler().runTaskLater(Defcon.instance, { task ->
-                smokeParticle.teleport(currentLoc.add(velocity.toBukkitVector()));
-            }, 1L);
+//            Bukkit.getScheduler().runTaskLater(Defcon.instance, { task ->
+//                smokeParticle.teleport(currentLoc.add(velocity.toBukkitVector()));
+//            }, 1L);
             particleVertex.spawnTime = System.currentTimeMillis();
         });
 
@@ -214,7 +204,7 @@ class ParticleShape(
         val direction = vertex.point - center;
         val normalized = direction.normalized() * radialSpeed;
         // Use the normalized direction as offset for the particle
-        particleBuilder.offset(normalized.x, particleBuilder.offsetY(), normalized.z);
+        //particleBuilder.offset(normalized.x, particleBuilder.offsetY(), normalized.z);
 
         return this;
     }
@@ -242,7 +232,7 @@ class ParticleShape(
     }
 
     fun color(color: Color, size: Float): ParticleShape {
-        particleBuilder.color(color, size);
+        //particleBuilder.color(color, size);
         return this;
     }
 
@@ -264,7 +254,7 @@ class ParticleShape(
     }
 
     fun directional(): ParticleShape {
-        particleBuilder.count(0);
+        //particleBuilder.count(0);
         return this;
     }
 
@@ -274,9 +264,9 @@ class ParticleShape(
     }
 
     fun particle(particle: Particle): ParticleShape {
-        this.particle = particle;
-        particleBuilder.data(null)
-        particleBuilder.particle(particle)
+        //this.particle = particle;
+        //particleBuilder.data(null)
+        //particleBuilder.particle(particle)
         return this;
     }
 

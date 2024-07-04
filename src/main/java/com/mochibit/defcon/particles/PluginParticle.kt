@@ -23,5 +23,4 @@ import org.bukkit.Location
 
 interface PluginParticle {
     fun spawn(location: Location)
-    fun remove()
 }

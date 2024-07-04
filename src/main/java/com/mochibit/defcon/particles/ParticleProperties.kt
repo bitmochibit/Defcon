@@ -19,10 +19,12 @@
 
 package com.mochibit.defcon.particles
 
+import org.bukkit.Color
 import org.bukkit.entity.Display
 import org.bukkit.inventory.ItemStack
 import org.bukkit.util.Transformation
 import org.joml.Matrix4f
+import org.joml.Quaternionf
 import org.joml.Vector3f
 
 /**
@@ -32,21 +34,30 @@ import org.joml.Vector3f
  */
 data class DisplayParticleProperties(
     var itemStack: ItemStack,
-    var maxLife: Double = 100.0,
+    var maxLife: Long = 100,
 
-    var billboard: Display.Billboard? = Display.Billboard.CENTER,
-    var brightness: Display.Brightness? = Display.Brightness(15, 15),
-    var shadowStrength: Float = 0.0F,
+    var interpolationDelay : Int = 0,
     var interpolationDuration: Int = 0,
-
-    var transformation: Transformation? = null,
-    var transformationMatrix: Matrix4f? = null,
-    var scale: Vector3f? = null,
-
     var teleportDuration: Int = 0,
+
+    var translation : Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
+    var scale: Vector3f = Vector3f(1.0f, 1.0f, 1.0f),
+    var rotationLeft: Quaternionf = Quaternionf(0.0, 0.0, 0.0, 1.0),
+    var rotationRight: Quaternionf = Quaternionf(0.0, 0.0, 0.0, 1.0),
+
+    var billboard: Display.Billboard = Display.Billboard.CENTER,
+    var brightness: Display.Brightness = Display.Brightness(15, 15),
+
     var viewRange: Float = 100.0f,
+    var shadowRadius: Float = 0.0f,
+    var shadowStrength: Float = 0.0F,
+
+    var width : Float = 0.0f,
+    var height : Float = 0.0f,
+
     var persistent: Boolean = false,
 
+    var color: Color? = null,
     var modelData: Int? = null,
     var modelDataAnimation: ModelDataAnimation? = null
 ) {

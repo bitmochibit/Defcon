@@ -19,17 +19,13 @@
 
 package com.mochibit.defcon.particles
 
+import org.bukkit.Bukkit
 import org.bukkit.Location
-import org.bukkit.entity.Display
 
 
-abstract class CustomParticle(properties: DisplayParticleProperties) : PluginParticle {
-
+abstract class CustomParticle(val properties: DisplayParticleProperties) : PluginParticle {
     override fun spawn(location: Location) {
-
+        DisplayItemAsyncHandler(location, Bukkit.getOnlinePlayers(), properties).summonWithMetadata()
     }
 
-    override fun remove() {
-
-    }
 }
