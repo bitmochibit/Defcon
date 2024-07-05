@@ -17,18 +17,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.mochibit.defcon.effects
+package com.mochibit.defcon.effects.nuclear
 
 import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.effects.AnimatedEffect
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.particles.ExplosionDustParticle
+import com.mochibit.defcon.utils.ColorUtils
+import com.mochibit.defcon.utils.MathFunctions
 import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Bukkit
 import org.bukkit.Color
 import org.bukkit.Location
-import org.bukkit.Particle
 import kotlin.math.floor
 
 class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
@@ -332,6 +334,8 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
         // Every 5 blocks show 1 blocks of stripes
         return floor(value) % 5 < 1;
     }
+
+
 
 
 }

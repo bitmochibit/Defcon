@@ -83,7 +83,6 @@ class DisplayItemAsyncHandler(val loc: Location, val players: MutableCollection<
         packet.modifier.writeDefaults()
         packet.integers.write(0, itemID)
 
-
         val brightnessValue = (properties.brightness.blockLight shl 4) or (properties.brightness.skyLight shl 20)
         val packedItems = mutableListOf(
             WrappedDataValue(8, WrappedDataWatcher.Registry.get(Int::class.javaObjectType), properties.interpolationDelay),

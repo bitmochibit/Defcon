@@ -122,37 +122,9 @@ class ParticleShape(
         if (zPredicate != null && !zPredicate!!.test(transformedVertex.z))
             return;
 
-        val smokeParticle = particle.spawn(currentLoc);
-        Bukkit.getScheduler().runTask(Defcon.instance, Runnable {
+        particle.spawn(currentLoc);
 
-
-            // Every 15 ticks, change model data to 3 ... 8 (8 frames) and loop
-//            Bukkit.getScheduler().runTaskTimer(Defcon.instance, { task ->
-//                smokeParticle.itemStack = ItemStack(Material.LEATHER_BOOTS).apply {
-//                    itemMeta = leatherMeta.apply {
-//                        if (customModelData >= 9) {
-//                            task.cancel();
-//                            smokeParticle.remove();
-//                        }
-//                        val newModelData = customModelData + 1
-//                        setCustomModelData( newModelData )
-//                    }
-//                }
-//            }, 0, 15);
-//            Bukkit.getScheduler().runTaskLater(Defcon.instance, { task ->
-//                smokeParticle.remove();
-//            }, 15L * 8L);
-
-
-//            Bukkit.getScheduler().runTaskLater(Defcon.instance, { task ->
-//                smokeParticle.teleport(currentLoc.add(velocity.toBukkitVector()));
-//            }, 1L);
-            particleVertex.spawnTime = System.currentTimeMillis();
-        });
-
-
-        //particleBuilder.location(currentLoc);
-        //particleBuilder.spawn();
+        particleVertex.spawnTime = System.currentTimeMillis();
     }
 
     fun buildAndAssign(): ParticleShape {
@@ -183,21 +155,7 @@ class ParticleShape(
         return this;
     }
 
-    // Color methods
-    private fun randomizeColorBrightness(color: Color): Color {
-        return if (Random.nextBoolean())
-            ColorUtils.darkenColor(color, Random.nextDouble(0.8, 1.0))
-            else ColorUtils.lightenColor(color, Random.nextDouble(0.1, 0.2));
-    }
 
-    private fun applyTemperatureEmission(height: Double): Color {
-        if (temperature > minTemperature)
-            return ColorUtils.tempToRGB(temperature);
-
-        // Remap the height to a value between 0 and 1 using the minY and maxY and use the transitionProgress to control how much the height affects the color
-        val ratio = MathFunctions.remap(height, minY, maxY, transitionProgress, 1.0) * transitionProgress;
-        return ColorUtils.lerpColor(minimumColor, baseColor, ratio)
-    }
 
     // Directional methods
     private fun radialDirectionFromCenter(vertex: Vertex): ParticleShape {

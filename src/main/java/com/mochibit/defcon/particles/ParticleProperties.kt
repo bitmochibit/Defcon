@@ -27,6 +27,11 @@ import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
 
+abstract class GenericParticleProperties {
+    var maxLife: Long = 100
+    var color: Color? = null
+}
+
 /**
  * The properties of a particle.
  * @param itemStack The item stack of the particle.
@@ -34,7 +39,6 @@ import org.joml.Vector3f
  */
 data class DisplayParticleProperties(
     var itemStack: ItemStack,
-    var maxLife: Long = 100,
 
     var interpolationDelay : Int = 0,
     var interpolationDuration: Int = 0,
@@ -57,10 +61,9 @@ data class DisplayParticleProperties(
 
     var persistent: Boolean = false,
 
-    var color: Color? = null,
     var modelData: Int? = null,
     var modelDataAnimation: ModelDataAnimation? = null
-) {
+) : GenericParticleProperties() {
     /**
      * @param frameRate The frame rate of the animation. (Frames per second)
      * @param frames The frames of the animation. (The texture index of the frame)

@@ -24,7 +24,7 @@ import org.bukkit.entity.Display
 import org.bukkit.inventory.ItemStack
 import org.joml.Vector3f
 
-class ExplosionDustParticle() : CustomParticle(
+class ExplosionDustParticle : CustomParticle(
     DisplayParticleProperties(
         itemStack = ItemStack(Material.LEATHER_BOOTS),
         teleportDuration = 59,
@@ -33,6 +33,3 @@ class ExplosionDustParticle() : CustomParticle(
         modelData = 2
     )
 )
-{
-
-}
