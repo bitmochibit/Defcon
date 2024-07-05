@@ -19,24 +19,17 @@
 
 package com.mochibit.defcon.effects
 
-import com.mochibit.defcon.lifecycle.CycledObject
+import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
+import org.bukkit.Effect
+import org.bukkit.Location
 
-abstract class AnimatedEffect : CycledObject()
-{
-    var tickAlive: Int = 0;
-
-    abstract fun draw();
-
-    abstract fun animate(delta: Double);
-
-    override fun update(delta: Double) {
-        tickAlive++;
-        animate(delta);
-        if (tickAlive % drawRate() == 0)
-            draw();
-    }
-
-     open fun drawRate() : Int {
-        return 1;
+/**
+ * Represents an effect component that can be added to an effect.
+ */
+open class BaseComponent(val particleShape: ParticleShape): EffectComponent {
+    var emitBurstProbability = 0.8
+    var emitRate = 10
+    override fun emit() {
+        particleShape.randomDraw(emitBurstProbability, emitRate)
     }
 }

@@ -24,7 +24,7 @@ import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.biomes.CustomBiomeHandler
 import com.mochibit.defcon.biomes.definitions.BurningAirBiome
 import com.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
-import com.mochibit.defcon.effects.nuclear.NuclearExplosionSFX
+import com.mochibit.defcon.effects.nuclear.NuclearExplosionVFX
 import com.mochibit.defcon.radiation.RadiationAreaFactory
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.title.Title
@@ -57,7 +57,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         */
 
         // Particle SFX
-        NuclearExplosionSFX(center).instantiate(true);
+        NuclearExplosionVFX(center).instantiate(true);
 
         return;
 

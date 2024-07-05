@@ -21,19 +21,15 @@ package com.mochibit.defcon.effects.nuclear
 
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.effects.AnimatedEffect
+import com.mochibit.defcon.explosions.NuclearComponent
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
-import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.math.Vector3
-import com.mochibit.defcon.particles.ExplosionDustParticle
-import com.mochibit.defcon.utils.ColorUtils
-import com.mochibit.defcon.utils.MathFunctions
-import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Bukkit
 import org.bukkit.Color
 import org.bukkit.Location
 import kotlin.math.floor
 
-class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
+class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect() {
     private val startingColor = Color.fromRGB(255, 229, 159)
     private val endingColor = Color.fromRGB(88, 87, 84);
     var maxTemp = 4000.0;
@@ -46,110 +42,12 @@ class NuclearExplosionSFX(val center: Location) : AnimatedEffect() {
         return 1;
     }
 
-    // TODO: Refactor this to a Composite pattern, to reduce alot of shapes
+    private val nuclearMushroom = NuclearMushroom(nuclearComponent, center)
 
-    // Mushroom cloud components
-    private val coreSpheroid = ParticleShape(
-        SphereBuilder()
-            .withRadiusXZ(30.0)
-            .withRadiusY( 50.0)
-            .withYStart(0.0)
-        ,
-        ExplosionDustParticle(),
-        center
-    )
-    private val secondarySpheroid = ParticleShape(
-        SphereBuilder()
-            .withRadiusXZ(50.0)
-            .withRadiusY( 55.0)
-            .skipRadiusXZ(20.0)
-            .withYStart(-10.0)
-        ,
-        ExplosionDustParticle(),
-        center
-    )
-    private val tertiarySpheroid = ParticleShape(
-        SphereBuilder()
-            .withRadiusXZ(60.0)
-            .withRadiusY( 50.0)
-            .skipRadiusXZ(40.0)
-            .withYStart(-15.0)
-        ,
-        ExplosionDustParticle(),
-        center
-    )
 
-//    // Mushroom cloud neck
-//    private val primaryNeck = ParticleShape(
-//        CylinderBuilder()
-//            .withHeight(1.0)
-//            .withRadiusX(14.0)
-//            .withRadiusZ(14.0)
-//            .withRate(30.0)
-//            .hollow(true),
-//        Particle.CAMPFIRE_SIGNAL_SMOKE,
-//        center
-//    )
-//
-    // Mushroom cloud stem
-    private val stem = ParticleShape(
-        CylinderBuilder()
-            .withHeight(90.0)
-            .withRadiusX(15.0)
-            .withRadiusZ(15.0)
-            .withRate(30.0)
-            .hollow(false),
-        ExplosionDustParticle(),
-        center
-    )
-//
-//    // Mushroom cloud foot
-//    private val footCloudMain = ParticleShape(
-//        CylinderBuilder()
-//            .withHeight(10.0)
-//            .withRadiusX(4.0)
-//            .withRadiusZ(4.0)
-//            .withRate(16.0)
-//            .hollow(true),
-//        Particle.CAMPFIRE_SIGNAL_SMOKE,
-//        center
-//    )
-//    private val footCloudSecondary = ParticleShape(
-//        CylinderBuilder()
-//            .withHeight(1.0)
-//            .withRadiusX(60.0)
-//            .withRadiusZ(60.0)
-//            .withRate(30.0),
-//        Particle.CAMPFIRE_SIGNAL_SMOKE,
-//        center
-//    )
-//
-//    // Condensation cloud
-//    private val condensationCloud = ParticleShape(
-//        SphereBuilder()
-//            .withRadiusXZ(20.0)
-//            .withRadiusY(20.0)
-//            .withDensity(1.0)
-//            .withYStart(-10.0)
-//            .withYEnd(20.0)
-//            .hollow(true)
-//            .ignoreBottomSurface(true),
-//        Particle.EXPLOSION_LARGE,
-//        center
-//    )
 
     override fun draw() {
-        coreSpheroid.randomDraw(0.4);
-        secondarySpheroid.randomDraw(0.8);
-        tertiarySpheroid.randomDraw(1.0);
-
-        //primaryNeck.draw();
-
-        stem.randomDraw(1.0);
-        //footCloudMain.draw();
-        //footCloudSecondary.draw();
-
-        //condensationCloud.draw();
+        nuclearMushroom.emit()
     }
 
 
