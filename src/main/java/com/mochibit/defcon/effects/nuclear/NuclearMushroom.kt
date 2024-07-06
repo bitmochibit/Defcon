@@ -42,7 +42,11 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
             ExplosionDustParticle(),
             center
         )
-    )
+    ).apply {
+        (particleShape.particle as ExplosionDustParticle).locationConsumer = { location ->
+            (particleShape.particle as ExplosionDustParticle).colorSupplier = getColorHeightSupplier(location)
+        }
+    }
 
     val secondaryCloud = TemperatureComponent(
         particleShape = ParticleShape(

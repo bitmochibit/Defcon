@@ -28,11 +28,16 @@ import kotlin.random.Random
 
 
 abstract class CustomParticle(private val properties: DisplayParticleProperties) : PluginParticle {
-    var colorSupplier: ((loc: Location) -> Color)? = null
+    var colorSupplier: (() -> Color)? = null
+    var locationConsumer: ((location: Location) -> Unit)? = null
+
     var randomizeColorBrightness = false
     final override fun spawn(location: Location) {
+        if (locationConsumer != null) locationConsumer?.let { it(location) }
+
+
         if (properties.color != null) {
-            var finalColor = colorSupplier?.let { it(location) } ?: properties.color
+            var finalColor = colorSupplier?.let { it() } ?: properties.color
             if (randomizeColorBrightness)
                 finalColor = finalColor?.let { randomizeColorBrightness(it) }
             properties.color = finalColor

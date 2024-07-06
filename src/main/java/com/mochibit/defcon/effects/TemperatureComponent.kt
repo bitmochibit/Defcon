@@ -19,8 +19,38 @@
 
 package com.mochibit.defcon.effects
 
+import com.mochibit.defcon.utils.ColorUtils
+import com.mochibit.defcon.utils.MathFunctions
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
+import org.bukkit.Color
+import org.bukkit.Location
 
 class TemperatureComponent(particleShape: ParticleShape) : BaseComponent(particleShape) {
-    
+    var minTemperature = 0.0
+    var maxTemperature = 100.0
+    var temperature = 0.0
+    var minY = 0.0
+    var maxY = 0.0
+    var transitionProgress = 0.0
+    var minimumColor = Color.BLACK
+    var baseColor = Color.BLACK
+
+    fun getColorHeightSupplier(loc: Location): () -> Color {
+        val height = loc.y
+        return {
+            applyTemperatureEmission(height)
+        }
+    }
+
+    private fun applyTemperatureEmission(height: Double): Color {
+        return if (temperature > minTemperature) {
+            ColorUtils.tempToRGB(temperature)
+        } else {
+            // Remap the height to a value between 0 and 1 using the minY and maxY and use the transitionProgress to control how much the height affects the color
+            val ratio = MathFunctions.remap(height, minY, maxY, transitionProgress, 1.0) * transitionProgress
+            ColorUtils.lerpColor(minimumColor, baseColor, ratio)
+        }
+    }
+
+
 }
