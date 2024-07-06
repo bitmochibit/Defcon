@@ -19,6 +19,7 @@
 
 package com.mochibit.defcon.particles
 
+import org.bukkit.Color
 import org.bukkit.Material
 import org.bukkit.entity.Display
 import org.bukkit.inventory.ItemStack
@@ -31,5 +32,7 @@ class ExplosionDustParticle : CustomParticle(
         viewRange = 500.0f,
         scale = Vector3f(10.0f, 10.0f, 10.0f),
         modelData = 2
-    )
+    ).apply {
+        color = Color.fromRGB(49,49,49)
+    }
 )

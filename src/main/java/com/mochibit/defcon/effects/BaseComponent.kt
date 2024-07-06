@@ -19,6 +19,8 @@
 
 package com.mochibit.defcon.effects
 
+import com.mochibit.defcon.math.Transform3D
+import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import org.bukkit.Effect
 import org.bukkit.Location
@@ -29,6 +31,24 @@ import org.bukkit.Location
 open class BaseComponent(val particleShape: ParticleShape): EffectComponent {
     var emitBurstProbability = 0.8
     var emitRate = 10
+
+    override fun buildShape() {
+        particleShape.buildAndAssign()
+    }
+
+    var particleVelocity: Vector3
+        get() = particleShape.particle.velocity
+        set(value) { particleShape.particle.velocity = value }
+
+    var transform : Transform3D
+        get() = particleShape.transform
+        set(value) { particleShape.transform = value }
+
+
+    var colorSupplier: ((location: Location) -> org.bukkit.Color)?
+        get() = particleShape.particle.colorSupplier
+        set(value) { particleShape.particle.colorSupplier = value }
+
     override fun emit() {
         particleShape.randomDraw(emitBurstProbability, emitRate)
     }

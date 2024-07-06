@@ -23,6 +23,7 @@ import com.destroystokyo.paper.ParticleBuilder
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.math.Transform3D
 import com.mochibit.defcon.math.Vector3
+import com.mochibit.defcon.particles.AbstractParticle
 import com.mochibit.defcon.particles.PluginParticle
 import com.mochibit.defcon.utils.ColorUtils
 import com.mochibit.defcon.utils.Geometry
@@ -39,7 +40,7 @@ import kotlin.random.Random
 
 class ParticleShape(
     val shapeBuilder: VertexShapeBuilder,
-    var particle: PluginParticle,
+    var particle: AbstractParticle,
     var spawnPoint: Location
 ) {
 

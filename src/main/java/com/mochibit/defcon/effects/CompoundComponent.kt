@@ -22,8 +22,12 @@ package com.mochibit.defcon.effects
 import org.bukkit.Location
 
 open class CompoundComponent : EffectComponent {
-    protected var components = mutableListOf<EffectComponent>()
+    protected var components: Array<EffectComponent> = emptyArray()
     override fun emit() {
         components.forEach { it.emit() }
+    }
+
+    override fun buildShape() {
+        components.forEach { it.buildShape() }
     }
 }

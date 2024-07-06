@@ -19,6 +19,7 @@
 
 package com.mochibit.defcon.particles
 
+import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.utils.ColorUtils
 import com.mochibit.defcon.utils.MathFunctions
 import org.bukkit.Bukkit
@@ -26,18 +27,11 @@ import org.bukkit.Color
 import org.bukkit.Location
 import kotlin.random.Random
 
-
-abstract class CustomParticle(private val properties: DisplayParticleProperties) : PluginParticle {
-    var colorSupplier: (() -> Color)? = null
-    var locationConsumer: ((location: Location) -> Unit)? = null
-
-    var randomizeColorBrightness = false
+abstract class CustomParticle(private val properties: DisplayParticleProperties) : AbstractParticle(properties) {
+    var randomizeColorBrightness = true
     final override fun spawn(location: Location) {
-        if (locationConsumer != null) locationConsumer?.let { it(location) }
-
-
         if (properties.color != null) {
-            var finalColor = colorSupplier?.let { it() } ?: properties.color
+            var finalColor = colorSupplier?.invoke(location) ?: properties.color
             if (randomizeColorBrightness)
                 finalColor = finalColor?.let { randomizeColorBrightness(it) }
             properties.color = finalColor
@@ -45,6 +39,8 @@ abstract class CustomParticle(private val properties: DisplayParticleProperties)
 
         DisplayItemAsyncHandler(location, Bukkit.getOnlinePlayers(), properties)
             .summonWithMetadata()
+            .applyVelocity(velocity)
+
     }
 
     private fun randomizeColorBrightness(color: Color): Color {

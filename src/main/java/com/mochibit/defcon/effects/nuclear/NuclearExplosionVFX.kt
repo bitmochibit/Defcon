@@ -35,27 +35,17 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     var maxTemp = 4000.0;
     val maxAliveTick = 20 * 60 * 3;
 
-    var riseSpeed = 4.5;
-    var currentHeight = 0.0;
+
 
     override fun drawRate(): Int {
         return 1;
     }
-
     private val nuclearMushroom = NuclearMushroom(nuclearComponent, center)
-
-
-
     override fun draw() {
         nuclearMushroom.emit()
     }
-
-
-
     override fun animate(delta: Double) {
-        elevateSphere(delta);
-        coolComponents()
-
+        nuclearMushroom.processEffects(delta)
 //        if (condensationCloud.isVisible()) {
 //            stretchCondensationCloud(delta)
 //        }
@@ -71,25 +61,9 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 //            primaryNeck.visible(true)
 //        }
 
-        processTemperatureTransition(coreSpheroid, 0.0, 70.0)
-        processTemperatureTransition(secondarySpheroid, 0.0, 50.0)
-        processTemperatureTransition(tertiarySpheroid, 0.0, 30.0)
-
-        processTemperatureTransition(stem, 15.0, 20.0)
-//        processTemperatureTransition(footCloudMain, 15.0, 10.0)
-//        processTemperatureTransition(footCloudSecondary, 15.0, 10.0)
     }
 
-    fun coolComponents() {
-        coreSpheroid.temperature -= 0.1;
 
-        secondarySpheroid.temperature -= 1;
-        tertiarySpheroid.temperature -= 5;
-
-        stem.temperature -= 10;
-//        footCloudMain.temperature -= 40;
-//        footCloudSecondary.temperature -= 70;
-    }
 
 
 //    private fun stretchCondensationCloud(delta: Double) {
@@ -107,28 +81,12 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 //    }
 
 
-    private fun elevateSphere(delta: Double) {
-        if (currentHeight > 80.0) return;
-
-        val deltaMovement = riseSpeed * delta;
-
-        // Elevate the sphere using transform translation
-        coreSpheroid.transform = coreSpheroid.transform.translated(Vector3(0.0, deltaMovement, 0.0));
-        secondarySpheroid.transform = secondarySpheroid.transform.translated(Vector3(0.0, deltaMovement, 0.0));
-        tertiarySpheroid.transform = tertiarySpheroid.transform.translated(Vector3(0.0, deltaMovement, 0.0));
-
-        //primaryNeck.transform = primaryNeck.transform.translated(Vector3(0.0, deltaMovement, 0.0));
-
-        //condensationCloud.transform = condensationCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
-
-        currentHeight += deltaMovement;
-    }
-
 
     override fun start() {
+        nuclearMushroom.buildShape()
         Bukkit.getScheduler().callSyncMethod(Defcon.instance) {
             // Get nearby entities
-            val entities = center.world.getNearbyPlayers(center, 300.0, 300.0, 300.0)
+            //val entities = center.world.getNearbyPlayers(center, 300.0, 300.0, 300.0)
 //            coreSpheroid.particleBuilder.receivers(entities)
 //            secondarySpheroid.particleBuilder.receivers(entities)
 //            tertiarySpheroid.particleBuilder.receivers(entities)
@@ -144,24 +102,24 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         };
 
 
-        coreSpheroid.buildAndAssign().color(startingColor, 5f)
-            .temperature(maxTemp, 1500.0, maxTemp)
-            .baseColor(endingColor)
-            .temperatureEmission(true)
-            .velocity(Vector3(0.0, 4.0, 0.0))
+//        coreSpheroid.buildAndAssign().color(startingColor, 5f)
+//            .temperature(maxTemp, 1500.0, maxTemp)
+//            .baseColor(endingColor)
+//            .temperatureEmission(true)
+//            .velocity(Vector3(0.0, 4.0, 0.0))
             //.particleBuilder.count(0).offset(1.0, 1.0, 1.0)
-        secondarySpheroid.buildAndAssign().color(startingColor, 5f)
-            .temperature(maxTemp, 1500.0, maxTemp)
-            .baseColor(endingColor)
-            .temperatureEmission(true)
-            .velocity(Vector3(0.0, 4.0, 0.0))
+//        secondarySpheroid.buildAndAssign().color(startingColor, 5f)
+//            .temperature(maxTemp, 1500.0, maxTemp)
+//            .baseColor(endingColor)
+//            .temperatureEmission(true)
+//            .velocity(Vector3(0.0, 4.0, 0.0))
             //.particleBuilder.count(0).offset(1.0, 1.0, 1.0)
 
-        tertiarySpheroid.buildAndAssign().color(startingColor, 5f)
-            .baseColor(endingColor)
-            .temperature(maxTemp, 1500.0, maxTemp)
-            .temperatureEmission(true)
-            .velocity(Vector3(0.0, -2.0, 0.0))
+//        tertiarySpheroid.buildAndAssign().color(startingColor, 5f)
+//            .baseColor(endingColor)
+//            .temperature(maxTemp, 1500.0, maxTemp)
+//            .temperatureEmission(true)
+//            .velocity(Vector3(0.0, -2.0, 0.0))
             //.particleBuilder.count(0).offset(1.0, 1.0, 1.0)
 
 
@@ -175,13 +133,13 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 //            visible(false)
 //            .particleBuilder.count(0).offset(0.0, -0.01, 0.0)
 //
-        stem
-            .buildAndAssign()
-            .baseColor(endingColor)
-            .temperature(maxTemp, 1500.0, maxTemp)
-            .temperatureEmission(true)
-            .velocity(Vector3(0.0, 4.5, 0.0))
-            .heightPredicate(this::visibleWhenLessThanCurrentHeight)
+//        stem
+//            .buildAndAssign()
+//            .baseColor(endingColor)
+//            .temperature(maxTemp, 1500.0, maxTemp)
+//            .temperatureEmission(true)
+//            .velocity(Vector3(0.0, 4.5, 0.0))
+//
            // .particleBuilder.count(0).offset(0.0, 0.1, 0.0)
 //
 //        footCloudMain
@@ -213,19 +171,9 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         // Nothing to do here
     }
 
-    private fun processTemperatureTransition(particleShape: ParticleShape, startAfterSeconds: Double, durationSeconds: Double, minTemperature: Double = 1500.0) {
-        if (particleShape.temperature > minTemperature) return
-        if (tickAlive < startAfterSeconds*20) return
-
-        particleShape.transitionProgress = (tickAlive - startAfterSeconds*20) / (durationSeconds*20.0)
-    }
-
     fun stripesHeight(value: Double): Boolean {
         // Every 10 blocks show 20 blocks of stripes
         return value % 20 < 10;
-    }
-    fun visibleWhenLessThanCurrentHeight(value: Double): Boolean {
-        return value < currentHeight-10;
     }
 
     fun stripesWidth(value: Double): Boolean {

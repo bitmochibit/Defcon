@@ -57,7 +57,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         */
 
         // Particle SFX
-        NuclearExplosionVFX(center).instantiate(true);
+        NuclearExplosionVFX(nuclearComponent, center).instantiate(true);
 
         return;
 

@@ -17,11 +17,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.mochibit.defcon.effects
+package com.mochibit.defcon.particles
 
+import com.mochibit.defcon.math.Vector3
 import org.bukkit.Location
 
-interface EffectComponent {
-    fun emit()
-    fun buildShape()
+abstract class AbstractParticle(particleProperties: GenericParticleProperties) : PluginParticle {
+    var colorSupplier: ((location: Location) -> org.bukkit.Color)? = null
+    var velocity: Vector3 = Vector3(0.0, 0.0, 0.0)
+
 }

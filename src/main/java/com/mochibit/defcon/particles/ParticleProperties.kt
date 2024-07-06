@@ -27,10 +27,9 @@ import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
 
-abstract class GenericParticleProperties {
-    var maxLife: Long = 100
-    var color: Color? = null
-}
+abstract class GenericParticleProperties(
+    var maxLife: Long = 160,
+    var color: Color? = null)
 
 /**
  * The properties of a particle.

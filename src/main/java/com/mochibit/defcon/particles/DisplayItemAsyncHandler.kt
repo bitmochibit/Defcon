@@ -27,6 +27,7 @@ import com.comphenix.protocol.wrappers.WrappedDataValue
 import com.comphenix.protocol.wrappers.WrappedDataWatcher
 import com.comphenix.protocol.wrappers.WrappedDataWatcher.WrappedDataWatcherObject
 import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.math.Vector3
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.Display
@@ -49,7 +50,7 @@ class DisplayItemAsyncHandler(val loc: Location, val players: MutableCollection<
     /**
      * Sends the packet to the players inside the list, to display the item
      */
-    fun summon() {
+    fun summon() : DisplayItemAsyncHandler {
         // Create the packet
         val packet = PacketContainer(PacketType.Play.Server.SPAWN_ENTITY)
         // Set the entity ID
@@ -67,17 +68,32 @@ class DisplayItemAsyncHandler(val loc: Location, val players: MutableCollection<
         // Send the packet to the players
         sendPacket(packet)
         despawn(properties.maxLife)
+        return this
     }
 
-    fun despawn(afterTicks: Long) {
+    fun applyVelocity(velocity: Vector3) : DisplayItemAsyncHandler{
+        val packet = PacketContainer(PacketType.Play.Server.ENTITY_TELEPORT)
+        packet.integers.write(0, itemID)
+        packet.doubles.write(0, loc.x + velocity.x)
+        packet.doubles.write(1, loc.y + velocity.y)
+        packet.doubles.write(2, loc.z + velocity.z)
+        packet.bytes.write(0, 0.toByte())
+        packet.bytes.write(1, 0.toByte())
+        packet.booleans.write(0, false)
+        sendPacket(packet)
+        return this
+    }
+
+    fun despawn(afterTicks: Long) : DisplayItemAsyncHandler {
         Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
             val packet = PacketContainer(PacketType.Play.Server.ENTITY_DESTROY)
             packet.intLists.write(0, listOf(itemID))
             sendPacket(packet)
         }, afterTicks)
+        return this
     }
 
-    fun summonWithMetadata() {
+    fun summonWithMetadata() : DisplayItemAsyncHandler {
         summon()
         val packet = PacketContainer(PacketType.Play.Server.ENTITY_METADATA)
         packet.modifier.writeDefaults()
@@ -105,6 +121,7 @@ class DisplayItemAsyncHandler(val loc: Location, val players: MutableCollection<
 
         packet.dataValueCollectionModifier.write(0, packedItems)
         sendPacket(packet)
+        return this
     }
 
     private fun getItem() : ItemStack {

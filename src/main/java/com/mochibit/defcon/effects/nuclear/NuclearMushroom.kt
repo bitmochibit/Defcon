@@ -19,11 +19,11 @@
 
 package com.mochibit.defcon.effects.nuclear
 
-import com.mochibit.defcon.customassets.items.definitions.ExplosionDust
 import com.mochibit.defcon.effects.BaseComponent
 import com.mochibit.defcon.effects.CompoundComponent
 import com.mochibit.defcon.effects.TemperatureComponent
 import com.mochibit.defcon.explosions.NuclearComponent
+import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.particles.ExplosionDustParticle
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
@@ -31,48 +31,44 @@ import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Location
 
 class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : CompoundComponent() {
+    val maxHeight = 250.0;
+    var currentHeight = 0.0;
+    var riseSpeed = 5.5;
 
     val coreCloud = TemperatureComponent(
         particleShape = ParticleShape(
             SphereBuilder()
                 .withRadiusXZ(30.0)
-                .withRadiusY( 50.0)
-                .withYStart(0.0)
-            ,
+                .withRadiusY(50.0)
+                .withYStart(0.0),
             ExplosionDustParticle(),
             center
         )
-    ).apply {
-        (particleShape.particle as ExplosionDustParticle).locationConsumer = { location ->
-            (particleShape.particle as ExplosionDustParticle).colorSupplier = getColorHeightSupplier(location)
-        }
-    }
+    ).applyHeatedSmokeColor().apply{particleVelocity = Vector3(0.0, 4.0, 0.0)}
 
     val secondaryCloud = TemperatureComponent(
         particleShape = ParticleShape(
             SphereBuilder()
                 .withRadiusXZ(50.0)
-                .withRadiusY( 55.0)
+                .withRadiusY(55.0)
                 .skipRadiusXZ(20.0)
-                .withYStart(-10.0)
-            ,
+                .withYStart(-10.0),
             ExplosionDustParticle(),
             center
         )
-    )
+    ).applyHeatedSmokeColor().apply{particleVelocity = Vector3(0.0, 4.0, 0.0)}
 
-    val tertiarySpheroid = TemperatureComponent(
+    val tertiaryCloud = TemperatureComponent(
         ParticleShape(
             SphereBuilder()
                 .withRadiusXZ(60.0)
-                .withRadiusY( 50.0)
+                .withRadiusY(50.0)
                 .skipRadiusXZ(40.0)
-                .withYStart(-15.0)
-            ,
+                .withYStart(-15.0),
             ExplosionDustParticle(),
             center
         )
-    )
+    ).applyHeatedSmokeColor().apply{particleVelocity = Vector3(0.0, -2.0, 0.0)}
 
     val primaryNeck = TemperatureComponent(
         ParticleShape(
@@ -82,23 +78,23 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .withRadiusZ(14.0)
                 .withRate(30.0)
                 .hollow(true),
-        ExplosionDustParticle(),
-        center
+            ExplosionDustParticle(),
+            center
         )
-    )
+    ).applyHeatedSmokeColor()
 
     val stem = TemperatureComponent(
         ParticleShape(
             CylinderBuilder()
-                .withHeight(90.0)
+                .withHeight(maxHeight)
                 .withRadiusX(15.0)
                 .withRadiusZ(15.0)
                 .withRate(30.0)
                 .hollow(false),
             ExplosionDustParticle(),
             center
-        )
-    )
+        ).heightPredicate(this::visibleWhenLessThanCurrentHeight)
+    ).applyHeatedSmokeColor().apply{particleVelocity = Vector3(0.0, 8.5, 0.0)}
 
     val foot = TemperatureComponent(
         ParticleShape(
@@ -111,19 +107,19 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
             ExplosionDustParticle(),
             center
         )
-    )
+    ).applyHeatedSmokeColor()
 
     val footSecondary = TemperatureComponent(
         ParticleShape(
             CylinderBuilder()
                 .withHeight(1.0)
-                .withRadiusX(60.0)
-                .withRadiusZ(60.0)
+                .withRadiusX(120.0)
+                .withRadiusZ(120.0)
                 .withRate(30.0),
             ExplosionDustParticle(),
             center
         )
-    )
+    ).applyHeatedSmokeColor()
 
     val condensationCloud = BaseComponent(
         ParticleShape(
@@ -141,16 +137,50 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
     )
 
     init {
-        components = mutableListOf(
+        components = arrayOf(
             coreCloud,
             secondaryCloud,
-            tertiarySpheroid,
-            primaryNeck,
+            tertiaryCloud,
+            //primaryNeck,
             stem,
             foot,
             footSecondary,
-            condensationCloud
+            //condensationCloud
         )
-
     }
+
+    fun processEffects(delta: Double) {
+        processRise(delta)
+        coolComponents()
+    }
+
+    private fun coolComponents() {
+        coreCloud.temperature -= 5;
+        secondaryCloud.temperature -= 7;
+        tertiaryCloud.temperature -= 9;
+
+        stem.temperature -= 10;
+        foot.temperature -= 40;
+        footSecondary.temperature -= 70;
+    }
+
+    private fun processRise(delta: Double) {
+        if (currentHeight > maxHeight) return;
+        val deltaMovement = riseSpeed * delta;
+        // Elevate the sphere using transform translation
+        coreCloud.transform = coreCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+        secondaryCloud.transform = secondaryCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+        tertiaryCloud.transform = tertiaryCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+
+        //primaryNeck.transform = primaryNeck.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+
+        //condensationCloud.transform = condensationCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+
+        currentHeight += deltaMovement;
+    }
+
+    fun visibleWhenLessThanCurrentHeight(value: Double): Boolean {
+        return value < currentHeight - 5;
+    }
+
 }

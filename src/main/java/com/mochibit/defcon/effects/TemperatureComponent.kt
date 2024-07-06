@@ -19,36 +19,47 @@
 
 package com.mochibit.defcon.effects
 
+import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.utils.ColorUtils
 import com.mochibit.defcon.utils.MathFunctions
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import org.bukkit.Color
 import org.bukkit.Location
 
-class TemperatureComponent(particleShape: ParticleShape) : BaseComponent(particleShape) {
-    var minTemperature = 0.0
-    var maxTemperature = 100.0
-    var temperature = 0.0
-    var minY = 0.0
-    var maxY = 0.0
-    var transitionProgress = 0.0
-    var minimumColor = Color.BLACK
-    var baseColor = Color.BLACK
+class TemperatureComponent(
+    particleShape: ParticleShape,
+    var minTemperatureEmission: Double = 1500.0,
+    var maxTemperatureEmission: Double = 4000.0,
+    var minTemperature: Double = 40.0,
+    var maxTemperature: Double = 6000.0,
 
-    fun getColorHeightSupplier(loc: Location): () -> Color {
-        val height = loc.y
-        return {
-            applyTemperatureEmission(height)
-        }
+    var smokeColor: Color = Color.fromRGB(102,104,102), // #666866
+    var baseColor: Color = Color.fromRGB(247, 227, 129) // #F7E381
+) : BaseComponent(particleShape) {
+
+    var temperature: Double = maxTemperature
+    set(value) {
+        field = value.coerceIn(minTemperature, maxTemperature)
     }
 
-    private fun applyTemperatureEmission(height: Double): Color {
-        return if (temperature > minTemperature) {
-            ColorUtils.tempToRGB(temperature)
+
+    /**
+     * The particle slowly cool downs to the minimum temperature, then the color will transition to black smoke
+     */
+    fun applyHeatedSmokeColor() : TemperatureComponent {
+        // Sets the color supplier to apply the temperature emission
+        colorSupplier = {
+            blackBodyEmission()
+        }
+        return this
+    }
+
+    private fun blackBodyEmission(): Color {
+        return if (temperature > minTemperatureEmission) {
+            ColorUtils.tempToRGB(temperature.coerceIn(minTemperatureEmission, maxTemperatureEmission))
         } else {
-            // Remap the height to a value between 0 and 1 using the minY and maxY and use the transitionProgress to control how much the height affects the color
-            val ratio = MathFunctions.remap(height, minY, maxY, transitionProgress, 1.0) * transitionProgress
-            ColorUtils.lerpColor(minimumColor, baseColor, ratio)
+            val ratio = MathFunctions.remap(temperature, minTemperature, maxTemperature, 0.0, 1.0)
+            ColorUtils.lerpColor(smokeColor, baseColor, ratio)
         }
     }
 
