@@ -19,6 +19,7 @@
 
 package com.mochibit.defcon.particles
 
+import com.mochibit.defcon.vertexgeometry.particle.ParticleVertex
 import org.bukkit.Location
 
 interface PluginParticle {

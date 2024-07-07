@@ -45,7 +45,8 @@ class ParticleShape(
 ) {
 
     var center: Vector3 = Vector3.ZERO
-    private var transformedCenter = Vector3.ZERO
+    var transformedCenter = Vector3.ZERO
+        private set
 
     private var visible = true
 

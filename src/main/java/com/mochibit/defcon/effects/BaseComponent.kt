@@ -19,6 +19,7 @@
 
 package com.mochibit.defcon.effects
 
+import com.mochibit.defcon.extensions.toVector3
 import com.mochibit.defcon.math.Transform3D
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
@@ -36,10 +37,6 @@ open class BaseComponent(val particleShape: ParticleShape): EffectComponent {
         particleShape.buildAndAssign()
     }
 
-    var particleVelocity: Vector3
-        get() = particleShape.particle.velocity
-        set(value) { particleShape.particle.velocity = value }
-
     var transform : Transform3D
         get() = particleShape.transform
         set(value) { particleShape.transform = value }
@@ -48,6 +45,21 @@ open class BaseComponent(val particleShape: ParticleShape): EffectComponent {
     var colorSupplier: ((location: Location) -> org.bukkit.Color)?
         get() = particleShape.particle.colorSupplier
         set(value) { particleShape.particle.colorSupplier = value }
+
+    /**
+     * Apply a radial
+     */
+    fun applyRadialVelocityFromCenter(velocity: Vector3){
+        // Use the normalized direction as offset for the particle
+        //particleBuilder.offset(normalized.x, particleBuilder.offsetY(), normalized.z);
+        particleShape.particle.locationConsumer = {
+            val point = it.clone().subtract(particleShape.spawnPoint).toVector3()
+            val direction = point - particleShape.center
+            val normalized = direction.normalized()
+            // Modify existing velocity to move directionally from the center (without overriding existing velocity)
+            particleShape.particle.velocity = normalized * velocity
+        }
+    }
 
     override fun emit() {
         particleShape.randomDraw(emitBurstProbability, emitRate)

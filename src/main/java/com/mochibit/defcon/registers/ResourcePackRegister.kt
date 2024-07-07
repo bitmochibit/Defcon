@@ -182,6 +182,11 @@ class ResourcePackRegister private constructor() : PackRegister {
         // Copy the "models" folder from the resources folder to the "models" folder in the minecraft folder
         val targetModelsPath = Paths.get("$minecraftPath/models")
         copyFoldersFromResource("assets/defcon/models/", targetModelsPath)
+
+        // Copy the "optifine" folder from the resources folder to the "optifine" folder in the minecraft folder (needed for emissions and other features)
+        val targetOptifinePath = Paths.get("$minecraftPath/optifine")
+        copyFoldersFromResource("assets/defcon/optifine/", targetOptifinePath)
+
         // Generate automatically the items definition for the custom items
 
 

@@ -22,8 +22,6 @@ package com.mochibit.defcon.particles
 import org.bukkit.Color
 import org.bukkit.entity.Display
 import org.bukkit.inventory.ItemStack
-import org.bukkit.util.Transformation
-import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
 
@@ -41,7 +39,7 @@ data class DisplayParticleProperties(
 
     var interpolationDelay : Int = 0,
     var interpolationDuration: Int = 0,
-    var teleportDuration: Int = 0,
+    var teleportDuration: Int = 59,
 
     var translation : Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
     var scale: Vector3f = Vector3f(1.0f, 1.0f, 1.0f),

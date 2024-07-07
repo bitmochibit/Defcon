@@ -28,7 +28,6 @@ import org.joml.Vector3f
 class ExplosionDustParticle : CustomParticle(
     DisplayParticleProperties(
         itemStack = ItemStack(Material.LEATHER_BOOTS),
-        teleportDuration = 59,
         viewRange = 500.0f,
         scale = Vector3f(10.0f, 10.0f, 10.0f),
         modelData = 2

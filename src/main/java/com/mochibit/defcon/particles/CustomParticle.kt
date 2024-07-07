@@ -27,27 +27,10 @@ import org.bukkit.Color
 import org.bukkit.Location
 import kotlin.random.Random
 
-abstract class CustomParticle(private val properties: DisplayParticleProperties) : AbstractParticle(properties) {
-    var randomizeColorBrightness = true
-    final override fun spawn(location: Location) {
-        if (properties.color != null) {
-            var finalColor = colorSupplier?.invoke(location) ?: properties.color
-            if (randomizeColorBrightness)
-                finalColor = finalColor?.let { randomizeColorBrightness(it) }
-            properties.color = finalColor
-        }
-
-        DisplayItemAsyncHandler(location, Bukkit.getOnlinePlayers(), properties)
+abstract class CustomParticle(properties: DisplayParticleProperties) : AbstractParticle(properties) {
+    override fun spawnParticle(location: Location) {
+        DisplayItemAsyncHandler(location, Bukkit.getOnlinePlayers(), particleProperties as DisplayParticleProperties)
             .summonWithMetadata()
             .applyVelocity(velocity)
-
     }
-
-    private fun randomizeColorBrightness(color: Color): Color {
-        return if (Random.nextBoolean())
-            ColorUtils.darkenColor(color, Random.nextDouble(0.8, 1.0))
-        else ColorUtils.lightenColor(color, Random.nextDouble(0.1, 0.2));
-    }
-
-
 }
