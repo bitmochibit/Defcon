@@ -31,7 +31,7 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     var locationConsumer: ((location: Location) -> Unit)? = null
     var velocity: Vector3 = Vector3(0.0, 0.0, 0.0)
     var randomizeColorBrightness = true
-    var displacement = Vector3(.1, .1, .1)
+    var displacement = Vector3(.0, .0, .0)
     abstract fun spawnParticle(location: Location);
 
     override fun spawn(location: Location) {
@@ -54,10 +54,14 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     }
 
     private fun applyRandomDisplacement(displacement : Vector3 = Vector3(1.0,1.0,1.0)) {
+        val x = if (displacement.x > 0.0) Random.nextDouble(-displacement.x, displacement.x) else 0.0
+        val y = if (displacement.y > 0.0) Random.nextDouble(-displacement.y, displacement.y) else 0.0
+        val z = if (displacement.z > 0.0) Random.nextDouble(-displacement.z, displacement.z) else 0.0
+        // Randomize the velocity in a random direction
         velocity = Vector3(
-            velocity.x + Math.random() * displacement.x - displacement.x / 2,
-            velocity.y + Math.random() * displacement.y - displacement.y / 2,
-            velocity.z + Math.random() * displacement.z - displacement.z / 2
+            velocity.x + x,
+            velocity.y + y,
+            velocity.z + z
         )
     }
 }

@@ -22,20 +22,13 @@ package com.mochibit.defcon.effects.nuclear
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.effects.AnimatedEffect
 import com.mochibit.defcon.explosions.NuclearComponent
-import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
-import com.mochibit.defcon.math.Vector3
 import org.bukkit.Bukkit
 import org.bukkit.Color
 import org.bukkit.Location
 import kotlin.math.floor
 
 class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect() {
-    private val startingColor = Color.fromRGB(255, 229, 159)
-    private val endingColor = Color.fromRGB(88, 87, 84);
-    var maxTemp = 4000.0;
     val maxAliveTick = 20 * 60 * 3;
-
-
 
     override fun drawRate(): Int {
         return 1;
@@ -45,26 +38,10 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         nuclearMushroom.emit()
     }
     override fun animate(delta: Double) {
-        nuclearMushroom.processEffects(delta)
-//        if (condensationCloud.isVisible()) {
-//            stretchCondensationCloud(delta)
-//        }
-
-//        if (tickAlive > 20 * 20) {
-//            condensationCloud.visible(false)
-//        }
-
+        nuclearMushroom.processEffects(delta, tickAlive)
         if (tickAlive > maxAliveTick)
             this.destroy();
-
-//        if (tickAlive > 40 * 20 && !primaryNeck.isVisible()) {
-//            primaryNeck.visible(true)
-//        }
-
     }
-
-
-
 
 //    private fun stretchCondensationCloud(delta: Double) {
 //        if (tickAlive % 40 != 0) return
@@ -84,87 +61,6 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 
     override fun start() {
         nuclearMushroom.buildShape()
-        Bukkit.getScheduler().callSyncMethod(Defcon.instance) {
-            // Get nearby entities
-            //val entities = center.world.getNearbyPlayers(center, 300.0, 300.0, 300.0)
-//            coreSpheroid.particleBuilder.receivers(entities)
-//            secondarySpheroid.particleBuilder.receivers(entities)
-//            tertiarySpheroid.particleBuilder.receivers(entities)
-
-            //primaryNeck.particleBuilder.receivers(entities)
-
-            //stem.particleBuilder.receivers(entities)
-
-            //footCloudMain.particleBuilder.receivers(entities)
-            //footCloudSecondary.particleBuilder.receivers(entities)
-
-            //condensationCloud.particleBuilder.receivers(entities)
-        };
-
-
-//        coreSpheroid.buildAndAssign().color(startingColor, 5f)
-//            .temperature(maxTemp, 1500.0, maxTemp)
-//            .baseColor(endingColor)
-//            .temperatureEmission(true)
-//            .velocity(Vector3(0.0, 4.0, 0.0))
-            //.particleBuilder.count(0).offset(1.0, 1.0, 1.0)
-//        secondarySpheroid.buildAndAssign().color(startingColor, 5f)
-//            .temperature(maxTemp, 1500.0, maxTemp)
-//            .baseColor(endingColor)
-//            .temperatureEmission(true)
-//            .velocity(Vector3(0.0, 4.0, 0.0))
-            //.particleBuilder.count(0).offset(1.0, 1.0, 1.0)
-
-//        tertiarySpheroid.buildAndAssign().color(startingColor, 5f)
-//            .baseColor(endingColor)
-//            .temperature(maxTemp, 1500.0, maxTemp)
-//            .temperatureEmission(true)
-//            .velocity(Vector3(0.0, -2.0, 0.0))
-            //.particleBuilder.count(0).offset(1.0, 1.0, 1.0)
-
-
-
-//        primaryNeck.transform = primaryNeck.transform.translated(Vector3(0.0, -14.0, 0.0))
-//        primaryNeck
-//            .buildAndAssign()
-//            .snapToFloor(5.0, 5.0)
-//            .baseColor(endingColor)
-//            .radialSpeed(0.01).
-//            visible(false)
-//            .particleBuilder.count(0).offset(0.0, -0.01, 0.0)
-//
-//        stem
-//            .buildAndAssign()
-//            .baseColor(endingColor)
-//            .temperature(maxTemp, 1500.0, maxTemp)
-//            .temperatureEmission(true)
-//            .velocity(Vector3(0.0, 4.5, 0.0))
-//
-           // .particleBuilder.count(0).offset(0.0, 0.1, 0.0)
-//
-//        footCloudMain
-//            .buildAndAssign()
-//            .baseColor(endingColor)
-//            .temperature(maxTemp, 1500.0, maxTemp)
-//            .radialSpeed(0.01)
-//            .particleBuilder.count(0).offset(0.0, 0.01, 0.0)
-//
-//        footCloudSecondary
-//            .buildAndAssign()
-//            .snapToFloor(5.0, 5.0)
-//            .baseColor(endingColor)
-//            .radialSpeed(0.05)
-//            .xPredicate(this::stripesWidth)
-//            .zPredicate(this::stripesWidth)
-//            .particleBuilder.count(0).offset(0.0, 0.005, 0.0)
-//
-//        condensationCloud.transform = condensationCloud.transform.translated(Vector3(0.0, 20.0, 0.0))
-//        condensationCloud
-//            .buildAndAssign()
-//            .baseColor(Color.fromRGB(255, 255, 255))
-//            .radialSpeed(0.5)
-//            .heightPredicate(this::stripesHeight)
-//            .particleBuilder.count(0).offset(0.0, 0.0, 0.0)
     }
 
     override fun stop() {

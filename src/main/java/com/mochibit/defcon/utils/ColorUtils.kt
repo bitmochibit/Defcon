@@ -67,43 +67,6 @@ object ColorUtils {
         return ChatColor.stripColor(inputString)
     }
 
-    fun tempToRGB(temperature: Double): Color {
-        val r: Int
-        val g: Int
-        val b: Int
-
-        val temp = temperature / 100
-
-        // Red
-        r = if (temp <= 66) {
-            255
-        } else {
-            val red = 329.698727446 * (temp - 60).pow(-0.1332047592)
-            red.coerceIn(0.0, 255.0).toInt()
-        }
-
-        // Green
-        g = if (temp <= 66) {
-            val green = 99.4708025861 * ln(temp) - 161.1195681661
-            green.coerceIn(0.0, 255.0).toInt()
-        } else {
-            val green = 288.1221695283 * (temp - 60).pow(-0.0755148492)
-            green.coerceIn(0.0, 255.0).toInt()
-        }
-
-        // Blue
-        b = if (temp >= 66) {
-            255
-        } else if (temp <= 19) {
-            0
-        } else {
-            val blue = 138.5177312231 * ln(temp - 10) - 305.0447927307
-            blue.coerceIn(0.0, 255.0).toInt()
-        }
-
-        return Color.fromRGB(r, g, b)
-    }
-
     fun lerpColor(a: Color, b: Color, t: Double): Color {
         val r = lerp(a.red.toDouble(), b.red.toDouble(), t)
         val g = lerp(a.green.toDouble(), b.green.toDouble(), t)

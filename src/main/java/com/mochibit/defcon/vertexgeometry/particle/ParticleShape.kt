@@ -64,7 +64,7 @@ class ParticleShape(
     // When the temperature is at min, the color will slowly transition to this color (or via height or via time) since the base color is the color when emission is at min.
     var baseColor = Color.WHITE
     var baseSize = 5.0;
-    var minimumColor = ColorUtils.tempToRGB(minTemperature);
+    var minimumColor = baseColor
     var transitionProgress = 0.0;
 
     val isDirectional: Boolean
@@ -205,7 +205,6 @@ class ParticleShape(
         this.minTemperature = min;
         this.maxTemperature = max;
         this.temperature = temperature;
-        minimumColor = ColorUtils.tempToRGB(minTemperature);
         return this;
     }
 

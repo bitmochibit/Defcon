@@ -33,20 +33,20 @@ class TemperatureComponent(
     var minTemperature: Double = 40.0,
     var maxTemperature: Double = 6000.0,
 
-    var smokeColor: Color = Color.fromRGB(102,104,102), // #666866
-    var baseColor: Color = Color.fromRGB(247, 227, 129) // #F7E381
+    var smokeColor: Color = Color.fromRGB(44, 41, 42), // #2C292A
+    var baseColor: Color = Color.fromRGB(255, 121, 0) // #F7E381
 ) : BaseComponent(particleShape) {
-
+    var temperatureCoolingRate = .0
     var temperature: Double = maxTemperature
-    set(value) {
-        field = value.coerceIn(minTemperature, maxTemperature)
-    }
+        set(value) {
+            field = value.coerceIn(minTemperature, maxTemperature)
+        }
 
 
     /**
      * The particle slowly cool downs to the minimum temperature, then the color will transition to black smoke
      */
-    fun applyHeatedSmokeColor() : TemperatureComponent {
+    fun applyHeatedSmokeColor(): TemperatureComponent {
         // Sets the color supplier to apply the temperature emission
         colorSupplier = {
             blackBodyEmission()
@@ -55,13 +55,34 @@ class TemperatureComponent(
     }
 
     private fun blackBodyEmission(): Color {
-        return if (temperature > minTemperatureEmission) {
-            ColorUtils.tempToRGB(temperature.coerceIn(minTemperatureEmission, maxTemperatureEmission))
-        } else {
-            val ratio = MathFunctions.remap(temperature, minTemperature, maxTemperature, 0.0, 1.0)
-            ColorUtils.lerpColor(smokeColor, baseColor, ratio)
-        }
+        temperature -= temperatureCoolingRate
+        val ratio = MathFunctions.remap(temperature, minTemperature, maxTemperature, 0.0, 1.0)
+        val scaledRatio = ratio * (temperatureEmissionGradient.size - 1)
+        val index = scaledRatio.toInt()
+        val remainder = scaledRatio - index
+
+        if (index >= temperatureEmissionGradient.size - 1)
+            return temperatureEmissionGradient.last()
+        else
+            return ColorUtils.lerpColor(
+                temperatureEmissionGradient[index],
+                temperatureEmissionGradient[index + 1],
+                remainder
+            )
     }
+
+    private val temperatureEmissionGradient = arrayOf(
+        Color.fromRGB(31, 26, 25),
+        Color.fromRGB(67, 58, 53),
+        Color.fromRGB(102, 74, 66),
+        Color.fromRGB(157, 108, 92),
+        Color.fromRGB(194, 133, 112),
+        Color.fromRGB(223, 135, 73),
+        Color.fromRGB(238, 160, 101),
+        Color.fromRGB(241, 183, 120),
+        Color.fromRGB(245, 209, 142),
+        Color.fromRGB(255, 243, 170)
+    )
 
 
 }

@@ -40,12 +40,29 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
             SphereBuilder()
                 .withRadiusXZ(30.0)
                 .withRadiusY(50.0)
-                .withYStart(0.0),
+                .withYStart(-20.0),
             ExplosionDustParticle()
                 .apply { velocity = Vector3(0.0, 4.0, 0.0) },
             center
         )
-    ).applyHeatedSmokeColor()
+    ).applyHeatedSmokeColor().apply{temperatureCoolingRate = 1.0}
+
+    val coreNeck = TemperatureComponent(
+        particleShape = ParticleShape(
+            CylinderBuilder()
+                .withHeight(60.0)
+                .withRadiusX(30.0)
+                .withRadiusZ(30.0)
+                .withRate(20.0)
+                .withHeightRate(1.0)
+                .hollow(false),
+            ExplosionDustParticle()
+                .apply { velocity = Vector3(0.0, -6.0, 0.0) },
+            center
+        ).apply{
+            transform = transform.translated(Vector3(0.0, -30.0, 0.0))
+        }
+    ).applyHeatedSmokeColor().apply{temperatureCoolingRate = 1.0}
 
     val secondaryCloud = TemperatureComponent(
         particleShape = ParticleShape(
@@ -58,7 +75,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .apply { velocity = Vector3(0.0, 4.0, 0.0) },
             center
         )
-    ).applyHeatedSmokeColor()
+    ).applyHeatedSmokeColor().apply{temperatureCoolingRate = 2.0}
 
     val tertiaryCloud = TemperatureComponent(
         ParticleShape(
@@ -71,7 +88,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .apply { velocity = Vector3(0.0, -2.0, 0.0) },
             center
         )
-    ).applyHeatedSmokeColor()
+    ).applyHeatedSmokeColor().apply{temperatureCoolingRate = 3.0}
 
     val primaryNeck = TemperatureComponent(
         ParticleShape(
@@ -96,12 +113,11 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .hollow(false),
             ExplosionDustParticle()
                 .apply {
-                    displacement = Vector3(.5, .0, .5)
                     velocity = Vector3(0.0, 8.5, 0.0)
                 },
             center
         ).heightPredicate(this::visibleWhenLessThanCurrentHeight)
-    ).applyHeatedSmokeColor()
+    ).applyHeatedSmokeColor().apply{temperatureCoolingRate = 4.0}
 
     val foot = TemperatureComponent(
         ParticleShape(
@@ -114,7 +130,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
             ExplosionDustParticle(),
             center
         )
-    ).applyHeatedSmokeColor()
+    ).applyHeatedSmokeColor().apply{temperatureCoolingRate = 5.0}
 
     val footSecondary = TemperatureComponent(
         ParticleShape(
@@ -132,6 +148,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
     ).apply {
         applyHeatedSmokeColor()
         applyRadialVelocityFromCenter(Vector3(4.0, 0.0, 4.0))
+        temperatureCoolingRate = 10.0
     }
 
     val condensationCloud = BaseComponent(
@@ -152,6 +169,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
     init {
         components = arrayOf(
             coreCloud,
+            coreNeck,
             secondaryCloud,
             tertiaryCloud,
             //primaryNeck,
@@ -162,26 +180,17 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
         )
     }
 
-    fun processEffects(delta: Double) {
+    fun processEffects(delta: Double, lifeTime: Int) {
         processRise(delta)
-        coolComponents()
     }
 
-    private fun coolComponents() {
-        coreCloud.temperature -= 5;
-        secondaryCloud.temperature -= 7;
-        tertiaryCloud.temperature -= 9;
-
-        stem.temperature -= 10;
-        foot.temperature -= 20;
-        footSecondary.temperature -= 25;
-    }
 
     private fun processRise(delta: Double) {
         if (currentHeight > maxHeight) return;
         val deltaMovement = riseSpeed * delta;
         // Elevate the sphere using transform translation
         coreCloud.transform = coreCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+        coreNeck.transform = coreNeck.transform.translated(Vector3(0.0, deltaMovement, 0.0));
         secondaryCloud.transform = secondaryCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
         tertiaryCloud.transform = tertiaryCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
 
