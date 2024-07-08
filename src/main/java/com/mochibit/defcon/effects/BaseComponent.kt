@@ -57,7 +57,7 @@ open class BaseComponent(val particleShape: ParticleShape): EffectComponent {
             val direction = point - particleShape.center
             val normalized = direction.normalized()
             // Modify existing velocity to move directionally from the center (without overriding existing velocity)
-            particleShape.particle.velocity = normalized * velocity
+            particleShape.particle.initialVelocity = normalized * velocity
         }
     }
 

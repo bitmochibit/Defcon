@@ -21,7 +21,6 @@ package com.mochibit.defcon.particles
 
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.utils.ColorUtils
-import com.mochibit.defcon.vertexgeometry.particle.ParticleVertex
 import org.bukkit.Color
 import org.bukkit.Location
 import kotlin.random.Random
@@ -29,14 +28,17 @@ import kotlin.random.Random
 abstract class AbstractParticle(val particleProperties: GenericParticleProperties) : PluginParticle {
     var colorSupplier: ((location: Location) -> Color)? = null
     var locationConsumer: ((location: Location) -> Unit)? = null
-    var velocity: Vector3 = Vector3(0.0, 0.0, 0.0)
+    var initialVelocity: Vector3 = Vector3(0.0, 0.0, 0.0)
+    var initialDamping: Vector3 = Vector3(1.0, 1.0, 1.0)
+    var initialAcceleration: Vector3 = Vector3(0.0, 0.0, 0.0)
+    var initialAccelerationTicks = 0
+
     var randomizeColorBrightness = true
     var displacement = Vector3(.0, .0, .0)
-    abstract fun spawnParticle(location: Location);
+    abstract fun spawnParticle(location: Location)
 
     override fun spawn(location: Location) {
         locationConsumer?.invoke(location)
-
         if (particleProperties.color != null) {
             var finalColor = colorSupplier?.invoke(location) ?: particleProperties.color
             if (randomizeColorBrightness)
@@ -50,7 +52,7 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     private fun randomizeColorBrightness(color: Color): Color {
         return if (Random.nextBoolean())
             ColorUtils.darkenColor(color, Random.nextDouble(0.8, 1.0))
-        else ColorUtils.lightenColor(color, Random.nextDouble(0.1, 0.2));
+        else ColorUtils.lightenColor(color, Random.nextDouble(0.1, 0.2))
     }
 
     private fun applyRandomDisplacement(displacement : Vector3 = Vector3(1.0,1.0,1.0)) {
@@ -58,10 +60,10 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
         val y = if (displacement.y > 0.0) Random.nextDouble(-displacement.y, displacement.y) else 0.0
         val z = if (displacement.z > 0.0) Random.nextDouble(-displacement.z, displacement.z) else 0.0
         // Randomize the velocity in a random direction
-        velocity = Vector3(
-            velocity.x + x,
-            velocity.y + y,
-            velocity.z + z
+        initialVelocity = Vector3(
+            initialVelocity.x + x,
+            initialVelocity.y + y,
+            initialVelocity.z + z
         )
     }
 }

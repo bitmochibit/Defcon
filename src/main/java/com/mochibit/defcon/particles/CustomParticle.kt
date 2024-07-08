@@ -19,18 +19,16 @@
 
 package com.mochibit.defcon.particles
 
-import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.utils.ColorUtils
-import com.mochibit.defcon.utils.MathFunctions
 import org.bukkit.Bukkit
-import org.bukkit.Color
 import org.bukkit.Location
-import kotlin.random.Random
 
 abstract class CustomParticle(properties: DisplayParticleProperties) : AbstractParticle(properties) {
     override fun spawnParticle(location: Location) {
-        DisplayItemAsyncHandler(location, Bukkit.getOnlinePlayers(), particleProperties as DisplayParticleProperties)
-            .summonWithMetadata()
-            .applyVelocity(velocity)
+        DisplayItemAsyncHandler(location.clone(), Bukkit.getOnlinePlayers(), particleProperties as DisplayParticleProperties)
+            .initialVelocity(initialVelocity)
+            .damping(initialDamping)
+            .acceleration(initialAcceleration)
+            .accelerationTicks(initialAccelerationTicks)
+            .summon()
     }
 }

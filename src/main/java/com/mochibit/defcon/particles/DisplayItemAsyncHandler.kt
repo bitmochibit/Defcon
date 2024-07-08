@@ -25,16 +25,15 @@ import com.comphenix.protocol.events.PacketContainer
 import com.comphenix.protocol.utility.MinecraftReflection
 import com.comphenix.protocol.wrappers.WrappedDataValue
 import com.comphenix.protocol.wrappers.WrappedDataWatcher
-import com.comphenix.protocol.wrappers.WrappedDataWatcher.WrappedDataWatcherObject
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.math.Vector3
 import org.bukkit.Bukkit
 import org.bukkit.Location
-import org.bukkit.entity.Display
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.LeatherArmorMeta
+import org.bukkit.scheduler.BukkitRunnable
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import java.util.UUID
@@ -50,8 +49,15 @@ class DisplayItemAsyncHandler(
      */
     val itemID = (Math.random() * Int.MAX_VALUE).toInt()
     val itemUUID = UUID.randomUUID()
-    val velocity = Vector3(0.0, 0.0, 0.0)
-    val damping = Vector3(0.1, 0.1, 0.1)
+    var velocity = Vector3(0.0, 0.0, 0.0); private set
+    var damping = Vector3(0.1, 0.1, 0.1); private set
+    var acceleration = Vector3(0.0, 0.0, 0.0); private set
+    var accelerationTicks = 0; private set
+
+    fun initialVelocity(initialVelocity: Vector3) = apply { this.velocity = initialVelocity.clone()}
+    fun damping(damping: Vector3) = apply { this.damping = damping.clone() }
+    fun acceleration(acceleration: Vector3) = apply { this.acceleration = acceleration.clone() }
+    fun accelerationTicks(accelerationTicks: Int) = apply { this.accelerationTicks = accelerationTicks }
 
     /**
      * Sends the packet to the players inside the list, to display the item
@@ -73,66 +79,72 @@ class DisplayItemAsyncHandler(
 
         // Send the packet to the players
         sendPacket(packet)
+        applyMetadata()
+        processMovement()
         despawn(properties.maxLife)
         return this
     }
 
-    fun applyVelocity(): DisplayItemAsyncHandler {
+    private fun updatePosition() : DisplayItemAsyncHandler {
         val packet = PacketContainer(PacketType.Play.Server.ENTITY_TELEPORT)
-        // The time scale of the interpolation (teleportDuration) is 1.0 by default
-        val scaledVelocity = Vector3(
-            velocity.x * properties.teleportDuration,
-            velocity.y * properties.teleportDuration,
-            velocity.z * properties.teleportDuration
-        )
         packet.integers.write(0, itemID)
-        packet.doubles.write(0, loc.x + scaledVelocity.x)
-        packet.doubles.write(1, loc.y + scaledVelocity.y)
-        packet.doubles.write(2, loc.z + scaledVelocity.z)
+        packet.doubles.write(0, loc.x)
+        packet.doubles.write(1, loc.y)
+        packet.doubles.write(2, loc.z)
         packet.bytes.write(0, 0.toByte())
         packet.bytes.write(1, 0.toByte())
         packet.booleans.write(0, false)
+
         sendPacket(packet)
         return this
     }
 
-    fun accelerateFor(acceleration: Vector3, ticks: Int = 20) {
-        // Start a scheduler to accelerate the entity, for the specified amount of ticks
-        val task = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, Runnable {
-            velocity.x += acceleration.x / 20
-            velocity.y += acceleration.y / 20
-            velocity.z += acceleration.z / 20
-            applyVelocity()
-        }, 0, 1)
-        // Stop the scheduler after the specified amount of ticks
-        Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
-            task.cancel()
-        }, ticks.toLong())
+
+    private fun processMovement() {
+        if (acceleration == Vector3(0.0, 0.0, 0.0) && damping == Vector3(0.0, 0.0, 0.0)) return
+        if (velocity == Vector3(0.0, 0.0, 0.0)) return
+        object: BukkitRunnable() {
+            var runTime = 0
+            override fun run() {
+                if (runTime >= properties.maxLife) {
+                    this.cancel()
+                    return
+                }
+
+                if (runTime < accelerationTicks) {
+                    // Apply acceleration
+                    velocity.x += acceleration.x / 20
+                    velocity.y += acceleration.y / 20
+                    velocity.z += acceleration.z / 20
+                }
+                // Apply damping
+                velocity.x *= (1 - damping.x / 20).coerceAtLeast(0.0)
+                velocity.y *= (1 - damping.y / 20).coerceAtLeast(0.0)
+                velocity.z *= (1 - damping.z / 20).coerceAtLeast(0.0)
+
+                // Update position
+                loc.add(velocity.x, velocity.y, velocity.z)
+
+                updatePosition()
+
+                runTime += 1
+            }
+        }.runTaskTimerAsynchronously(Defcon.instance, 0, 1)
     }
 
 
-    fun applyDamping() {
-        // Start a scheduler to apply damping to the entity, for the specified amount of ticks
-        Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, Runnable {
-            // Bring to zero the velocity of the entity
-            velocity.x = (velocity.x - damping.x).coerceAtLeast(0.0)
-            velocity.y = (velocity.y - damping.y).coerceAtLeast(0.0)
-            velocity.z = (velocity.z - damping.z).coerceAtLeast(0.0)
-            applyVelocity()
-        }, 0, 1)
-    }
 
-    fun despawn(afterTicks: Long): DisplayItemAsyncHandler {
+    private fun despawn(afterTicks: Long): DisplayItemAsyncHandler {
         Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
             val packet = PacketContainer(PacketType.Play.Server.ENTITY_DESTROY)
             packet.intLists.write(0, listOf(itemID))
             sendPacket(packet)
         }, afterTicks)
+
         return this
     }
 
-    fun summonWithMetadata(): DisplayItemAsyncHandler {
-        summon()
+    private fun applyMetadata(): DisplayItemAsyncHandler {
         val packet = PacketContainer(PacketType.Play.Server.ENTITY_METADATA)
         packet.modifier.writeDefaults()
         packet.integers.write(0, itemID)

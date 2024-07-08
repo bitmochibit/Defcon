@@ -39,7 +39,7 @@ data class DisplayParticleProperties(
 
     var interpolationDelay : Int = 0,
     var interpolationDuration: Int = 0,
-    var teleportDuration: Int = 59,
+    var teleportDuration: Int = 1,
 
     var translation : Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
     var scale: Vector3f = Vector3f(1.0f, 1.0f, 1.0f),
