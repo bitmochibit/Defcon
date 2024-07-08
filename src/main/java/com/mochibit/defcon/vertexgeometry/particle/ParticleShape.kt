@@ -61,18 +61,6 @@ class ParticleShape(
             field = value.coerceIn(minTemperature, maxTemperature)
         }
 
-    // When the temperature is at min, the color will slowly transition to this color (or via height or via time) since the base color is the color when emission is at min.
-    var baseColor = Color.WHITE
-    var baseSize = 5.0;
-    var minimumColor = baseColor
-    var transitionProgress = 0.0;
-
-    val isDirectional: Boolean
-        get() = false
-
-    var isTemperatureEmission: Boolean = false
-    var radialSpeed = 0.0;
-
     private var particleVertixes = emptyArray<ParticleVertex>()
     var transform = Transform3D()
         set(value) {
@@ -106,14 +94,9 @@ class ParticleShape(
 
     fun draw(particleVertex: ParticleVertex) {
         if (!visible) return;
-
         // Treat particles vertexes as particle emitters
         val transformedVertex = particleVertex.vertex.transformedPoint;
         val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)
-
-        // spawn a display entity
-//            if (isDirectional && radialSpeed != 0.0)
-//                radialDirectionFromCenter(particleVertex.vertex);
 
         if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y))
             return
@@ -125,7 +108,6 @@ class ParticleShape(
             return;
 
         particle.spawn(currentLoc);
-
         particleVertex.spawnTime = System.currentTimeMillis();
     }
 
@@ -157,18 +139,6 @@ class ParticleShape(
         return this;
     }
 
-
-
-    // Directional methods
-    private fun radialDirectionFromCenter(vertex: Vertex): ParticleShape {
-        val direction = vertex.point - center;
-        val normalized = direction.normalized() * radialSpeed;
-        // Use the normalized direction as offset for the particle
-        //particleBuilder.offset(normalized.x, particleBuilder.offsetY(), normalized.z);
-
-        return this;
-    }
-
     // Options
     fun visible(value: Boolean): ParticleShape {
         this.visible = value;
@@ -191,51 +161,10 @@ class ParticleShape(
         return this;
     }
 
-    fun color(color: Color, size: Float): ParticleShape {
-        //particleBuilder.color(color, size);
-        return this;
-    }
-
-    fun temperature(temperature: Double): ParticleShape {
-        this.temperature = temperature;
-        return this;
-    }
-
-    fun temperature(temperature: Double, min: Double, max: Double): ParticleShape {
-        this.minTemperature = min;
-        this.maxTemperature = max;
-        this.temperature = temperature;
-        return this;
-    }
-
-    fun temperature(min: Double, max: Double): ParticleShape {
-        return temperature(temperature, min, max)
-    }
-
-    fun directional(): ParticleShape {
-        //particleBuilder.count(0);
-        return this;
-    }
-
-    fun baseColor(color: Color): ParticleShape {
-        this.baseColor = color;
-        return this;
-    }
-
     fun particle(particle: Particle): ParticleShape {
         //this.particle = particle;
         //particleBuilder.data(null)
         //particleBuilder.particle(particle)
-        return this;
-    }
-
-    fun temperatureEmission(value: Boolean): ParticleShape {
-        this.isTemperatureEmission = value;
-        return this;
-    }
-
-    fun radialSpeed(speed: Double): ParticleShape {
-        this.radialSpeed = speed;
         return this;
     }
 
@@ -244,20 +173,6 @@ class ParticleShape(
         return this;
     }
 
-    fun xPredicate(predicate: Predicate<Double>): ParticleShape {
-        this.xPredicate = predicate;
-        return this;
-    }
-
-    fun zPredicate(predicate: Predicate<Double>): ParticleShape {
-        this.zPredicate = predicate;
-        return this;
-    }
-
-    fun velocity(vel: Vector3): ParticleShape {
-        this.velocity = vel;
-        return this;
-    }
 
 
 }

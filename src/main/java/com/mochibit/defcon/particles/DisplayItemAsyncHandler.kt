@@ -40,17 +40,23 @@ import org.joml.Vector3f
 import java.util.UUID
 
 
-class DisplayItemAsyncHandler(val loc: Location, val players: MutableCollection<out Player>, val properties: DisplayParticleProperties) {
+class DisplayItemAsyncHandler(
+    val loc: Location,
+    val players: MutableCollection<out Player>,
+    val properties: DisplayParticleProperties
+) {
     /**
      * The random ID of the display item. It is a Variable-length data encoding a two's complement signed 32-bit integer;
      */
     val itemID = (Math.random() * Int.MAX_VALUE).toInt()
     val itemUUID = UUID.randomUUID()
+    val velocity = Vector3(0.0, 0.0, 0.0)
+    val damping = Vector3(0.1, 0.1, 0.1)
 
     /**
      * Sends the packet to the players inside the list, to display the item
      */
-    fun summon() : DisplayItemAsyncHandler {
+    fun summon(): DisplayItemAsyncHandler {
         // Create the packet
         val packet = PacketContainer(PacketType.Play.Server.SPAWN_ENTITY)
         // Set the entity ID
@@ -71,12 +77,18 @@ class DisplayItemAsyncHandler(val loc: Location, val players: MutableCollection<
         return this
     }
 
-    fun applyVelocity(velocity: Vector3) : DisplayItemAsyncHandler{
+    fun applyVelocity(): DisplayItemAsyncHandler {
         val packet = PacketContainer(PacketType.Play.Server.ENTITY_TELEPORT)
+        // The time scale of the interpolation (teleportDuration) is 1.0 by default
+        val scaledVelocity = Vector3(
+            velocity.x * properties.teleportDuration,
+            velocity.y * properties.teleportDuration,
+            velocity.z * properties.teleportDuration
+        )
         packet.integers.write(0, itemID)
-        packet.doubles.write(0, loc.x + velocity.x)
-        packet.doubles.write(1, loc.y + velocity.y)
-        packet.doubles.write(2, loc.z + velocity.z)
+        packet.doubles.write(0, loc.x + scaledVelocity.x)
+        packet.doubles.write(1, loc.y + scaledVelocity.y)
+        packet.doubles.write(2, loc.z + scaledVelocity.z)
         packet.bytes.write(0, 0.toByte())
         packet.bytes.write(1, 0.toByte())
         packet.booleans.write(0, false)
@@ -84,7 +96,33 @@ class DisplayItemAsyncHandler(val loc: Location, val players: MutableCollection<
         return this
     }
 
-    fun despawn(afterTicks: Long) : DisplayItemAsyncHandler {
+    fun accelerateFor(acceleration: Vector3, ticks: Int = 20) {
+        // Start a scheduler to accelerate the entity, for the specified amount of ticks
+        val task = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, Runnable {
+            velocity.x += acceleration.x / 20
+            velocity.y += acceleration.y / 20
+            velocity.z += acceleration.z / 20
+            applyVelocity()
+        }, 0, 1)
+        // Stop the scheduler after the specified amount of ticks
+        Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
+            task.cancel()
+        }, ticks.toLong())
+    }
+
+
+    fun applyDamping() {
+        // Start a scheduler to apply damping to the entity, for the specified amount of ticks
+        Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, Runnable {
+            // Bring to zero the velocity of the entity
+            velocity.x = (velocity.x - damping.x).coerceAtLeast(0.0)
+            velocity.y = (velocity.y - damping.y).coerceAtLeast(0.0)
+            velocity.z = (velocity.z - damping.z).coerceAtLeast(0.0)
+            applyVelocity()
+        }, 0, 1)
+    }
+
+    fun despawn(afterTicks: Long): DisplayItemAsyncHandler {
         Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
             val packet = PacketContainer(PacketType.Play.Server.ENTITY_DESTROY)
             packet.intLists.write(0, listOf(itemID))
@@ -93,7 +131,7 @@ class DisplayItemAsyncHandler(val loc: Location, val players: MutableCollection<
         return this
     }
 
-    fun summonWithMetadata() : DisplayItemAsyncHandler {
+    fun summonWithMetadata(): DisplayItemAsyncHandler {
         summon()
         val packet = PacketContainer(PacketType.Play.Server.ENTITY_METADATA)
         packet.modifier.writeDefaults()
@@ -101,22 +139,46 @@ class DisplayItemAsyncHandler(val loc: Location, val players: MutableCollection<
 
         val brightnessValue = (properties.brightness.blockLight shl 4) or (properties.brightness.skyLight shl 20)
         val packedItems = mutableListOf(
-            WrappedDataValue(8, WrappedDataWatcher.Registry.get(Int::class.javaObjectType), properties.interpolationDelay),
-            WrappedDataValue(9, WrappedDataWatcher.Registry.get(Int::class.javaObjectType), properties.interpolationDuration),
-            WrappedDataValue(10, WrappedDataWatcher.Registry.get(Int::class.javaObjectType), properties.teleportDuration),
+            WrappedDataValue(
+                8,
+                WrappedDataWatcher.Registry.get(Int::class.javaObjectType),
+                properties.interpolationDelay
+            ),
+            WrappedDataValue(
+                9,
+                WrappedDataWatcher.Registry.get(Int::class.javaObjectType),
+                properties.interpolationDuration
+            ),
+            WrappedDataValue(
+                10,
+                WrappedDataWatcher.Registry.get(Int::class.javaObjectType),
+                properties.teleportDuration
+            ),
             WrappedDataValue(11, WrappedDataWatcher.Registry.get(Vector3f::class.java), properties.translation),
             WrappedDataValue(12, WrappedDataWatcher.Registry.get(Vector3f::class.java), properties.scale),
             WrappedDataValue(13, WrappedDataWatcher.Registry.get(Quaternionf::class.java), properties.rotationLeft),
             WrappedDataValue(14, WrappedDataWatcher.Registry.get(Quaternionf::class.java), properties.rotationRight),
-            WrappedDataValue(15, WrappedDataWatcher.Registry.get(Byte::class.javaObjectType), properties.billboard.ordinal.toByte()),
+            WrappedDataValue(
+                15,
+                WrappedDataWatcher.Registry.get(Byte::class.javaObjectType),
+                properties.billboard.ordinal.toByte()
+            ),
             WrappedDataValue(16, WrappedDataWatcher.Registry.get(Int::class.javaObjectType), brightnessValue),
             WrappedDataValue(17, WrappedDataWatcher.Registry.get(Float::class.javaObjectType), properties.viewRange),
             WrappedDataValue(18, WrappedDataWatcher.Registry.get(Float::class.javaObjectType), properties.shadowRadius),
-            WrappedDataValue(19, WrappedDataWatcher.Registry.get(Float::class.javaObjectType), properties.shadowStrength),
+            WrappedDataValue(
+                19,
+                WrappedDataWatcher.Registry.get(Float::class.javaObjectType),
+                properties.shadowStrength
+            ),
             WrappedDataValue(20, WrappedDataWatcher.Registry.get(Float::class.javaObjectType), properties.width),
             WrappedDataValue(21, WrappedDataWatcher.Registry.get(Float::class.javaObjectType), properties.height),
 
-            WrappedDataValue(23, WrappedDataWatcher.Registry.getItemStackSerializer(false), MinecraftReflection.getMinecraftItemStack(getItem())),
+            WrappedDataValue(
+                23,
+                WrappedDataWatcher.Registry.getItemStackSerializer(false),
+                MinecraftReflection.getMinecraftItemStack(getItem())
+            ),
         )
 
         packet.dataValueCollectionModifier.write(0, packedItems)
@@ -124,7 +186,7 @@ class DisplayItemAsyncHandler(val loc: Location, val players: MutableCollection<
         return this
     }
 
-    private fun getItem() : ItemStack {
+    private fun getItem(): ItemStack {
         val itemStack = properties.itemStack.clone()
         val itemStackMeta = itemStack.itemMeta
 
