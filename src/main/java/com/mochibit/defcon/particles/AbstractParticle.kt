@@ -26,16 +26,24 @@ import org.bukkit.Location
 import kotlin.random.Random
 
 abstract class AbstractParticle(val particleProperties: GenericParticleProperties) : PluginParticle {
-    var colorSupplier: ((location: Location) -> Color)? = null
-    var locationConsumer: ((location: Location) -> Unit)? = null
-    var initialVelocity: Vector3 = Vector3(0.0, 0.0, 0.0)
-    var initialDamping: Vector3 = Vector3(1.0, 1.0, 1.0)
-    var initialAcceleration: Vector3 = Vector3(0.0, 0.0, 0.0)
-    var initialAccelerationTicks = 0
+    var colorSupplier: ((location: Location) -> Color)? = null; private set
+    var locationConsumer: ((location: Location) -> Unit)? = null; private set
+    var initialVelocity: Vector3 = Vector3(.0, .0, .0); private set
+    var initialDamping: Vector3 = Vector3(.0, .0, .0); private set
+    var initialAcceleration: Vector3 = Vector3(.0, .0, .0); private set
+    var initialAccelerationTicks = 0; private set
+    var randomizeColorBrightness = true; private set
+    var displacement = Vector3(.0, .0, .0); private set
+    fun accelerationTicks(ticks: Int) = apply { initialAccelerationTicks = ticks }
+    fun acceleration(vector3: Vector3) = apply { initialAcceleration = vector3 }
+    fun damping(vector3: Vector3) = apply { initialDamping = vector3 }
+    fun velocity(vector3: Vector3) = apply { initialVelocity = vector3 }
+    fun randomizeColorBrightness(randomize: Boolean) = apply { randomizeColorBrightness = randomize }
+    fun displacement(vector3: Vector3) = apply { displacement = vector3 }
+    fun colorSupplier(supplier: ((location: Location) -> Color)? ) = apply { colorSupplier = supplier }
+    fun locationConsumer(consumer: ((location: Location) -> Unit)? ) = apply { locationConsumer = consumer }
 
-    var randomizeColorBrightness = true
-    var displacement = Vector3(.0, .0, .0)
-    abstract fun spawnParticle(location: Location)
+    protected abstract fun spawnParticle(location: Location)
 
     override fun spawn(location: Location) {
         locationConsumer?.invoke(location)

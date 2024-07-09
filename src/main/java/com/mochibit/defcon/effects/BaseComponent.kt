@@ -44,7 +44,7 @@ open class BaseComponent(val particleShape: ParticleShape): EffectComponent {
 
     var colorSupplier: ((location: Location) -> org.bukkit.Color)?
         get() = particleShape.particle.colorSupplier
-        set(value) { particleShape.particle.colorSupplier = value }
+        set(value) { particleShape.particle.colorSupplier(value)}
 
     /**
      * Apply a radial
@@ -52,12 +52,12 @@ open class BaseComponent(val particleShape: ParticleShape): EffectComponent {
     fun applyRadialVelocityFromCenter(velocity: Vector3){
         // Use the normalized direction as offset for the particle
         //particleBuilder.offset(normalized.x, particleBuilder.offsetY(), normalized.z);
-        particleShape.particle.locationConsumer = {
+        particleShape.particle.locationConsumer {
             val point = it.clone().subtract(particleShape.spawnPoint).toVector3()
             val direction = point - particleShape.center
             val normalized = direction.normalized()
             // Modify existing velocity to move directionally from the center (without overriding existing velocity)
-            particleShape.particle.initialVelocity = normalized * velocity
+            particleShape.particle.velocity(normalized * velocity)
         }
     }
 

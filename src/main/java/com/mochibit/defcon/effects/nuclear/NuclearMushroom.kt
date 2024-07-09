@@ -42,7 +42,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .withRadiusY(50.0)
                 .withYStart(-20.0),
             ExplosionDustParticle()
-                .apply { initialVelocity = Vector3(0.0, 1.0, 0.0) },
+                .velocity(Vector3(0.0, 1.0, 0.0)),
             center
         )
     ).applyHeatedSmokeColor().apply { temperatureCoolingRate = 1.0 }
@@ -57,7 +57,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .withHeightRate(1.0)
                 .hollow(false),
             ExplosionDustParticle()
-                .apply { initialVelocity = Vector3(0.0, -.5, 0.0) },
+                .velocity(Vector3(0.0, -.5, 0.0)),
             center
         ).apply {
             transform = transform.translated(Vector3(0.0, -30.0, 0.0))
@@ -72,7 +72,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .skipRadiusXZ(20.0)
                 .withYStart(-10.0),
             ExplosionDustParticle()
-                .apply { initialVelocity = Vector3(0.0, 1.0, 0.0) },
+                .velocity(Vector3(0.0, 1.0, 0.0)),
             center
         )
     ).applyHeatedSmokeColor().apply { temperatureCoolingRate = 2.0 }
@@ -85,10 +85,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .skipRadiusXZ(40.0)
                 .withYStart(-15.0),
             ExplosionDustParticle()
-                .apply {
-                    initialVelocity = Vector3(0.0, -1.0, 0.0)
-                    initialDamping = Vector3(1.0, 1.0, 1.0)
-                },
+                .velocity(Vector3(0.0, -1.0, 0.0)),
             center
         )
     ).applyHeatedSmokeColor().apply { temperatureCoolingRate = 3.0 }
@@ -115,10 +112,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .withRate(30.0)
                 .hollow(false),
             ExplosionDustParticle()
-                .apply {
-                    initialVelocity = Vector3(0.0, 2.0, 0.0)
-                    initialDamping = Vector3(1.0, 1.0, 1.0)
-                },
+                .velocity(Vector3(0.0, 2.0, 0.0)),
             center
         ).heightPredicate(this::visibleWhenLessThanCurrentHeight)
     ).applyHeatedSmokeColor().apply { temperatureCoolingRate = 4.0 }
@@ -144,9 +138,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .withRadiusZ(120.0)
                 .withRate(30.0),
             ExplosionDustParticle()
-                .apply {
-                    displacement = Vector3(.2, .3, .2)
-                },
+                .displacement(Vector3(.2, 2.0, .2)),
             center
         )
     ).apply {

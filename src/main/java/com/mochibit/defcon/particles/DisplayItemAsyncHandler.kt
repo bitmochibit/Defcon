@@ -37,6 +37,7 @@ import org.bukkit.scheduler.BukkitRunnable
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import java.util.UUID
+import kotlin.math.sqrt
 
 
 class DisplayItemAsyncHandler(
@@ -85,7 +86,78 @@ class DisplayItemAsyncHandler(
         return this
     }
 
-    private fun updatePosition() : DisplayItemAsyncHandler {
+    private fun processMovement() {
+        val initialPeriod = 10L // Initial period between updates
+        val minPeriod = 5L // Minimum period between updates
+        val maxPeriod = 20L // Maximum period between updates
+        val speedThreshold = 0.5 // Threshold to increase update frequency
+
+        object : BukkitRunnable() {
+            var runTime = 0L
+            var currentPeriod = initialPeriod
+
+            override fun run() {
+                if (runTime >= properties.maxLife) {
+                    this.cancel()
+                    return
+                }
+
+                // If there is no acceleration and damping, apply only velocity
+                if (acceleration == Vector3(0.0, 0.0, 0.0) && damping == Vector3(0.0, 0.0, 0.0)) {
+                    if (velocity != Vector3(0.0, 0.0, 0.0)) {
+                        // Update position based on velocity only
+                        loc.add(velocity.x, velocity.y, velocity.z)
+                        setTeleportDuration(currentPeriod)
+                        updatePosition()
+                    }
+                } else {
+                    // Apply acceleration and damping
+                    if (runTime < accelerationTicks) {
+                        // Apply acceleration
+                        velocity.x += acceleration.x / (20.0 / currentPeriod)
+                        velocity.y += acceleration.y / (20.0 / currentPeriod)
+                        velocity.z += acceleration.z / (20.0 / currentPeriod)
+                    }
+
+                    // Apply damping
+                    velocity.x = (velocity.x * (1 - damping.x / (20.0 / currentPeriod))).coerceAtLeast(0.0)
+                    velocity.y = (velocity.y * (1 - damping.y / (20.0 / currentPeriod))).coerceAtLeast(0.0)
+                    velocity.z = (velocity.z * (1 - damping.z / (20.0 / currentPeriod))).coerceAtLeast(0.0)
+
+                    // Update position with calculated speed factor
+                    loc.add(velocity.x, velocity.y, velocity.z)
+                    setTeleportDuration(currentPeriod)
+                    updatePosition()
+                }
+
+                // Adjust update period based on velocity and distance
+                val speed = sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z)
+                val playerDistance = players.map { it.location.distance(loc) }.minOrNull() ?: 0.0
+                currentPeriod = when {
+                    speed > speedThreshold -> minPeriod
+                    playerDistance < 10 -> initialPeriod
+                    playerDistance < 50 -> initialPeriod * 2
+                    else -> maxPeriod
+                }
+
+                runTime += currentPeriod
+            }
+        }.runTaskTimerAsynchronously(Defcon.instance, 0, initialPeriod)
+    }
+
+    private fun setTeleportDuration(period: Long) {
+        // Use teleportDuration to ensure smooth interpolation
+        val teleportDuration = period * 2 // Adjust as necessary
+        val packedItems = mutableListOf(
+        WrappedDataValue(
+            10,
+            WrappedDataWatcher.Registry.get(Int::class.javaObjectType),
+            teleportDuration.toInt()
+        ))
+        sendMetadata(packedItems)
+    }
+
+    private fun updatePosition(): DisplayItemAsyncHandler {
         val packet = PacketContainer(PacketType.Play.Server.ENTITY_TELEPORT)
         packet.integers.write(0, itemID)
         packet.doubles.write(0, loc.x)
@@ -95,41 +167,10 @@ class DisplayItemAsyncHandler(
         packet.bytes.write(1, 0.toByte())
         packet.booleans.write(0, false)
 
+
+
         sendPacket(packet)
         return this
-    }
-
-
-    private fun processMovement() {
-        if (acceleration == Vector3(0.0, 0.0, 0.0) && damping == Vector3(0.0, 0.0, 0.0)) return
-        if (velocity == Vector3(0.0, 0.0, 0.0)) return
-        object: BukkitRunnable() {
-            var runTime = 0
-            override fun run() {
-                if (runTime >= properties.maxLife) {
-                    this.cancel()
-                    return
-                }
-
-                if (runTime < accelerationTicks) {
-                    // Apply acceleration
-                    velocity.x += acceleration.x / 20
-                    velocity.y += acceleration.y / 20
-                    velocity.z += acceleration.z / 20
-                }
-                // Apply damping
-                velocity.x *= (1 - damping.x / 20).coerceAtLeast(0.0)
-                velocity.y *= (1 - damping.y / 20).coerceAtLeast(0.0)
-                velocity.z *= (1 - damping.z / 20).coerceAtLeast(0.0)
-
-                // Update position
-                loc.add(velocity.x, velocity.y, velocity.z)
-
-                updatePosition()
-
-                runTime += 1
-            }
-        }.runTaskTimerAsynchronously(Defcon.instance, 0, 1)
     }
 
 
@@ -145,10 +186,6 @@ class DisplayItemAsyncHandler(
     }
 
     private fun applyMetadata(): DisplayItemAsyncHandler {
-        val packet = PacketContainer(PacketType.Play.Server.ENTITY_METADATA)
-        packet.modifier.writeDefaults()
-        packet.integers.write(0, itemID)
-
         val brightnessValue = (properties.brightness.blockLight shl 4) or (properties.brightness.skyLight shl 20)
         val packedItems = mutableListOf(
             WrappedDataValue(
@@ -192,9 +229,7 @@ class DisplayItemAsyncHandler(
                 MinecraftReflection.getMinecraftItemStack(getItem())
             ),
         )
-
-        packet.dataValueCollectionModifier.write(0, packedItems)
-        sendPacket(packet)
+        sendMetadata(packedItems, true)
         return this
     }
 
@@ -212,6 +247,16 @@ class DisplayItemAsyncHandler(
 
         itemStack.itemMeta = itemStackMeta
         return itemStack
+    }
+
+    private fun sendMetadata(wrappedDataValues: List<WrappedDataValue>, writeDefaults : Boolean = false) {
+        val packet = PacketContainer(PacketType.Play.Server.ENTITY_METADATA)
+        packet.modifier.writeDefaults()
+        packet.integers.write(0, itemID)
+
+        packet.dataValueCollectionModifier.write(0, wrappedDataValues)
+
+        sendPacket(packet)
     }
 
     private fun sendPacket(packet: PacketContainer) {
