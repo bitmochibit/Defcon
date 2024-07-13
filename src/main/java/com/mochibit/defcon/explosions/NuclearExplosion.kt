@@ -59,8 +59,6 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         // Particle SFX
         NuclearExplosionVFX(nuclearComponent, center).instantiate(true);
 
-        return;
-
         // Send to a nearby player the flash of the explosion (radius)
         center.world.getNearbyPlayers(center, 300.0).forEach { player ->
             val playerLocation = player.location.add(0.0, 1.0, 0.0);
@@ -160,6 +158,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
         }, 0, 20);
 
+        return;
         val shockwaveRadius = nuclearComponent.blastPower * 30 * 5;
         val shockwaveHeight = nuclearComponent.blastPower * 100 * 2;
 

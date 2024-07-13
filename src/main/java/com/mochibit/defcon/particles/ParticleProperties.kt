@@ -27,7 +27,9 @@ import org.joml.Vector3f
 
 abstract class GenericParticleProperties(
     var maxLife: Long = 160,
-    var color: Color? = null)
+    var color: Color? = null,
+    var scale: Vector3f = Vector3f(1.0f, 1.0f, 1.0f),
+)
 
 /**
  * The properties of a particle.
@@ -42,7 +44,6 @@ data class DisplayParticleProperties(
     var teleportDuration: Int = 1,
 
     var translation : Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
-    var scale: Vector3f = Vector3f(1.0f, 1.0f, 1.0f),
     var rotationLeft: Quaternionf = Quaternionf(0.0, 0.0, 0.0, 1.0),
     var rotationRight: Quaternionf = Quaternionf(0.0, 0.0, 0.0, 1.0),
 

@@ -21,6 +21,7 @@ package com.mochibit.defcon.effects
 
 import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.utils.ColorUtils
+import com.mochibit.defcon.utils.Gradient
 import com.mochibit.defcon.utils.MathFunctions
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import org.bukkit.Color
@@ -42,6 +43,10 @@ class TemperatureComponent(
             field = value.coerceIn(minTemperature, maxTemperature)
         }
 
+    fun coolDown(delta : Double = 1.0) {
+        temperature -= temperatureCoolingRate * delta
+    }
+
 
     /**
      * The particle slowly cool downs to the minimum temperature, then the color will transition to black smoke
@@ -55,23 +60,11 @@ class TemperatureComponent(
     }
 
     private fun blackBodyEmission(): Color {
-        temperature -= temperatureCoolingRate
         val ratio = MathFunctions.remap(temperature, minTemperature, maxTemperature, 0.0, 1.0)
-        val scaledRatio = ratio * (temperatureEmissionGradient.size - 1)
-        val index = scaledRatio.toInt()
-        val remainder = scaledRatio - index
-
-        if (index >= temperatureEmissionGradient.size - 1)
-            return temperatureEmissionGradient.last()
-        else
-            return ColorUtils.lerpColor(
-                temperatureEmissionGradient[index],
-                temperatureEmissionGradient[index + 1],
-                remainder
-            )
+        return temperatureEmissionGradient.getColorAt(ratio)
     }
 
-    private val temperatureEmissionGradient = arrayOf(
+    private val temperatureEmissionGradient = Gradient(arrayOf(
         Color.fromRGB(31, 26, 25),
         Color.fromRGB(67, 58, 53),
         Color.fromRGB(102, 74, 66),
@@ -82,7 +75,7 @@ class TemperatureComponent(
         Color.fromRGB(241, 183, 120),
         Color.fromRGB(245, 209, 142),
         Color.fromRGB(255, 243, 170)
-    )
+    ))
 
 
 }

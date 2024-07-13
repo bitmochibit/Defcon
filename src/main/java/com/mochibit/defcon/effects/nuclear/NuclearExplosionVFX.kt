@@ -28,10 +28,10 @@ import org.bukkit.Location
 import kotlin.math.floor
 
 class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect() {
-    val maxAliveTick = 20 * 60 * 3;
+    val maxAliveTick = 20 * 60 * 3
 
-    override fun drawRate(): Int {
-        return 1;
+    override fun drawRate(): Double {
+        return .5
     }
     private val nuclearMushroom = NuclearMushroom(nuclearComponent, center)
     override fun draw() {

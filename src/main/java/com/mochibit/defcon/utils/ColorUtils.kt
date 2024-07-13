@@ -19,6 +19,7 @@
 
 package com.mochibit.defcon.utils
 
+import com.google.common.collect.ImmutableList
 import com.mochibit.defcon.utils.MathFunctions.lerp
 import net.md_5.bungee.api.ChatColor
 import org.bukkit.Color
@@ -88,4 +89,25 @@ object ColorUtils {
         return Color.fromRGB(r, g, b)
     }
 
+}
+
+data class Gradient(val colorPoints: Array<Color>) {
+    fun getColorAt(t: Double): Color {
+        if (t > 1.0) return colorPoints.last()
+        if (t < 0.0) return colorPoints.first()
+
+
+        val scaledRatio = t * (colorPoints.size - 1)
+        val index = scaledRatio.toInt()
+        val remainder = scaledRatio - index
+
+        if (index >= colorPoints.size - 1)
+            return colorPoints.last()
+        else
+            return ColorUtils.lerpColor(
+                colorPoints[index],
+                colorPoints[index + 1],
+                remainder
+            )
+    }
 }

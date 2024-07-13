@@ -154,11 +154,11 @@ class ParticleShape(
 
         for (i in vertexes.indices) {
             val point = vertexes[i].point;
-            val newLoc = Geometry.getMinY(spawnPoint.clone().add(point.x, point.y + startYOffset, point.z), maxDepth);
-            vertexes[i] = Vertex(Vector3(point.x, (newLoc.y - spawnPoint.y) + 1, point.z));
+            val newLoc = Geometry.getMinY(spawnPoint.clone().add(point.x, point.y + startYOffset, point.z), maxDepth)
+            vertexes[i] = Vertex(Vector3(point.x, (newLoc.y - spawnPoint.y) + 1, point.z))
         }
-        assign(vertexes);
-        return this;
+        assign(vertexes)
+        return this
     }
 
     fun particle(particle: Particle): ParticleShape {
@@ -169,8 +169,8 @@ class ParticleShape(
     }
 
     fun heightPredicate(predicate: Predicate<Double>): ParticleShape {
-        this.heightPredicate = predicate;
-        return this;
+        this.heightPredicate = predicate
+        return this
     }
 
 

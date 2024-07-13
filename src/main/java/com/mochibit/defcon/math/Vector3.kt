@@ -345,5 +345,15 @@ class Vector3(
         return org.bukkit.Location(world, x, y, z)
     }
 
+    operator fun component1(): Double {
+        return x
+    }
+    operator fun component2(): Double {
+        return y
+    }
+    operator fun component3(): Double {
+        return z
+    }
+
 
 }

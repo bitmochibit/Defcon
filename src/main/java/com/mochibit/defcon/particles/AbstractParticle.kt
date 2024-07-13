@@ -23,6 +23,7 @@ import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.utils.ColorUtils
 import org.bukkit.Color
 import org.bukkit.Location
+import org.joml.Vector3f
 import kotlin.random.Random
 
 abstract class AbstractParticle(val particleProperties: GenericParticleProperties) : PluginParticle {
@@ -33,28 +34,44 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     var initialAcceleration: Vector3 = Vector3(.0, .0, .0); private set
     var initialAccelerationTicks = 0; private set
     var randomizeColorBrightness = true; private set
+    var randomizeScale: Boolean = false; private set
     var displacement = Vector3(.0, .0, .0); private set
+
     fun accelerationTicks(ticks: Int) = apply { initialAccelerationTicks = ticks }
     fun acceleration(vector3: Vector3) = apply { initialAcceleration = vector3 }
     fun damping(vector3: Vector3) = apply { initialDamping = vector3 }
     fun velocity(vector3: Vector3) = apply { initialVelocity = vector3 }
     fun randomizeColorBrightness(randomize: Boolean) = apply { randomizeColorBrightness = randomize }
     fun displacement(vector3: Vector3) = apply { displacement = vector3 }
-    fun colorSupplier(supplier: ((location: Location) -> Color)? ) = apply { colorSupplier = supplier }
-    fun locationConsumer(consumer: ((location: Location) -> Unit)? ) = apply { locationConsumer = consumer }
+    fun colorSupplier(supplier: ((location: Location) -> Color)?) = apply { colorSupplier = supplier }
+    fun locationConsumer(consumer: ((location: Location) -> Unit)?) = apply { locationConsumer = consumer }
+    fun scale(scale: Vector3) = apply { particleProperties.scale = Vector3f(scale.x.toFloat(), scale.y.toFloat(), scale.z.toFloat()) }
+    fun maxLife(ticks: Long) = apply { particleProperties.maxLife = ticks }
+    fun randomizeScale(randomize: Boolean) = apply { randomizeScale = randomize}
 
     protected abstract fun spawnParticle(location: Location)
 
     override fun spawn(location: Location) {
         locationConsumer?.invoke(location)
-        if (particleProperties.color != null) {
-            var finalColor = colorSupplier?.invoke(location) ?: particleProperties.color
-            if (randomizeColorBrightness)
-                finalColor = finalColor?.let { randomizeColorBrightness(it) }
-            particleProperties.color = finalColor
+        particleProperties.color = particleProperties.color?.let { color ->
+            var finalColor = colorSupplier?.invoke(location) ?: color
+            if (randomizeColorBrightness) {
+                finalColor = randomizeColorBrightness(finalColor)
+            }
+            finalColor
         }
-        applyRandomDisplacement(displacement)
+        applyRandomScale()
+        applyRandomDisplacement()
         spawnParticle(location)
+    }
+
+    private fun applyRandomScale() {
+        if (!randomizeScale) return
+
+        // From the scale factor, generate a random scale between 1 and the factor value (inclusive)
+        val randomizedFactor = Random.nextDouble(0.9, 1.1)
+        particleProperties.scale = particleProperties.scale.mul(randomizedFactor.toFloat())
+
     }
 
     private fun randomizeColorBrightness(color: Color): Color {
@@ -63,15 +80,15 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
         else ColorUtils.lightenColor(color, Random.nextDouble(0.1, 0.2))
     }
 
-    private fun applyRandomDisplacement(displacement : Vector3 = Vector3(1.0,1.0,1.0)) {
-        val x = if (displacement.x > 0.0) Random.nextDouble(-displacement.x, displacement.x) else 0.0
-        val y = if (displacement.y > 0.0) Random.nextDouble(-displacement.y, displacement.y) else 0.0
-        val z = if (displacement.z > 0.0) Random.nextDouble(-displacement.z, displacement.z) else 0.0
-        // Randomize the velocity in a random direction
+    private fun applyRandomDisplacement() {
+        if (displacement == Vector3(.0, .0, .0)) return
+        val (x, y, z) = displacement
         initialVelocity = Vector3(
-            initialVelocity.x + x,
-            initialVelocity.y + y,
-            initialVelocity.z + z
+            initialVelocity.x + if (x != 0.0) randomDisplacement(x) else 0.0,
+            initialVelocity.y + if (y != 0.0) randomDisplacement(y) else 0.0,
+            initialVelocity.z + if (z != 0.0) randomDisplacement(z) else 0.0
         )
     }
+
+    private fun randomDisplacement(value: Double) = if (value > 0) Random.nextDouble(0.0, value) else Random.nextDouble(value, 0.0)
 }

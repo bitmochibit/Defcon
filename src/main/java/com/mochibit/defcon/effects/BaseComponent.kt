@@ -30,9 +30,11 @@ import org.bukkit.Location
  * Represents an effect component that can be added to an effect.
  */
 open class BaseComponent(val particleShape: ParticleShape): EffectComponent {
-    var emitBurstProbability = 0.8
-    var emitRate = 10
+    var emitBurstProbability = 0.8; private set
+    var emitRate = 10; private set
 
+    fun emitBurstProbability(value: Double) = apply { emitBurstProbability = value }
+    fun emitRate(value: Int) = apply { emitRate = value }
     override fun buildShape() {
         particleShape.buildAndAssign()
     }
