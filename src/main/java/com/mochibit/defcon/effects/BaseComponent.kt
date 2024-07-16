@@ -51,7 +51,7 @@ open class BaseComponent(val particleShape: ParticleShape): EffectComponent {
     /**
      * Apply a radial
      */
-    fun applyRadialVelocityFromCenter(velocity: Vector3){
+    fun applyRadialVelocityFromCenter(velocity: Vector3) = apply {
         // Use the normalized direction as offset for the particle
         //particleBuilder.offset(normalized.x, particleBuilder.offsetY(), normalized.z);
         particleShape.particle.locationConsumer {

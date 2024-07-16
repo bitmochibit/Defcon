@@ -21,20 +21,27 @@ package com.mochibit.defcon.lifecycle
 
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.threading.jobs.Schedulable
+import com.mochibit.defcon.threading.runnables.ScheduledRunnable
+import org.bukkit.Bukkit
+import org.bukkit.scheduler.BukkitTask
 
 abstract class CycledObject : Lifecycled, Schedulable {
-    private var destroyed = false;
+    private var destroyed = false
+    var task : BukkitTask? = null
+    val runnable = ScheduledRunnable()
     fun instantiate(async: Boolean) {
-        this.start();
+        this.start()
+        runnable.addWorkload(this)
         if (async) {
-            Defcon.instance.asyncRunnable.addWorkload(this);
+            task = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, runnable, 20L, 1L)
         } else {
-            Defcon.instance.scheduledRunnable.addWorkload(this);
+            Defcon.Companion.Logger.info("Not implemented")
         }
     }
     fun destroy() {
-        this.stop();
-        destroyed = true;
+        this.stop()
+        destroyed = true
+        task?.cancel()
     }
 
     override fun compute() {
@@ -42,7 +49,7 @@ abstract class CycledObject : Lifecycled, Schedulable {
     }
 
     override fun shouldBeRescheduled(): Boolean {
-        return !destroyed;
+        return !destroyed
     }
 
 

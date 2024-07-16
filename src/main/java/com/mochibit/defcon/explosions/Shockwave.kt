@@ -37,9 +37,9 @@ class Shockwave(val center: Location, val shockwaveRadiusStart: Double, val shoc
             if (radius % (1.5*ceil(explosionPower/6)).roundToInt() != 0)
                 continue;
 
-            Defcon.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(radius) {
+            Defcon.instance.syncRunnable.addWorkload(SimpleCompositionJob(radius) {
                 for (column in shockwaveCyl(radius.toDouble(), explosionPower.toFloat())) {
-                    Defcon.instance.scheduledRunnable.addWorkload(SimpleCompositionJob(column) {
+                    Defcon.instance.syncRunnable.addWorkload(SimpleCompositionJob(column) {
                         column.explode()
                     })
                 }

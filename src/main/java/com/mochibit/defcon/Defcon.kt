@@ -32,12 +32,14 @@ import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import io.papermc.lib.PaperLib
 import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 
 class Defcon : JavaPlugin() {
 
     // This whole stuff will be moved, this is just for testing
-    val scheduledRunnable: ScheduledRunnable = ScheduledRunnable()
-    val asyncRunnable: ScheduledRunnable = ScheduledRunnable()
+    val syncRunnable = ScheduledRunnable()
 
     override fun onLoad() {
         instance = this
@@ -78,8 +80,8 @@ class Defcon : JavaPlugin() {
         // (for now they are processed sequentially)
 
 
-        Bukkit.getScheduler().runTaskTimer(this, this.scheduledRunnable, 0L, 1L);
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this, this.asyncRunnable, 0L, 1L);
+        Bukkit.getScheduler().runTaskTimer(this, this.syncRunnable, 0L, 1L)
+
 
 
         //TODO: Refactor
@@ -97,7 +99,7 @@ class Defcon : JavaPlugin() {
                     Bukkit.getPluginManager().callEvent(geigerDetectEvent)
 
                     for (radiationArea in radiationAreas) {
-                        if (radiationArea.radiationLevel < 3.0) continue;
+                        if (radiationArea.radiationLevel < 3.0) continue
                         val radSuffocateEvent = RadiationSuffocationEvent(player, radiationArea)
                         Bukkit.getPluginManager().callEvent(radSuffocateEvent)
                         if (radSuffocateEvent.isCancelled()) {
@@ -148,7 +150,7 @@ class Defcon : JavaPlugin() {
     }
 
     companion object {
-        lateinit var instance: Defcon;
+        lateinit var instance: Defcon
 
         var namespace = "defcon"
 

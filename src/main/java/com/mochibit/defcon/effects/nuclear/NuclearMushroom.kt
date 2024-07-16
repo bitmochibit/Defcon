@@ -19,6 +19,7 @@
 
 package com.mochibit.defcon.effects.nuclear
 
+import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.effects.BaseComponent
 import com.mochibit.defcon.effects.CompoundComponent
 import com.mochibit.defcon.effects.TemperatureComponent
@@ -28,6 +29,8 @@ import com.mochibit.defcon.particles.ExplosionDustParticle
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
+import org.bukkit.Bukkit
+import org.bukkit.Color
 import org.bukkit.Location
 
 class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : CompoundComponent() {
@@ -54,7 +57,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .withRadiusXZ(50.0)
                 .withRadiusY(50.0),
             ExplosionDustParticle()
-                .scale(Vector3(12.0,12.0,12.0))
+                .scale(Vector3(12.0, 12.0, 12.0))
                 .velocity(Vector3(0.0, 1.3, 0.0)),
             center
         )
@@ -67,11 +70,11 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .withRadiusXZ(70.0)
                 .withRadiusY(70.0),
             ExplosionDustParticle()
-                .scale(Vector3(14.0,14.0,14.0))
+                .scale(Vector3(14.0, 14.0, 14.0))
                 .velocity(Vector3(0.0, 1.2, 0.0)),
             center
         )
-    ).applyHeatedSmokeColor().apply { temperatureCoolingRate = 110.0}
+    ).applyHeatedSmokeColor().apply { temperatureCoolingRate = 110.0 }
 
     val quaterniaryCloud = TemperatureComponent(
         ParticleShape(
@@ -80,7 +83,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .withRadiusXZ(90.0)
                 .withRadiusY(60.0),
             ExplosionDustParticle()
-                .scale(Vector3(15.0,15.0,15.0))
+                .scale(Vector3(15.0, 15.0, 15.0))
                 .velocity(Vector3(0.0, -.8, 0.0)),
             center
         )
@@ -105,7 +108,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
         ).apply {
             transform = transform.translated(Vector3(0.0, -30.0, 0.0))
         }
-    ).applyHeatedSmokeColor().apply { temperatureCoolingRate = 95.0}
+    ).applyHeatedSmokeColor().apply { temperatureCoolingRate = 95.0 }
 
     val primaryNeck = TemperatureComponent(
         ParticleShape(
@@ -129,7 +132,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .withRate(30.0)
                 .hollow(false),
             ExplosionDustParticle()
-                .scale(Vector3(11.0,11.0,11.0))
+                .scale(Vector3(11.0, 11.0, 11.0))
                 .velocity(Vector3(0.0, 2.0, 0.0)),
             center
         ).heightPredicate(this::visibleWhenLessThanCurrentHeight)
@@ -144,8 +147,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .withRate(32.0)
                 .hollow(false),
             ExplosionDustParticle()
-                .velocity(Vector3(0.0, 1.0, 0.0))
-            ,
+                .velocity(Vector3(0.0, 1.0, 0.0)),
             center
         )
     ).applyHeatedSmokeColor().apply { temperatureCoolingRate = 175.0 }
@@ -156,7 +158,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .withRadiusXZ(200.0)
                 .withRadiusY(1.0),
             ExplosionDustParticle()
-                .scale(Vector3(14.0,14.0,14.0))
+                .scale(Vector3(14.0, 14.0, 14.0))
                 .displacement(Vector3(.0, .5, .0)),
             center
         ).snapToFloor(10.0, 50.0)
@@ -167,20 +169,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
         emitRate(25)
     }
 
-    val condensationCloud = BaseComponent(
-        ParticleShape(
-            SphereBuilder()
-                .withRadiusXZ(20.0)
-                .withRadiusY(20.0)
-                .withDensity(1.0)
-                .withYStart(-10.0)
-                .withYEnd(20.0)
-                .hollow(true)
-                .ignoreBottomSurface(true),
-            ExplosionDustParticle(),
-            center
-        )
-    )
+
 
     init {
         components = arrayOf(
@@ -193,7 +182,6 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
             stem,
             foot,
             nuclearFog,
-            //condensationCloud
         )
     }
 
@@ -215,6 +203,9 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
         //condensationCloud.temperature -= delta;
     }
 
+
+
+
     private fun processRise(delta: Double) {
         if (currentHeight > maxHeight) return;
         val deltaMovement = riseSpeed * delta;
@@ -226,13 +217,16 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
         quaterniaryCloud.transform = quaterniaryCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
         //primaryNeck.transform = primaryNeck.transform.translated(Vector3(0.0, deltaMovement, 0.0));
 
-        //condensationCloud.transform = condensationCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+
 
         currentHeight += deltaMovement;
     }
 
-    fun visibleWhenLessThanCurrentHeight(value: Double): Boolean {
+    private fun visibleWhenLessThanCurrentHeight(value: Double): Boolean {
         return value < currentHeight - 5;
     }
+
+
+
 
 }

@@ -39,12 +39,26 @@ import org.joml.Vector3f
 import java.util.UUID
 import kotlin.math.sqrt
 
+enum class RegistryName {
+    Vector3f, Quatenionf, Byte, Int, Float, ItemStack
+}
 
 class DisplayItemAsyncHandler(
     val loc: Location,
     val players: MutableCollection<out Player>,
     val properties: DisplayParticleProperties
 ) {
+    companion object {
+
+        val cachedSerializers = mutableMapOf<RegistryName, WrappedDataWatcher.Serializer>(
+            RegistryName.Vector3f to WrappedDataWatcher.Registry.get(Vector3f::class.java),
+            RegistryName.Quatenionf to WrappedDataWatcher.Registry.get(Quaternionf::class.java),
+            RegistryName.Byte to WrappedDataWatcher.Registry.get(Byte::class.javaObjectType),
+            RegistryName.Int to WrappedDataWatcher.Registry.get(Int::class.javaObjectType),
+            RegistryName.Float to WrappedDataWatcher.Registry.get(Float::class.javaObjectType),
+            RegistryName.ItemStack to WrappedDataWatcher.Registry.getItemStackSerializer(false)
+        )
+    }
     /**
      * The random ID of the display item. It is a Variable-length data encoding a two's complement signed 32-bit integer;
      */
@@ -190,42 +204,42 @@ class DisplayItemAsyncHandler(
         val packedItems = mutableListOf(
             WrappedDataValue(
                 8,
-                WrappedDataWatcher.Registry.get(Int::class.javaObjectType),
+                cachedSerializers.get(RegistryName.Int),
                 properties.interpolationDelay
             ),
             WrappedDataValue(
                 9,
-                WrappedDataWatcher.Registry.get(Int::class.javaObjectType),
+                cachedSerializers.get(RegistryName.Int),
                 properties.interpolationDuration
             ),
             WrappedDataValue(
                 10,
-                WrappedDataWatcher.Registry.get(Int::class.javaObjectType),
+                cachedSerializers.get(RegistryName.Int),
                 properties.teleportDuration
             ),
-            WrappedDataValue(11, WrappedDataWatcher.Registry.get(Vector3f::class.java), properties.translation),
-            WrappedDataValue(12, WrappedDataWatcher.Registry.get(Vector3f::class.java), properties.scale),
-            WrappedDataValue(13, WrappedDataWatcher.Registry.get(Quaternionf::class.java), properties.rotationLeft),
-            WrappedDataValue(14, WrappedDataWatcher.Registry.get(Quaternionf::class.java), properties.rotationRight),
+            WrappedDataValue(11, cachedSerializers.get(RegistryName.Vector3f), properties.translation),
+            WrappedDataValue(12, cachedSerializers.get(RegistryName.Vector3f), properties.scale),
+            WrappedDataValue(13, cachedSerializers.get(RegistryName.Quatenionf), properties.rotationLeft),
+            WrappedDataValue(14, cachedSerializers.get(RegistryName.Quatenionf), properties.rotationRight),
             WrappedDataValue(
                 15,
-                WrappedDataWatcher.Registry.get(Byte::class.javaObjectType),
+                cachedSerializers.get(RegistryName.Byte),
                 properties.billboard.ordinal.toByte()
             ),
-            WrappedDataValue(16, WrappedDataWatcher.Registry.get(Int::class.javaObjectType), brightnessValue),
-            WrappedDataValue(17, WrappedDataWatcher.Registry.get(Float::class.javaObjectType), properties.viewRange),
-            WrappedDataValue(18, WrappedDataWatcher.Registry.get(Float::class.javaObjectType), properties.shadowRadius),
+            WrappedDataValue(16, cachedSerializers.get(RegistryName.Int), brightnessValue),
+            WrappedDataValue(17, cachedSerializers.get(RegistryName.Float), properties.viewRange),
+            WrappedDataValue(18, cachedSerializers.get(RegistryName.Float), properties.shadowRadius),
             WrappedDataValue(
                 19,
-                WrappedDataWatcher.Registry.get(Float::class.javaObjectType),
+                cachedSerializers.get(RegistryName.Float),
                 properties.shadowStrength
             ),
-            WrappedDataValue(20, WrappedDataWatcher.Registry.get(Float::class.javaObjectType), properties.width),
-            WrappedDataValue(21, WrappedDataWatcher.Registry.get(Float::class.javaObjectType), properties.height),
+            WrappedDataValue(20, cachedSerializers.get(RegistryName.Float), properties.width),
+            WrappedDataValue(21, cachedSerializers.get(RegistryName.Float), properties.height),
 
             WrappedDataValue(
                 23,
-                WrappedDataWatcher.Registry.getItemStackSerializer(false),
+                cachedSerializers.get(RegistryName.ItemStack),
                 MinecraftReflection.getMinecraftItemStack(getItem())
             ),
         )

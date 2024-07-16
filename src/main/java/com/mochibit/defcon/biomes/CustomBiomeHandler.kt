@@ -38,7 +38,7 @@ class CustomBiomeHandler {
 
             val key = biome.biomeKey
 
-            Defcon.instance.scheduledRunnable.addWorkload(
+            Defcon.instance.syncRunnable.addWorkload(
                 SimpleCompositionJob(key) {
                     for (x in minX until maxX) {
                         for (y in 55 until chunk.world.maxHeight) {

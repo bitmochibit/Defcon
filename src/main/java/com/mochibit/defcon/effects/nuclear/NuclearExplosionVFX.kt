@@ -34,50 +34,20 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         return .5
     }
     private val nuclearMushroom = NuclearMushroom(nuclearComponent, center)
+    private val condensationCloudVFX = CondensationCloudVFX(nuclearComponent, center)
     override fun draw() {
         nuclearMushroom.emit()
     }
     override fun animate(delta: Double) {
         nuclearMushroom.processEffects(delta, tickAlive)
         if (tickAlive > maxAliveTick)
-            this.destroy();
+            this.destroy()
     }
-
-//    private fun stretchCondensationCloud(delta: Double) {
-//        if (tickAlive % 40 != 0) return
-//        val condensationCloudBuilder = (condensationCloud.shapeBuilder as SphereBuilder)
-//
-//        val currentRadiusXZ = condensationCloudBuilder.getRadiusXZ()
-//        if (currentRadiusXZ > 150) return
-//
-//        val currentRadiusY = condensationCloudBuilder.getRadiusY()
-//
-//        condensationCloudBuilder.withRadiusXZ(currentRadiusXZ + 15.0)
-//        condensationCloudBuilder.withRadiusY(currentRadiusY + 20.0)
-//        condensationCloud.buildAndAssign()
-//    }
-
-
 
     override fun start() {
         nuclearMushroom.buildShape()
+        condensationCloudVFX.instantiate(true)
     }
 
-    override fun stop() {
-        // Nothing to do here
-    }
-
-    fun stripesHeight(value: Double): Boolean {
-        // Every 10 blocks show 20 blocks of stripes
-        return value % 20 < 10;
-    }
-
-    fun stripesWidth(value: Double): Boolean {
-        // Every 5 blocks show 1 blocks of stripes
-        return floor(value) % 5 < 1;
-    }
-
-
-
-
+    override fun stop() {}
 }

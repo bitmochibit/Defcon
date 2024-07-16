@@ -30,4 +30,5 @@ open class CompoundComponent : EffectComponent {
     override fun buildShape() {
         components.forEach { it.buildShape() }
     }
+
 }

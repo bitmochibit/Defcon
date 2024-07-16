@@ -168,9 +168,16 @@ class ParticleShape(
         return this;
     }
 
-    fun heightPredicate(predicate: Predicate<Double>): ParticleShape {
+    fun heightPredicate(predicate: Predicate<Double>) = apply {
         this.heightPredicate = predicate
-        return this
+    }
+
+    fun xPredicate(predicate: Predicate<Double>) = apply {
+        this.xPredicate = predicate
+    }
+
+    fun zPredicate(predicate: Predicate<Double>) = apply {
+        this.zPredicate = predicate
     }
 
 
