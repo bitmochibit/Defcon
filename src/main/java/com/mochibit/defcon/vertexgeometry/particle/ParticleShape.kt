@@ -73,17 +73,19 @@ class ParticleShape(
             transformedCenter = value.xform(center);
         }
 
+    // Refactor : To use lambdas
     private var heightPredicate: Predicate<Double>? = null
     private var xPredicate: Predicate<Double>? = null
     private var zPredicate: Predicate<Double>? = null
+    private var xzPredicate: ((Double, Double) -> Boolean)? = null
 
     private var velocity = Vector3.ZERO
 
     // Shape methods
 
     fun randomDraw(chance: Double = 0.8, repetitions: Int = 10) {
-        if (!visible) return;
-        if (particleVertixes.isEmpty()) return;
+        if (!visible) return
+        if (particleVertixes.isEmpty()) return
         // Call draw (emitter), get a random vertex and draw it a random number of times consecutively
         val randomCount = Random.nextInt(1, repetitions) * (if (Random.nextDouble() < chance) 1 else 0);
         for (i in 0 until randomCount) {
@@ -93,22 +95,17 @@ class ParticleShape(
     }
 
     fun draw(particleVertex: ParticleVertex) {
-        if (!visible) return;
+        if (!visible) return
+        val transformedVertex = particleVertex.vertex.transformedPoint
+        if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y)) return
+        if (xPredicate != null && !xPredicate!!.test(transformedVertex.x)) return
+        if (zPredicate != null && !zPredicate!!.test(transformedVertex.z)) return
+        if (xzPredicate != null && !xzPredicate!!.invoke(transformedVertex.x, transformedVertex.z)) return
+
         // Treat particles vertexes as particle emitters
-        val transformedVertex = particleVertex.vertex.transformedPoint;
         val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)
-
-        if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y))
-            return
-
-        if (xPredicate != null && !xPredicate!!.test(transformedVertex.x))
-            return
-
-        if (zPredicate != null && !zPredicate!!.test(transformedVertex.z))
-            return;
-
-        particle.spawn(currentLoc);
-        particleVertex.spawnTime = System.currentTimeMillis();
+        particle.spawn(currentLoc)
+        particleVertex.spawnTime = System.currentTimeMillis()
     }
 
     fun buildAndAssign(): ParticleShape {
@@ -178,6 +175,10 @@ class ParticleShape(
 
     fun zPredicate(predicate: Predicate<Double>) = apply {
         this.zPredicate = predicate
+    }
+
+    fun xzPredicate(predicate: (Double, Double) -> Boolean) = apply {
+        this.xzPredicate = predicate
     }
 
 
