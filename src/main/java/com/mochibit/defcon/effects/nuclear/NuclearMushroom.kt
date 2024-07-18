@@ -135,7 +135,7 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .scale(Vector3(11.0, 11.0, 11.0))
                 .velocity(Vector3(0.0, 2.0, 0.0)),
             center
-        ).heightPredicate(this::visibleWhenLessThanCurrentHeight)
+        ).yPredicate(this::visibleWhenLessThanCurrentHeight)
     ).applyHeatedSmokeColor().apply { temperatureCoolingRate = 140.0 }
 
     val foot = TemperatureComponent(

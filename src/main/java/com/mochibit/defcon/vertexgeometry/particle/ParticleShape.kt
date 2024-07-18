@@ -73,16 +73,9 @@ class ParticleShape(
             transformedCenter = value.xform(center);
         }
 
-    // Refactor : To use lambdas
-    private var heightPredicate: Predicate<Double>? = null
-    private var xPredicate: Predicate<Double>? = null
-    private var zPredicate: Predicate<Double>? = null
     private var xzPredicate: ((Double, Double) -> Boolean)? = null
-
-    private var velocity = Vector3.ZERO
-
+    private var yPredicate: ((Double) -> Boolean)? = null
     // Shape methods
-
     fun randomDraw(chance: Double = 0.8, repetitions: Int = 10) {
         if (!visible) return
         if (particleVertixes.isEmpty()) return
@@ -97,11 +90,8 @@ class ParticleShape(
     fun draw(particleVertex: ParticleVertex) {
         if (!visible) return
         val transformedVertex = particleVertex.vertex.transformedPoint
-        if (heightPredicate != null && !heightPredicate!!.test(transformedVertex.y)) return
-        if (xPredicate != null && !xPredicate!!.test(transformedVertex.x)) return
-        if (zPredicate != null && !zPredicate!!.test(transformedVertex.z)) return
         if (xzPredicate != null && !xzPredicate!!.invoke(transformedVertex.x, transformedVertex.z)) return
-
+        if (yPredicate != null && !yPredicate!!.invoke(transformedVertex.y)) return
         // Treat particles vertexes as particle emitters
         val currentLoc = spawnPoint.clone().add(transformedVertex.x, transformedVertex.y, transformedVertex.z)
         particle.spawn(currentLoc)
@@ -158,25 +148,9 @@ class ParticleShape(
         return this
     }
 
-    fun particle(particle: Particle): ParticleShape {
-        //this.particle = particle;
-        //particleBuilder.data(null)
-        //particleBuilder.particle(particle)
-        return this;
+    fun yPredicate(predicate: (Double) -> Boolean) = apply {
+        this.yPredicate = predicate
     }
-
-    fun heightPredicate(predicate: Predicate<Double>) = apply {
-        this.heightPredicate = predicate
-    }
-
-    fun xPredicate(predicate: Predicate<Double>) = apply {
-        this.xPredicate = predicate
-    }
-
-    fun zPredicate(predicate: Predicate<Double>) = apply {
-        this.zPredicate = predicate
-    }
-
     fun xzPredicate(predicate: (Double, Double) -> Boolean) = apply {
         this.xzPredicate = predicate
     }
