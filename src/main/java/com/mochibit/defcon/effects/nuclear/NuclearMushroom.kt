@@ -38,6 +38,8 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
     var currentHeight = 0.0
     var riseSpeed = 5.0
 
+    val visibleWhenLessThanCurrentHeight = { value: Double -> value < currentHeight - 5 }
+
     val coreCloud = TemperatureComponent(
         particleShape = ParticleShape(
             SphereBuilder()
@@ -135,7 +137,8 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
                 .scale(Vector3(11.0, 11.0, 11.0))
                 .velocity(Vector3(0.0, 2.0, 0.0)),
             center
-        ).yPredicate(this::visibleWhenLessThanCurrentHeight)
+        )
+            .yPredicate(visibleWhenLessThanCurrentHeight)
     ).applyHeatedSmokeColor().apply { temperatureCoolingRate = 140.0 }
 
     val foot = TemperatureComponent(
@@ -222,9 +225,6 @@ class NuclearMushroom(nuclearComponent: NuclearComponent, center: Location) : Co
         currentHeight += deltaMovement;
     }
 
-    private fun visibleWhenLessThanCurrentHeight(value: Double): Boolean {
-        return value < currentHeight - 5;
-    }
 
 
 

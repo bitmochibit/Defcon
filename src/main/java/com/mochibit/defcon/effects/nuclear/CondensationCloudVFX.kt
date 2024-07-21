@@ -31,12 +31,22 @@ import org.bukkit.Color
 import org.bukkit.Location
 import kotlin.math.abs
 
+
+// TODO: Major refactor this whole system to a ECS for better scalability
+
 class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect() {
     val maxAliveTick = 20 * 60
-    var riseSpeed = 7.0
+    var riseSpeed = 4.0
 
-    var currentRadius = 30.0
+    var currentRadius = 100.0
     val ringWidth = 30.0
+
+    private val showOnlyRadiusPredicate : (Double, Double) -> Boolean = { x,z ->
+        val distSquared = x * x + z * z
+        val innerRadius = currentRadius - ringWidth
+        val outerRadius = currentRadius + ringWidth
+        distSquared >= innerRadius * innerRadius && distSquared <= outerRadius * outerRadius
+    }
 
     override fun drawRate(): Double {
         return .5
@@ -53,28 +63,49 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
             },
             center
         )
-            .xzPredicate { x,z ->
-                val distSquared = x * x + z * z
-                val innerRadius = currentRadius - ringWidth
-                val outerRadius = currentRadius + ringWidth
-                distSquared >= innerRadius * innerRadius && distSquared <= outerRadius * outerRadius
-            }
+            .xzPredicate(showOnlyRadiusPredicate)
     ).apply {
         transform = transform.translated(Vector3(0.0, 30.0, 0.0))
         applyRadialVelocityFromCenter(Vector3(4.0, 0.0, 4.0))
         emitRate(20)
     }
 
+    private val secondaryCondensationCloud = BaseComponent(
+        ParticleShape(
+            SphereBuilder()
+                .withRadiusXZ(400.0)
+                .withRadiusY(1.0),
+            ExplosionDustParticle().apply {
+                scale(Vector3(30.0, 30.0, 30.0))
+                particleProperties.color = Color.fromRGB(255, 255, 255)
+            },
+            center
+        )
+            .xzPredicate (showOnlyRadiusPredicate)
+    ).apply {
+        transform = transform.translated(Vector3(0.0, 90.0, 0.0))
+        applyRadialVelocityFromCenter(Vector3(4.0, 0.0, 4.0))
+        emitRate(20)
+    }
+
     override fun draw() {
-        condensationCloud.emit()
+        if (tickAlive > 20 * 20)
+            condensationCloud.emit()
+
+        if (tickAlive > 20 * 35)
+            secondaryCondensationCloud.emit()
     }
 
     override fun animate(delta: Double) {
-        val deltaMovement = riseSpeed * delta
-        condensationCloud.transform = condensationCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0))
+        if (tickAlive > 20 * 20) {
+            val deltaMovement = riseSpeed * delta
+            condensationCloud.transform = condensationCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0))
+            currentRadius += deltaMovement
 
-        currentRadius += deltaMovement
-
+            if (tickAlive > 20 * 35) {
+                secondaryCondensationCloud.transform = secondaryCondensationCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0))
+            }
+        }
         if (tickAlive > maxAliveTick)
             this.destroy()
     }
