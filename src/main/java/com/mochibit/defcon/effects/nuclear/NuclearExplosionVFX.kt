@@ -36,11 +36,11 @@ import kotlin.math.floor
 
 class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val center: Location)
     : AnimatedEffect(.5) {
-    val maxAliveTick = 20 * 60 * 3
-    val maxHeight = 250.0
-    var currentHeight = 0.0
-    var riseSpeed = 5.0
-    val visibleWhenLessThanCurrentHeight = { value: Double -> value < currentHeight - 5 }
+    private val maxAliveTick = 20 * 60 * 3
+    private val maxHeight = 250.0
+    private var currentHeight = 0.0
+    private var riseSpeed = 5.0
+    private val visibleWhenLessThanCurrentHeight = { value: Double -> value < currentHeight - 5 }
 
     private val condensationCloudVFX = CondensationCloudVFX(nuclearComponent, center)
     private val coreCloud : ParticleComponent = ParticleComponent(
@@ -183,7 +183,9 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         condensationCloudVFX.instantiate(true)
     }
 
-    override fun stop() {}
+    override fun stop() {
+        condensationCloudVFX.destroy()
+    }
 
 
     private fun processEffects(delta: Double) {
