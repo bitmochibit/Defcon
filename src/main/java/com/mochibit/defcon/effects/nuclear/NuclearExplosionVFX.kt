@@ -34,16 +34,14 @@ import org.bukkit.Color
 import org.bukkit.Location
 import kotlin.math.floor
 
-class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val center: Location)
-    : AnimatedEffect(.5) {
-    private val maxAliveTick = 20 * 60 * 3
+class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect(.5, 3600) {
     private val maxHeight = 250.0
     private var currentHeight = 0.0
     private var riseSpeed = 5.0
     private val visibleWhenLessThanCurrentHeight = { value: Double -> value < currentHeight - 5 }
 
     private val condensationCloudVFX = CondensationCloudVFX(nuclearComponent, center)
-    private val coreCloud : ParticleComponent = ParticleComponent(
+    private val coreCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             SphereBuilder()
                 .withRadiusXZ(30.0)
@@ -54,7 +52,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         ),
         TemperatureComponent(temperatureCoolingRate = 100.0)
     )
-    private val secondaryCloud : ParticleComponent = ParticleComponent(
+    private val secondaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             SphereBuilder()
                 .skipRadiusXZ(30.0)
@@ -67,7 +65,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         ),
         TemperatureComponent(temperatureCoolingRate = 105.0)
     )
-    private val tertiaryCloud : ParticleComponent = ParticleComponent(
+    private val tertiaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             SphereBuilder()
                 .skipRadiusXZ(50.0)
@@ -80,7 +78,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         ),
         TemperatureComponent(temperatureCoolingRate = 110.0)
     )
-    private val quaterniaryCloud : ParticleComponent = ParticleComponent(
+    private val quaterniaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             SphereBuilder()
                 .skipRadiusXZ(70.0)
@@ -92,11 +90,9 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 115.0)
-    ).apply {
-        transform = transform.translated(Vector3(0.0, -5.0, 0.0))
-        emitRate(15)
-    }
-    private val coreNeck : ParticleComponent = ParticleComponent(
+    ).translate(Vector3(0.0, -5.0, 0.0)).emitRate(15)
+
+    private val coreNeck: ParticleComponent = ParticleComponent(
         ParticleShape(
             CylinderBuilder()
                 .withHeight(60.0)
@@ -110,10 +106,9 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 95.0)
-    ).apply {
-        transform = transform.translated(Vector3(0.0, -30.0, 0.0))
-    }
-    private val stem : ParticleComponent = ParticleComponent(
+    ).translate(Vector3(0.0, -30.0, 0.0))
+
+    private val stem: ParticleComponent = ParticleComponent(
         ParticleShape(
             CylinderBuilder()
                 .withHeight(maxHeight)
@@ -128,7 +123,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         ).yPredicate(visibleWhenLessThanCurrentHeight),
         TemperatureComponent(temperatureCoolingRate = 140.0)
     )
-    private val foot : ParticleComponent = ParticleComponent(
+    private val foot: ParticleComponent = ParticleComponent(
         ParticleShape(
             CylinderBuilder()
                 .withHeight(15.0)
@@ -142,7 +137,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         ),
         TemperatureComponent(temperatureCoolingRate = 175.0)
     )
-    private val nuclearFog : ParticleComponent = ParticleComponent(
+    private val nuclearFog: ParticleComponent = ParticleComponent(
         ParticleShape(
             SphereBuilder()
                 .withRadiusXZ(200.0)
@@ -159,7 +154,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     }
 
     init {
-        effectComponents = arrayOf(
+        effectComponents = mutableListOf(
             coreCloud,
             secondaryCloud,
             tertiaryCloud,
@@ -175,35 +170,33 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 
     override fun animate(delta: Double) {
         processEffects(delta)
-        if (tickAlive > maxAliveTick)
-            this.destroy()
     }
 
     override fun start() {
+        super.start()
         condensationCloudVFX.instantiate(true)
     }
 
     override fun stop() {
+        super.stop()
         condensationCloudVFX.destroy()
     }
-
 
     private fun processEffects(delta: Double) {
         processRise(delta)
     }
 
     private fun processRise(delta: Double) {
-        if (currentHeight > maxHeight) return;
-        val deltaMovement = riseSpeed * delta;
+        if (currentHeight > maxHeight) return
+        val deltaMovement = riseSpeed * delta
         // Elevate the sphere using transform translation
-        coreCloud.transform = coreCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
-        coreNeck.transform = coreNeck.transform.translated(Vector3(0.0, deltaMovement, 0.0));
-        secondaryCloud.transform = secondaryCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
-        tertiaryCloud.transform = tertiaryCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
-        quaterniaryCloud.transform = quaterniaryCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+        coreCloud.translate(Vector3(0.0, deltaMovement, 0.0))
+        coreNeck.translate(Vector3(0.0, deltaMovement, 0.0))
+        secondaryCloud.translate(Vector3(0.0, deltaMovement, 0.0))
+        tertiaryCloud.translate(Vector3(0.0, deltaMovement, 0.0))
+        quaterniaryCloud.translate(Vector3(0.0, deltaMovement, 0.0))
         //primaryNeck.transform = primaryNeck.transform.translated(Vector3(0.0, deltaMovement, 0.0));
-
-        currentHeight += deltaMovement;
+        currentHeight += deltaMovement
     }
 
 }

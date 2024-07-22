@@ -19,26 +19,36 @@
 
 package com.mochibit.defcon.effects
 
+import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.extensions.toVector3
-import com.mochibit.defcon.lifecycle.CycledObject
 import com.mochibit.defcon.lifecycle.Lifecycled
 import com.mochibit.defcon.math.Transform3D
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
-import org.bukkit.Location
+import org.bukkit.Bukkit
 
 /**
  * Represents an effect component that can be added to an effect.
  */
 open class ParticleComponent(
     private val particleShape: ParticleShape,
-    colorSuppliable : ColorSuppliable? = null
-): EffectComponent {
+    colorSuppliable: ColorSuppliable? = null
+) : EffectComponent {
     var emitBurstProbability = 0.8; private set
     var emitRate = 10; private set
     fun emitBurstProbability(value: Double) = apply { emitBurstProbability = value }
     fun emitRate(value: Int) = apply { emitRate = value }
-    private var lifeCycledSuppliable : Lifecycled? = null
+    private var lifeCycledSuppliable: Lifecycled? = null
+    var transform: Transform3D
+        get() = particleShape.transform
+        private set(value) { particleShape.transform = value }
+    fun transform(transform: Transform3D) = apply { this.transform = transform }
+
+    var visible: Boolean
+        get() = particleShape.visible
+        set(value) {
+            particleShape.visible(value)
+        }
 
     init {
         colorSuppliable?.let { particleShape.particle.colorSupplier(it.colorSupplier) }
@@ -47,9 +57,24 @@ open class ParticleComponent(
         }
     }
 
-    var transform : Transform3D
-        get() = particleShape.transform
-        set(value) { particleShape.transform = value }
+    /**
+     * Set the shape visibility after a delay
+     * @param visible The visibility state
+     * @param delay The delay in ticks
+     */
+    fun setVisibilityAfterDelay(visible: Boolean, delay: Long) = apply {
+        Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
+            particleShape.visible(visible)
+        }, delay)
+    }
+
+    fun translate(translation: Vector3) = apply {
+        transform = transform.translated(translation)
+    }
+
+    fun rotate(axis: Vector3, angle: Double) = apply {
+        transform = transform.rotated(axis, angle)
+    }
 
     /**
      * Apply a radial

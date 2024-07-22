@@ -56,10 +56,10 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
                 particleProperties.color = Color.fromRGB(255, 255, 255)
             },
             center
-        )
-            .xzPredicate(showOnlyRadiusPredicate)
-    ).apply {
-        transform = transform.translated(Vector3(0.0, 30.0, 0.0))
+        ).xzPredicate(showOnlyRadiusPredicate)
+    )
+        .translate(Vector3(0.0, 30.0, 0.0))
+        .apply {
         applyRadialVelocityFromCenter(Vector3(4.0, 0.0, 4.0))
         emitRate(20)
     }
@@ -76,27 +76,26 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
             center
         )
             .xzPredicate (showOnlyRadiusPredicate)
-    ).apply {
-        transform = transform.translated(Vector3(0.0, 90.0, 0.0))
+    )
+        .translate(Vector3(0.0, 90.0, 0.0))
+        .apply {
         applyRadialVelocityFromCenter(Vector3(4.0, 0.0, 4.0))
         emitRate(20)
     }
 
     init {
-        effectComponents = arrayOf(
-            condensationCloud,
-            secondaryCondensationCloud
-        )
+        effectComponents.add(condensationCloud)
+        effectComponents.add(secondaryCondensationCloud)
     }
 
     override fun animate(delta: Double) {
         if (tickAlive > 20 * 20) {
             val deltaMovement = riseSpeed * delta
-            condensationCloud.transform = condensationCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0))
+            condensationCloud.translate(Vector3(0.0, deltaMovement, 0.0))
             currentRadius += deltaMovement
 
             if (tickAlive > 20 * 35) {
-                secondaryCondensationCloud.transform = secondaryCondensationCloud.transform.translated(Vector3(0.0, deltaMovement, 0.0))
+                secondaryCondensationCloud.translate(Vector3(0.0, deltaMovement, 0.0))
             }
         }
         if (tickAlive > maxAliveTick)
