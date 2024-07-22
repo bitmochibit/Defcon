@@ -20,33 +20,36 @@
 package com.mochibit.defcon.effects
 
 import com.mochibit.defcon.extensions.toVector3
+import com.mochibit.defcon.lifecycle.CycledObject
+import com.mochibit.defcon.lifecycle.Lifecycled
 import com.mochibit.defcon.math.Transform3D
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
-import org.bukkit.Effect
 import org.bukkit.Location
 
 /**
  * Represents an effect component that can be added to an effect.
  */
-open class BaseComponent(val particleShape: ParticleShape): EffectComponent {
+open class ParticleComponent(
+    private val particleShape: ParticleShape,
+    colorSuppliable : ColorSuppliable? = null
+): EffectComponent {
     var emitBurstProbability = 0.8; private set
     var emitRate = 10; private set
-
     fun emitBurstProbability(value: Double) = apply { emitBurstProbability = value }
     fun emitRate(value: Int) = apply { emitRate = value }
-    override fun buildShape() {
-        particleShape.buildAndAssign()
+    private var lifeCycledSuppliable : Lifecycled? = null
+
+    init {
+        colorSuppliable?.let { particleShape.particle.colorSupplier(it.colorSupplier) }
+        if (colorSuppliable is Lifecycled) {
+            lifeCycledSuppliable = colorSuppliable
+        }
     }
 
     var transform : Transform3D
         get() = particleShape.transform
         set(value) { particleShape.transform = value }
-
-
-    var colorSupplier: ((location: Location) -> org.bukkit.Color)?
-        get() = particleShape.particle.colorSupplier
-        set(value) { particleShape.particle.colorSupplier(value)}
 
     /**
      * Apply a radial
@@ -65,5 +68,17 @@ open class BaseComponent(val particleShape: ParticleShape): EffectComponent {
 
     override fun emit() {
         particleShape.randomDraw(emitBurstProbability, emitRate)
+    }
+
+    override fun start() {
+        lifeCycledSuppliable?.start()
+    }
+
+    override fun update(delta: Double) {
+        lifeCycledSuppliable?.update(delta)
+    }
+
+    override fun stop() {
+        lifeCycledSuppliable?.stop()
     }
 }

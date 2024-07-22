@@ -19,8 +19,7 @@
 
 package com.mochibit.defcon.effects
 
-import com.mochibit.defcon.Defcon.Companion.Logger.info
-import com.mochibit.defcon.utils.ColorUtils
+import com.mochibit.defcon.lifecycle.Lifecycled
 import com.mochibit.defcon.utils.Gradient
 import com.mochibit.defcon.utils.MathFunctions
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
@@ -28,54 +27,55 @@ import org.bukkit.Color
 import org.bukkit.Location
 
 class TemperatureComponent(
-    particleShape: ParticleShape,
     var minTemperatureEmission: Double = 1500.0,
     var maxTemperatureEmission: Double = 4000.0,
     var minTemperature: Double = 40.0,
     var maxTemperature: Double = 6000.0,
+    var temperatureCoolingRate: Double = .0
+) : ColorSuppliable, Lifecycled {
+    override val colorSupplier: () -> Color
+        get() = { blackBodyEmission() }
 
-    var smokeColor: Color = Color.fromRGB(44, 41, 42), // #2C292A
-    var baseColor: Color = Color.fromRGB(255, 121, 0) // #F7E381
-) : BaseComponent(particleShape) {
-    var temperatureCoolingRate = .0
     var temperature: Double = maxTemperature
         set(value) {
             field = value.coerceIn(minTemperature, maxTemperature)
         }
 
-    fun coolDown(delta : Double = 1.0) {
+    val color: Color
+        get() = blackBodyEmission()
+
+    fun coolDown(delta: Double = 1.0) {
         temperature -= temperatureCoolingRate * delta
     }
 
-
-    /**
-     * The particle slowly cool downs to the minimum temperature, then the color will transition to black smoke
-     */
-    fun applyHeatedSmokeColor(): TemperatureComponent {
-        // Sets the color supplier to apply the temperature emission
-        colorSupplier = {
-            blackBodyEmission()
-        }
-        return this
-    }
 
     private fun blackBodyEmission(): Color {
         val ratio = MathFunctions.remap(temperature, minTemperature, maxTemperature, 0.0, 1.0)
         return temperatureEmissionGradient.getColorAt(ratio)
     }
 
-    private val temperatureEmissionGradient = Gradient(arrayOf(
-        Color.fromRGB(31, 26, 25),
-        Color.fromRGB(67, 58, 53),
-        Color.fromRGB(102, 74, 66),
-        Color.fromRGB(157, 108, 92),
-        Color.fromRGB(194, 133, 112),
-        Color.fromRGB(223, 135, 73),
-        Color.fromRGB(238, 160, 101),
-        Color.fromRGB(241, 183, 120),
-        Color.fromRGB(245, 209, 142),
-        Color.fromRGB(255, 243, 170)
-    ))
+    private val temperatureEmissionGradient = Gradient(
+        arrayOf(
+            Color.fromRGB(31, 26, 25),
+            Color.fromRGB(67, 58, 53),
+            Color.fromRGB(102, 74, 66),
+            Color.fromRGB(157, 108, 92),
+            Color.fromRGB(194, 133, 112),
+            Color.fromRGB(223, 135, 73),
+            Color.fromRGB(238, 160, 101),
+            Color.fromRGB(241, 183, 120),
+            Color.fromRGB(245, 209, 142),
+            Color.fromRGB(255, 243, 170)
+        )
+    )
+
+    override fun start() {}
+
+    override fun update(delta: Double) {
+        coolDown(delta)
+    }
+
+    override fun stop() {}
 
 
 }

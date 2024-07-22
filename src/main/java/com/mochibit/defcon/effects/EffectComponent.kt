@@ -19,9 +19,8 @@
 
 package com.mochibit.defcon.effects
 
-import org.bukkit.Location
+import com.mochibit.defcon.lifecycle.Lifecycled
 
-interface EffectComponent {
+interface EffectComponent : Lifecycled {
     fun emit()
-    fun buildShape()
 }

@@ -21,22 +21,23 @@ package com.mochibit.defcon.effects
 
 import com.mochibit.defcon.lifecycle.CycledObject
 
-abstract class AnimatedEffect : CycledObject()
+abstract class AnimatedEffect(private var drawRate: Double = 1.0) : CycledObject()
 {
+    var effectComponents: Array<EffectComponent> = emptyArray()
     var tickAlive: Double = 0.0
+    fun drawRate(drawRate: Double) = apply { this.drawRate = drawRate }
 
-    abstract fun draw()
+    open fun draw() {
+        effectComponents.forEach { it.emit() }
+    }
 
     abstract fun animate(delta: Double)
 
     override fun update(delta: Double) {
+        effectComponents.forEach { it.update(delta) }
         tickAlive++
         animate(delta)
-        if (tickAlive % drawRate() == 0.0)
+        if (tickAlive % drawRate == 0.0)
             draw()
-    }
-
-     open fun drawRate() : Double {
-        return 1.0
     }
 }

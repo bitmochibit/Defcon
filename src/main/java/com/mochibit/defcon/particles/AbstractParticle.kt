@@ -27,7 +27,7 @@ import org.joml.Vector3f
 import kotlin.random.Random
 
 abstract class AbstractParticle(val particleProperties: GenericParticleProperties) : PluginParticle {
-    var colorSupplier: ((location: Location) -> Color)? = null; private set
+    var colorSupplier: (() -> Color)? = null; private set
     var locationConsumer: ((location: Location) -> Unit)? = null; private set
     var initialVelocity: Vector3 = Vector3(.0, .0, .0); private set
     var initialDamping: Vector3 = Vector3(.0, .0, .0); private set
@@ -43,7 +43,7 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     fun velocity(vector3: Vector3) = apply { initialVelocity = vector3 }
     fun randomizeColorBrightness(randomize: Boolean) = apply { randomizeColorBrightness = randomize }
     fun displacement(vector3: Vector3) = apply { displacement = vector3 }
-    fun colorSupplier(supplier: ((location: Location) -> Color)?) = apply { colorSupplier = supplier }
+    fun colorSupplier(supplier: (() -> Color)?) = apply { colorSupplier = supplier }
     fun locationConsumer(consumer: ((location: Location) -> Unit)?) = apply { locationConsumer = consumer }
     fun scale(scale: Vector3) = apply { particleProperties.scale = Vector3f(scale.x.toFloat(), scale.y.toFloat(), scale.z.toFloat()) }
     fun maxLife(ticks: Long) = apply { particleProperties.maxLife = ticks }
@@ -54,7 +54,7 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     override fun spawn(location: Location) {
         locationConsumer?.invoke(location)
         particleProperties.color = particleProperties.color?.let { color ->
-            var finalColor = colorSupplier?.invoke(location) ?: color
+            var finalColor = colorSupplier?.invoke() ?: color
             if (randomizeColorBrightness) {
                 finalColor = randomizeColorBrightness(finalColor)
             }

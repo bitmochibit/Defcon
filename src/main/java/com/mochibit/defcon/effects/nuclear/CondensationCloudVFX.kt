@@ -20,21 +20,19 @@
 package com.mochibit.defcon.effects.nuclear
 
 import com.mochibit.defcon.effects.AnimatedEffect
-import com.mochibit.defcon.effects.BaseComponent
+import com.mochibit.defcon.effects.ParticleComponent
 import com.mochibit.defcon.explosions.NuclearComponent
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.particles.ExplosionDustParticle
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
-import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Color
 import org.bukkit.Location
-import kotlin.math.abs
 
 
 // TODO: Major refactor this whole system to a ECS for better scalability
 
-class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect() {
+class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect(.5) {
     val maxAliveTick = 20 * 60
     var riseSpeed = 4.0
 
@@ -48,11 +46,7 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
         distSquared >= innerRadius * innerRadius && distSquared <= outerRadius * outerRadius
     }
 
-    override fun drawRate(): Double {
-        return .5
-    }
-
-    private val condensationCloud = BaseComponent(
+    private val condensationCloud = ParticleComponent(
         ParticleShape(
             SphereBuilder()
                 .withRadiusXZ(400.0)
@@ -70,7 +64,7 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
         emitRate(20)
     }
 
-    private val secondaryCondensationCloud = BaseComponent(
+    private val secondaryCondensationCloud = ParticleComponent(
         ParticleShape(
             SphereBuilder()
                 .withRadiusXZ(400.0)
@@ -88,12 +82,11 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
         emitRate(20)
     }
 
-    override fun draw() {
-        if (tickAlive > 20 * 20)
-            condensationCloud.emit()
-
-        if (tickAlive > 20 * 35)
-            secondaryCondensationCloud.emit()
+    init {
+        effectComponents = arrayOf(
+            condensationCloud,
+            secondaryCondensationCloud
+        )
     }
 
     override fun animate(delta: Double) {
@@ -110,9 +103,7 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
             this.destroy()
     }
 
-    override fun start() {
-        condensationCloud.buildShape()
-    }
+    override fun start() {}
 
     override fun stop() {}
 
