@@ -19,54 +19,37 @@
 
 package com.mochibit.defcon.vertexgeometry.particle
 
-import com.destroystokyo.paper.ParticleBuilder
-import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.math.Transform3D
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.particles.AbstractParticle
-import com.mochibit.defcon.particles.PluginParticle
-import com.mochibit.defcon.utils.ColorUtils
 import com.mochibit.defcon.utils.Geometry
-import com.mochibit.defcon.utils.MathFunctions
 import com.mochibit.defcon.vertexgeometry.Vertex
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 import org.bukkit.*
-import org.bukkit.entity.Display
-import org.bukkit.entity.ItemDisplay
-import org.bukkit.inventory.ItemStack
-import org.bukkit.inventory.meta.LeatherArmorMeta
-import java.util.function.Predicate
 import kotlin.random.Random
 
 class ParticleShape(
-    val shapeBuilder: VertexShapeBuilder,
+    shapeBuilder: VertexShapeBuilder,
     var particle: AbstractParticle,
     var spawnPoint: Location
 ) {
-
     var center: Vector3 = Vector3.ZERO
     var transformedCenter = Vector3.ZERO
         private set
 
-    private var visible = true
+    var visible = true; private set
+    fun visible(value: Boolean) = apply { this.visible = value }
 
     private var minY = 0.0
     private var maxY = 0.0
 
-    private var minTemperature = 0.0
-    private var maxTemperature = 100.0
+    private var particleVertexes : Array<ParticleVertex> = emptyArray()
 
-    var temperature = 0.0
-        set(value) {
-            field = value.coerceIn(minTemperature, maxTemperature)
-        }
-
-    private var particleVertixes = emptyArray<ParticleVertex>()
     var transform = Transform3D()
         set(value) {
             field = value;
-            synchronized(particleVertixes) {
-                for (particleVertex in particleVertixes) {
+            synchronized(particleVertexes) {
+                for (particleVertex in particleVertexes) {
                     particleVertex.vertex.transformedPoint = value.xform(particleVertex.vertex.point);
                 }
             }
@@ -75,14 +58,22 @@ class ParticleShape(
 
     private var xzPredicate: ((Double, Double) -> Boolean)? = null
     private var yPredicate: ((Double) -> Boolean)? = null
+
+    fun xzPredicate(predicate: (Double, Double) -> Boolean) = apply { this.xzPredicate = predicate }
+    fun yPredicate(predicate: (Double) -> Boolean) = apply { this.yPredicate = predicate }
+
+    init {
+        assign(shapeBuilder.build())
+    }
+
     // Shape methods
     fun randomDraw(chance: Double = 0.8, repetitions: Int = 10) {
         if (!visible) return
-        if (particleVertixes.isEmpty()) return
+        if (particleVertexes.isEmpty()) return
         // Call draw (emitter), get a random vertex and draw it a random number of times consecutively
         val randomCount = Random.nextInt(1, repetitions) * (if (Random.nextDouble() < chance) 1 else 0);
         for (i in 0 until randomCount) {
-            draw(particleVertixes.random())
+            draw(particleVertexes.random())
         }
 
     }
@@ -98,61 +89,39 @@ class ParticleShape(
         particleVertex.spawnTime = System.currentTimeMillis()
     }
 
-    fun buildAndAssign(): ParticleShape {
-        assign(
-            shapeBuilder.build()
-        )
-        return this
-    }
-
-    fun assign(newVertexes: Array<Vertex>): ParticleShape {
+    private fun assign(newVertexes: Array<Vertex>): ParticleShape {
         val result = Array(newVertexes.size) { ParticleVertex(newVertexes[it]) }
         for (i in newVertexes.indices) {
             result[i] = ParticleVertex(
                 Vertex(newVertexes[i].point, transform.xform(newVertexes[i].point))
             )
         }
-        particleVertixes = result
+        particleVertexes = result
 
-        val x = particleVertixes.map { it.vertex.point.x }.average()
-        val y = particleVertixes.map { it.vertex.point.y }.average();
-        val z = particleVertixes.map { it.vertex.point.z }.average();
+        val x = particleVertexes.map { it.vertex.point.x }.average()
+        val y = particleVertexes.map { it.vertex.point.y }.average();
+        val z = particleVertexes.map { it.vertex.point.z }.average();
         this.center = Vector3(x, y, z);
 
-        minY = particleVertixes.minOfOrNull { it.vertex.point.y } ?: 0.0;
-        maxY = particleVertixes.maxOfOrNull { it.vertex.point.y } ?: 0.0;
+        minY = particleVertexes.minOfOrNull { it.vertex.point.y } ?: 0.0;
+        maxY = particleVertexes.maxOfOrNull { it.vertex.point.y } ?: 0.0;
 
         this.transformedCenter = transform.xform(center)
         return this;
     }
 
-    // Options
-    fun visible(value: Boolean): ParticleShape {
-        this.visible = value;
-        return this;
-    }
-
-    fun isVisible(): Boolean {
-        return visible;
-    }
+    // Shape morphing methods
 
     fun snapToFloor(maxDepth: Double = 0.0, startYOffset: Double = 0.0): ParticleShape {
-        val vertexes = shapeBuilder.build()
-
-        for (i in vertexes.indices) {
-            val point = vertexes[i].point;
+        val vertexes = Array(particleVertexes.size) { Vertex(Vector3.ZERO) }
+        for (i in particleVertexes.indices) {
+            val vertex = particleVertexes[i].vertex
+            val point = vertex.point;
             val newLoc = Geometry.getMinY(spawnPoint.clone().add(point.x, point.y + startYOffset, point.z), maxDepth)
             vertexes[i] = Vertex(Vector3(point.x, (newLoc.y - spawnPoint.y) + 1, point.z))
         }
         assign(vertexes)
         return this
-    }
-
-    fun yPredicate(predicate: (Double) -> Boolean) = apply {
-        this.yPredicate = predicate
-    }
-    fun xzPredicate(predicate: (Double, Double) -> Boolean) = apply {
-        this.xzPredicate = predicate
     }
 
 
