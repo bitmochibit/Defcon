@@ -21,11 +21,23 @@ package com.mochibit.defcon.extensions
 
 import com.mochibit.defcon.enums.BlockDataKey
 import com.mochibit.defcon.math.Vector3
+import com.mochibit.defcon.utils.MathFunctions
 import com.mochibit.defcon.utils.MetaManager
 import org.bukkit.Location
 
 fun Location.toVector3(): Vector3 {
     return Vector3(x, y, z)
+}
+
+fun Location.lerp(other: Location, t: Double): Location {
+    return Location(
+        world,
+        MathFunctions.lerp(x, other.x, t),
+        MathFunctions.lerp(y, other.y, t),
+        MathFunctions.lerp(z, other.z, t),
+        MathFunctions.lerp(yaw, other.yaw, t),
+        MathFunctions.lerp(pitch, other.pitch, t)
+    )
 }
 
 fun Location.toChunkCoordinate(): Vector3 {
@@ -51,6 +63,7 @@ fun Location.getRadiationAreaId(): Int? {
 fun Location.getRadiationLevel(): Double? {
     return getBlockData<Double>(BlockDataKey.RadiationLevel)
 }
+
 
 
 inline fun <reified T> Location.getBlockData(key: BlockDataKey): T? {

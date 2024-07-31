@@ -98,13 +98,7 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
                 secondaryCondensationCloud.translate(Vector3(0.0, deltaMovement, 0.0))
             }
         }
-        if (tickAlive > maxAliveTick)
-            this.destroy()
     }
-
-    override fun start() {}
-
-    override fun stop() {}
 
 
 }

@@ -93,6 +93,7 @@ abstract class AbstractShape(
 
     open fun draw(vertex: Vertex) {
         if (!visible) return
+        val transformedPoint = vertex.transformedPoint
         val globalPosition = vertex.globalPosition
         if (xzPredicate != null && !xzPredicate!!.invoke(globalPosition.x, globalPosition.z)) return
         if (yPredicate != null && !yPredicate!!.invoke(globalPosition.y)) return
@@ -103,9 +104,9 @@ abstract class AbstractShape(
 
     // Shape morphing methods
 
-    fun snapToFloor(maxDepth: Double = 0.0, startYOffset: Double = 0.0): AbstractShape {
+    fun snapToFloor(maxDepth: Double = 0.0, startYOffset: Double = 0.0, easeFromPoint: Location? = null): AbstractShape {
         dynamicMorph = true
-        shapeMorpher(SnapToFloor(maxDepth, startYOffset))
+        shapeMorpher(SnapToFloor(maxDepth, startYOffset, easeFromPoint))
         return this
     }
 }

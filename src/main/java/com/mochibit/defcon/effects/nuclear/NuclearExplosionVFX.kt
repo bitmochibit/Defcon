@@ -32,11 +32,13 @@ import org.bukkit.Location
 
 class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect(.5, 3600) {
     private val maxHeight = 250.0
-    private var currentHeight = 0.0
+    private var currentHeight = center.y
     private var riseSpeed = 5.0
     private val visibleWhenLessThanCurrentHeight = { value: Double -> value < currentHeight - 5 }
 
     private val condensationCloudVFX = CondensationCloudVFX(nuclearComponent, center)
+    private val fogVFX = NuclearFogVFX(nuclearComponent, center)
+
     private val coreCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
@@ -135,23 +137,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         ),
         TemperatureComponent(temperatureCoolingRate = 175.0)
     )
-    private val nuclearFog: ParticleComponent = ParticleComponent(
-        ParticleShape(
-            ExplosionDustParticle()
-                .scale(Vector3(14.0, 14.0, 14.0))
-                .displacement(Vector3(.0, .5, .0)),
-            SphereBuilder()
-                .withRadiusXZ(200.0)
-                .withRadiusY(1.0),
-            center
-        ).apply {
-            snapToFloor(70.0, 150.0)
-        },
-        TemperatureComponent(temperatureCoolingRate = 200.0)
-    ).apply {
-        applyRadialVelocityFromCenter(Vector3(.5, 0.0, .5))
-        emitRate(40)
-    }
+
 
     init {
         effectComponents = mutableListOf(
@@ -163,8 +149,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             coreNeck,
 
             stem,
-            foot,
-            nuclearFog
+            foot
         )
     }
 
@@ -174,11 +159,13 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 
     override fun start() {
         super.start()
+        fogVFX.instantiate(true)
         condensationCloudVFX.instantiate(true)
     }
 
     override fun stop() {
         super.stop()
+        fogVFX.destroy()
         condensationCloudVFX.destroy()
     }
 

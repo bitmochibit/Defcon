@@ -19,16 +19,39 @@
 
 package com.mochibit.defcon.vertexgeometry.morphers
 
+import com.mochibit.defcon.extensions.lerp
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.utils.Geometry
+import com.mochibit.defcon.utils.MathFunctions
 import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import org.bukkit.Location
+import kotlin.math.pow
 
-class SnapToFloor(val maxDepth: Double = 0.0, val startYOffset: Double = 0.0) : ShapeMorpher {
+class SnapToFloor(val maxDepth: Double = 0.0, val startYOffset: Double = 0.0, private val easeFromPoint: Location? = null) : ShapeMorpher {
     override fun morphVertex(basis: Vertex): Vertex {
         val point = basis.point
         val groundedLoc = Geometry.getMinY(basis.globalPosition.clone().add(0.0,startYOffset, 0.0), maxDepth + startYOffset)
-        basis.globalPosition = groundedLoc.add(0.0, point.y, 0.0)
+        if (easeFromPoint != null) {
+            val from = easeFromPoint.clone()
+            val distance = basis.globalPosition.distance(from)
+            val maxDistance = 80.0
+
+            val t = MathFunctions.clamp(distance / maxDistance, 0.0, 1.0)
+            val smoothT = if (t < 0.5) {
+                4 * t * t * t
+            } else {
+                1 - (-2 * t + 2).pow(3) / 2
+            }
+
+            // Interpolate towards the grounded location
+            val easedLoc = basis.globalPosition.lerp(groundedLoc, smoothT)
+
+            // Adjust the global position based on the eased location and original height
+            basis.globalPosition = easedLoc.add(0.0, point.y, 0.0)
+
+        } else {
+            basis.globalPosition = groundedLoc.add(0.0, point.y, 0.0)
+        }
         return basis
     }
 
