@@ -17,12 +17,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.mochibit.defcon.vertexgeometry
+package com.mochibit.defcon.vertexgeometry.morphers
 
+import com.mochibit.defcon.math.Vector3
+import com.mochibit.defcon.utils.Geometry
 import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import org.bukkit.Location
-import org.bukkit.Particle
 
-interface VertexShapeBuilder {
-    fun build(): Array<Vertex>
+class SnapToFloor(val maxDepth: Double = 0.0, val startYOffset: Double = 0.0) : ShapeMorpher {
+    override fun morphVertex(basis: Vertex): Vertex {
+        val point = basis.point
+        val groundedLoc = Geometry.getMinY(basis.globalPosition.clone().add(0.0,startYOffset, 0.0), maxDepth + startYOffset)
+        basis.globalPosition = groundedLoc.add(0.0, point.y, 0.0)
+        return basis
+    }
+
+    override fun morph(basis: Array<Vertex>) : Array<Vertex> {
+        return basis.map { morphVertex(it) }.toTypedArray()
+    }
 }

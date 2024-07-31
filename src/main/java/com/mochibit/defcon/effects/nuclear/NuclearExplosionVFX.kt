@@ -19,7 +19,6 @@
 
 package com.mochibit.defcon.effects.nuclear
 
-import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.effects.AnimatedEffect
 import com.mochibit.defcon.effects.ParticleComponent
 import com.mochibit.defcon.effects.TemperatureComponent
@@ -29,10 +28,7 @@ import com.mochibit.defcon.particles.ExplosionDustParticle
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
-import org.bukkit.Bukkit
-import org.bukkit.Color
 import org.bukkit.Location
-import kotlin.math.floor
 
 class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect(.5, 3600) {
     private val maxHeight = 250.0
@@ -43,50 +39,50 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private val condensationCloudVFX = CondensationCloudVFX(nuclearComponent, center)
     private val coreCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
+            ExplosionDustParticle()
+                .velocity(Vector3(0.0, 1.5, 0.0)),
             SphereBuilder()
                 .withRadiusXZ(30.0)
                 .withRadiusY(50.0),
-            ExplosionDustParticle()
-                .velocity(Vector3(0.0, 1.5, 0.0)),
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 100.0)
     )
     private val secondaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
+            ExplosionDustParticle()
+                .scale(Vector3(12.0, 12.0, 12.0))
+                .velocity(Vector3(0.0, 1.3, 0.0)),
             SphereBuilder()
                 .skipRadiusXZ(30.0)
                 .withRadiusXZ(50.0)
                 .withRadiusY(50.0),
-            ExplosionDustParticle()
-                .scale(Vector3(12.0, 12.0, 12.0))
-                .velocity(Vector3(0.0, 1.3, 0.0)),
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 105.0)
     )
     private val tertiaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
+            ExplosionDustParticle()
+                .scale(Vector3(14.0, 14.0, 14.0))
+                .velocity(Vector3(0.0, 1.2, 0.0)),
             SphereBuilder()
                 .skipRadiusXZ(50.0)
                 .withRadiusXZ(70.0)
                 .withRadiusY(70.0),
-            ExplosionDustParticle()
-                .scale(Vector3(14.0, 14.0, 14.0))
-                .velocity(Vector3(0.0, 1.2, 0.0)),
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 110.0)
     )
     private val quaterniaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
+            ExplosionDustParticle()
+                .scale(Vector3(15.0, 15.0, 15.0))
+                .velocity(Vector3(0.0, -.8, 0.0)),
             SphereBuilder()
                 .skipRadiusXZ(70.0)
                 .withRadiusXZ(90.0)
                 .withRadiusY(60.0),
-            ExplosionDustParticle()
-                .scale(Vector3(15.0, 15.0, 15.0))
-                .velocity(Vector3(0.0, -.8, 0.0)),
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 115.0)
@@ -94,6 +90,8 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 
     private val coreNeck: ParticleComponent = ParticleComponent(
         ParticleShape(
+            ExplosionDustParticle()
+                .velocity(Vector3(0.0, -1.0, 0.0)),
             CylinderBuilder()
                 .withHeight(60.0)
                 .withRadiusX(30.0)
@@ -101,8 +99,6 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 .withRate(20.0)
                 .withHeightRate(1.0)
                 .hollow(false),
-            ExplosionDustParticle()
-                .velocity(Vector3(0.0, -1.0, 0.0)),
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 95.0)
@@ -110,47 +106,51 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 
     private val stem: ParticleComponent = ParticleComponent(
         ParticleShape(
+            ExplosionDustParticle()
+                .scale(Vector3(11.0, 11.0, 11.0))
+                .velocity(Vector3(0.0, 2.0, 0.0)),
             CylinderBuilder()
                 .withHeight(maxHeight)
                 .withRadiusX(15.0)
                 .withRadiusZ(15.0)
                 .withRate(30.0)
                 .hollow(false),
-            ExplosionDustParticle()
-                .scale(Vector3(11.0, 11.0, 11.0))
-                .velocity(Vector3(0.0, 2.0, 0.0)),
             center
-        ).yPredicate(visibleWhenLessThanCurrentHeight),
+        ).apply{
+            yPredicate(visibleWhenLessThanCurrentHeight)
+        },
         TemperatureComponent(temperatureCoolingRate = 140.0)
     )
     private val foot: ParticleComponent = ParticleComponent(
         ParticleShape(
+            ExplosionDustParticle()
+                .velocity(Vector3(0.0, 1.0, 0.0)),
             CylinderBuilder()
                 .withHeight(15.0)
                 .withRadiusX(30.0)
                 .withRadiusZ(30.0)
                 .withRate(32.0)
                 .hollow(false),
-            ExplosionDustParticle()
-                .velocity(Vector3(0.0, 1.0, 0.0)),
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 175.0)
     )
     private val nuclearFog: ParticleComponent = ParticleComponent(
         ParticleShape(
-            SphereBuilder()
-                .withRadiusXZ(200.0)
-                .withRadiusY(1.0),
             ExplosionDustParticle()
                 .scale(Vector3(14.0, 14.0, 14.0))
                 .displacement(Vector3(.0, .5, .0)),
+            SphereBuilder()
+                .withRadiusXZ(200.0)
+                .withRadiusY(1.0),
             center
-        ).snapToFloor(10.0, 50.0),
+        ).apply {
+            snapToFloor(70.0, 150.0)
+        },
         TemperatureComponent(temperatureCoolingRate = 200.0)
     ).apply {
         applyRadialVelocityFromCenter(Vector3(.5, 0.0, .5))
-        emitRate(25)
+        emitRate(40)
     }
 
     init {
@@ -164,12 +164,12 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 
             stem,
             foot,
-            nuclearFog,
+            nuclearFog
         )
     }
 
     override fun animate(delta: Double) {
-        processEffects(delta)
+        processRise(delta)
     }
 
     override fun start() {
@@ -182,9 +182,6 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         condensationCloudVFX.destroy()
     }
 
-    private fun processEffects(delta: Double) {
-        processRise(delta)
-    }
 
     private fun processRise(delta: Double) {
         if (currentHeight > maxHeight) return

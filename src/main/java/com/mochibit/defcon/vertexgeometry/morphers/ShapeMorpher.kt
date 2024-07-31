@@ -17,11 +17,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.mochibit.defcon.vertexgeometry.particle
+package com.mochibit.defcon.vertexgeometry.morphers
 
-import com.mochibit.defcon.vertexgeometry.Vertex
+import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
 
-data class ParticleVertex(
-    val vertex: Vertex,
-    var spawnTime: Long = 0,
-)
+interface ShapeMorpher {
+    fun morphVertex(basis: Vertex) : Vertex
+    fun morph(basis: Array<Vertex>) : Array<Vertex>
+}

@@ -1,7 +1,7 @@
 package com.mochibit.defcon.vertexgeometry.shapes
 
 import com.mochibit.defcon.math.Vector3
-import com.mochibit.defcon.vertexgeometry.Vertex
+import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 
 /**

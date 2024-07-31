@@ -17,12 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.mochibit.defcon.vertexgeometry
+package com.mochibit.defcon.vertexgeometry.vertexes
 
-import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
-import org.bukkit.Location
-import org.bukkit.Particle
-
-interface VertexShapeBuilder {
-    fun build(): Array<Vertex>
-}
+open class SpawnableVertex(vertex: Vertex, var spawnTime: Long = 0) : Vertex(vertex.point, vertex.transformedPoint, vertex.globalPosition)

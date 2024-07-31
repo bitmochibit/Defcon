@@ -17,8 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.mochibit.defcon.vertexgeometry
+package com.mochibit.defcon.vertexgeometry.vertexes
 
 import com.mochibit.defcon.math.Vector3
+import org.bukkit.Location
 
-data class Vertex(var point: Vector3, var transformedPoint: Vector3 = point)
+open class Vertex(var point: Vector3, var transformedPoint: Vector3 = point, var globalPosition : Location = Location(null, 0.0, 0.0, 0.0))

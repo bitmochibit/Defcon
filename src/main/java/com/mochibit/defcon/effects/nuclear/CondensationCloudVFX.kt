@@ -30,16 +30,13 @@ import org.bukkit.Color
 import org.bukkit.Location
 
 
-// TODO: Major refactor this whole system to a ECS for better scalability
-
-class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect(.5) {
-    val maxAliveTick = 20 * 60
+class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect(.5, 20 * 60) {
     var riseSpeed = 4.0
 
     var currentRadius = 100.0
     val ringWidth = 30.0
 
-    private val showOnlyRadiusPredicate : (Double, Double) -> Boolean = { x,z ->
+    private val showOnlyRadiusPredicate: (Double, Double) -> Boolean = { x, z ->
         val distSquared = x * x + z * z
         val innerRadius = currentRadius - ringWidth
         val outerRadius = currentRadius + ringWidth
@@ -48,40 +45,43 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
 
     private val condensationCloud = ParticleComponent(
         ParticleShape(
-            SphereBuilder()
-                .withRadiusXZ(400.0)
-                .withRadiusY(1.0),
             ExplosionDustParticle().apply {
                 scale(Vector3(30.0, 30.0, 30.0))
                 particleProperties.color = Color.fromRGB(255, 255, 255)
             },
+            SphereBuilder()
+                .withRadiusXZ(400.0)
+                .withRadiusY(1.0),
             center
-        ).xzPredicate(showOnlyRadiusPredicate)
+        ).apply {
+            xzPredicate(showOnlyRadiusPredicate)
+        }
     )
         .translate(Vector3(0.0, 30.0, 0.0))
         .apply {
-        applyRadialVelocityFromCenter(Vector3(4.0, 0.0, 4.0))
-        emitRate(20)
-    }
+            applyRadialVelocityFromCenter(Vector3(4.0, 0.0, 4.0))
+            emitRate(20)
+        }
 
     private val secondaryCondensationCloud = ParticleComponent(
         ParticleShape(
-            SphereBuilder()
-                .withRadiusXZ(400.0)
-                .withRadiusY(1.0),
             ExplosionDustParticle().apply {
                 scale(Vector3(30.0, 30.0, 30.0))
                 particleProperties.color = Color.fromRGB(255, 255, 255)
             },
+            SphereBuilder()
+                .withRadiusXZ(400.0)
+                .withRadiusY(1.0),
             center
-        )
-            .xzPredicate (showOnlyRadiusPredicate)
+        ).apply {
+            xzPredicate(showOnlyRadiusPredicate)
+        }
     )
         .translate(Vector3(0.0, 90.0, 0.0))
         .apply {
-        applyRadialVelocityFromCenter(Vector3(4.0, 0.0, 4.0))
-        emitRate(20)
-    }
+            applyRadialVelocityFromCenter(Vector3(4.0, 0.0, 4.0))
+            emitRate(20)
+        }
 
     init {
         effectComponents.add(condensationCloud)

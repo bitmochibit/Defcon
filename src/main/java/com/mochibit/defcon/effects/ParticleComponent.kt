@@ -92,7 +92,7 @@ open class ParticleComponent(
     }
 
     override fun emit() {
-        particleShape.randomDraw(emitBurstProbability, emitRate)
+        particleShape.emit(emitBurstProbability, emitRate)
     }
 
     override fun start() {
