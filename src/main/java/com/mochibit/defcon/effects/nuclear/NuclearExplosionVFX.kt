@@ -30,11 +30,12 @@ import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Location
 
-class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect(.5, 3600) {
+class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect(3600) {
     private val maxHeight = 250.0
-    private var currentHeight = center.y
+    private var currentHeight = 0.0
     private var riseSpeed = 5.0
     private val visibleWhenLessThanCurrentHeight = { value: Double -> value < currentHeight - 5 }
+    private val visibleAfterACertainHeight = { value: Double -> value >= 120 }
 
     private val condensationCloudVFX = CondensationCloudVFX(nuclearComponent, center)
     private val fogVFX = NuclearFogVFX(nuclearComponent, center)
@@ -48,8 +49,8 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 .withRadiusY(50.0),
             center
         ),
-        TemperatureComponent(temperatureCoolingRate = 100.0)
-    )
+        TemperatureComponent(temperatureCoolingRate = 80.0)
+    ).emitRate(10)
     private val secondaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
@@ -62,7 +63,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 105.0)
-    )
+    ).emitRate(13)
     private val tertiaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
@@ -75,7 +76,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 110.0)
-    )
+    ).emitRate(15)
     private val quaterniaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
@@ -88,7 +89,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 115.0)
-    ).translate(Vector3(0.0, -5.0, 0.0)).emitRate(15)
+    ).translate(Vector3(0.0, -5.0, 0.0)).emitRate(17)
 
     private val coreNeck: ParticleComponent = ParticleComponent(
         ParticleShape(
@@ -103,8 +104,25 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 .hollow(false),
             center
         ),
-        TemperatureComponent(temperatureCoolingRate = 95.0)
-    ).translate(Vector3(0.0, -30.0, 0.0))
+        TemperatureComponent(temperatureCoolingRate = 75.0)
+    ).translate(Vector3(0.0, -30.0, 0.0)).emitRate(12)
+
+
+    private val neckCone: ParticleComponent = ParticleComponent(
+        ParticleShape(
+            ExplosionDustParticle(),
+            SphereBuilder()
+                .hollow(true)
+                .withYStart(-15.0)
+                .withRadiusXZ(40.0)
+                .withRadiusY(70.0),
+            center
+        ).apply { yPredicate(visibleAfterACertainHeight) },
+        TemperatureComponent(temperatureCoolingRate = 200.0)
+    ).translate(Vector3(0.0, -90.0, 0.0)).emitRate(15).visible(false).setVisibilityAfterDelay(true, 20*15)
+        .applyRadialVelocityFromCenter(Vector3(3.0, -1.0, 3.0))
+
+
 
     private val stem: ParticleComponent = ParticleComponent(
         ParticleShape(
@@ -122,21 +140,8 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             yPredicate(visibleWhenLessThanCurrentHeight)
         },
         TemperatureComponent(temperatureCoolingRate = 140.0)
-    )
-    private val foot: ParticleComponent = ParticleComponent(
-        ParticleShape(
-            ExplosionDustParticle()
-                .velocity(Vector3(0.0, 1.0, 0.0)),
-            CylinderBuilder()
-                .withHeight(15.0)
-                .withRadiusX(30.0)
-                .withRadiusZ(30.0)
-                .withRate(32.0)
-                .hollow(false),
-            center
-        ),
-        TemperatureComponent(temperatureCoolingRate = 175.0)
-    )
+    ).emitRate(14)
+
 
 
     init {
@@ -145,11 +150,10 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             secondaryCloud,
             tertiaryCloud,
             quaterniaryCloud,
-
             coreNeck,
+            neckCone,
 
             stem,
-            foot
         )
     }
 
@@ -159,14 +163,14 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 
     override fun start() {
         super.start()
-        fogVFX.instantiate(true)
         condensationCloudVFX.instantiate(true)
+        fogVFX.instantiate(true)
     }
 
     override fun stop() {
         super.stop()
-        fogVFX.destroy()
         condensationCloudVFX.destroy()
+        fogVFX.destroy()
     }
 
 
@@ -179,7 +183,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         secondaryCloud.translate(Vector3(0.0, deltaMovement, 0.0))
         tertiaryCloud.translate(Vector3(0.0, deltaMovement, 0.0))
         quaterniaryCloud.translate(Vector3(0.0, deltaMovement, 0.0))
-        //primaryNeck.transform = primaryNeck.transform.translated(Vector3(0.0, deltaMovement, 0.0));
+        neckCone.translate(Vector3(0.0, deltaMovement, 0.0))
         currentHeight += deltaMovement
     }
 

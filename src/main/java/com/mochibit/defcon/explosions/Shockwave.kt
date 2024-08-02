@@ -35,19 +35,17 @@ class Shockwave(val center: Location, val shockwaveRadiusStart: Double, val shoc
 
             // From a radius to another, skip 3 radius
             if (radius % (1.5*ceil(explosionPower/6)).roundToInt() != 0)
-                continue;
+                continue
 
-            Defcon.instance.syncRunnable.addWorkload(SimpleCompositionJob(radius) {
-                for (column in shockwaveCyl(radius.toDouble(), explosionPower.toFloat())) {
-                    Defcon.instance.syncRunnable.addWorkload(SimpleCompositionJob(column) {
-                        column.explode()
-                    })
-                }
-            });
+            for (column in shockwaveCyl(radius.toDouble(), explosionPower.toFloat())) {
+                Defcon.instance.syncRunnable.addWorkload(SimpleCompositionJob(column) {
+                    column.explode()
+                })
+            }
         }
     }
     private fun shockwaveCyl(radius: Double, explosionPower: Float): HashSet<ShockwaveColumn> {
-        val columns = HashSet<ShockwaveColumn>();
+        val columns = HashSet<ShockwaveColumn>()
 
         val radiusX: Double = radius
         val radiusZ: Double = radius
@@ -85,27 +83,27 @@ class Shockwave(val center: Location, val shockwaveRadiusStart: Double, val shoc
                     explosionPower,
                     radius.toInt(),
                     this,
-                ));
+                ))
                 columns.add(ShockwaveColumn(
                     center.clone().add(-x.toDouble(), 0.0, z.toDouble()),
                     explosionPower,
                     radius.toInt(),
                     this
-                ));
+                ))
                 columns.add(ShockwaveColumn(
                     center.clone().add(x.toDouble(), 0.0, -z.toDouble()),
                     explosionPower,
                     radius.toInt(),
                     this
-                ));
+                ))
                 columns.add(ShockwaveColumn(
                     center.clone().add(-x.toDouble(), 0.0, -z.toDouble()),
                     explosionPower,
                     radius.toInt(),
                     this
-                ));
+                ))
             }
         }
-        return columns;
+        return columns
     }
 }

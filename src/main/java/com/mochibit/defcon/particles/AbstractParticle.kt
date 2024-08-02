@@ -36,6 +36,11 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     var randomizeColorBrightness = true; private set
     var randomizeScale: Boolean = false; private set
     var displacement = Vector3(.0, .0, .0); private set
+    var colorDarkenFactorMin = 0.8; private set
+    var colorDarkenFactorMax = 1.0; private set
+    var colorLightenFactorMin = 0.1; private set
+    var colorLightenFactorMax = 0.2; private set
+
 
     fun accelerationTicks(ticks: Int) = apply { initialAccelerationTicks = ticks }
     fun acceleration(vector3: Vector3) = apply { initialAcceleration = vector3 }
@@ -45,14 +50,34 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     fun displacement(vector3: Vector3) = apply { displacement = vector3 }
     fun colorSupplier(supplier: (() -> Color)?) = apply { colorSupplier = supplier }
     fun locationConsumer(consumer: ((location: Location) -> Unit)?) = apply { locationConsumer = consumer }
-    fun scale(scale: Vector3) = apply { particleProperties.scale = Vector3f(scale.x.toFloat(), scale.y.toFloat(), scale.z.toFloat()) }
+    fun scale(scale: Vector3) =
+        apply { particleProperties.scale = Vector3f(scale.x.toFloat(), scale.y.toFloat(), scale.z.toFloat()) }
+
     fun maxLife(ticks: Long) = apply { particleProperties.maxLife = ticks }
-    fun randomizeScale(randomize: Boolean) = apply { randomizeScale = randomize}
+    fun randomizeScale(randomize: Boolean) = apply { randomizeScale = randomize }
+    fun color(color: Color) = apply { particleProperties.color = color }
+    fun colorDarkenFactor(min: Double, max: Double) = apply {
+        if (min > max) {
+            colorDarkenFactorMin = max; colorDarkenFactorMax = min
+        } else {
+            colorDarkenFactorMin = min; colorDarkenFactorMax = max
+        }
+    }
+
+    fun colorLightenFactor(min: Double, max: Double) = apply {
+        if (min > max) {
+            colorLightenFactorMin = max; colorLightenFactorMax = min
+        } else {
+            colorLightenFactorMin = min; colorLightenFactorMax = max
+        }
+    }
 
     protected abstract fun spawnParticle(location: Location)
 
     override fun spawn(location: Location) {
         locationConsumer?.invoke(location)
+        val startingColor = particleProperties.color
+        // TODO: Spawning particles with overrides, so we can have randomized stuff more easily
         particleProperties.color = particleProperties.color?.let { color ->
             var finalColor = colorSupplier?.invoke() ?: color
             if (randomizeColorBrightness) {
@@ -63,6 +88,7 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
         applyRandomScale()
         applyRandomDisplacement()
         spawnParticle(location)
+        particleProperties.color = startingColor
     }
 
     private fun applyRandomScale() {
@@ -75,9 +101,24 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     }
 
     private fun randomizeColorBrightness(color: Color): Color {
-        return if (Random.nextBoolean())
-            ColorUtils.darkenColor(color, Random.nextDouble(0.8, 1.0))
-        else ColorUtils.lightenColor(color, Random.nextDouble(0.1, 0.2))
+        val factor: Double
+        if (Random.nextBoolean()) {
+            if (colorDarkenFactorMax == 0.0 && colorDarkenFactorMin == 0.0) return color
+            factor = if (colorDarkenFactorMin == colorDarkenFactorMax) {
+                colorDarkenFactorMin
+            } else {
+                Random.nextDouble(colorDarkenFactorMin, colorDarkenFactorMax)
+            }
+            return ColorUtils.darkenColor(color, factor)
+        } else {
+            if (colorLightenFactorMax == 0.0 && colorLightenFactorMin == 0.0) return color
+            factor = if (colorLightenFactorMin == colorLightenFactorMax) {
+                colorLightenFactorMin
+            } else {
+                Random.nextDouble(colorLightenFactorMin, colorLightenFactorMax)
+            }
+            return ColorUtils.lightenColor(color, factor)
+        }
     }
 
     private fun applyRandomDisplacement() {
@@ -90,5 +131,6 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
         )
     }
 
-    private fun randomDisplacement(value: Double) = if (value > 0) Random.nextDouble(0.0, value) else Random.nextDouble(value, 0.0)
+    private fun randomDisplacement(value: Double) =
+        if (value > 0) Random.nextDouble(0.0, value) else Random.nextDouble(value, 0.0)
 }

@@ -76,16 +76,18 @@ object ColorUtils {
     }
 
     fun darkenColor(color: Color, factor: Double): Color {
-        val r = (color.red * factor).toInt()
-        val g = (color.green * factor).toInt()
-        val b = (color.blue * factor).toInt()
+        if (factor <= 0.0) return color
+        val r = (color.red * factor).coerceIn(0.0, 255.0).toInt()
+        val g = (color.green * factor).coerceIn(0.0, 255.0).toInt()
+        val b = (color.blue * factor).coerceIn(0.0, 255.0).toInt()
         return Color.fromRGB(r, g, b)
     }
 
     fun lightenColor(color: Color, factor: Double): Color {
-        val r = (color.red + (255 - color.red) * factor).toInt()
-        val g = (color.green + (255 - color.green) * factor).toInt()
-        val b = (color.blue + (255 - color.blue) * factor).toInt()
+        if (factor <= 0.0) return color
+        val r = (color.red + (255 - color.red) * factor).coerceIn(0.0, 255.0).toInt()
+        val g = (color.green + (255 - color.green) * factor).coerceIn(0.0, 255.0).toInt()
+        val b = (color.blue + (255 - color.blue) * factor).coerceIn(0.0, 255.0).toInt()
         return Color.fromRGB(r, g, b)
     }
 

@@ -21,12 +21,9 @@ package com.mochibit.defcon.effects
 
 import com.mochibit.defcon.lifecycle.CycledObject
 
-abstract class AnimatedEffect(private var drawRate: Double = 1.0, protected val maxAliveTick: Int = 200) : CycledObject()
+abstract class AnimatedEffect(maxAliveTick: Int = 200) : CycledObject(maxAliveTick)
 {
     protected var effectComponents: MutableList<EffectComponent> = mutableListOf()
-    protected var tickAlive: Double = 0.0
-
-    fun drawRate(drawRate: Double) = apply { this.drawRate = drawRate }
 
     open fun draw() {
         effectComponents.forEach { it.emit() }
@@ -43,12 +40,8 @@ abstract class AnimatedEffect(private var drawRate: Double = 1.0, protected val 
     }
 
     override fun update(delta: Double) {
-        if (tickAlive > maxAliveTick)
-            this.destroy()
-        effectComponents.forEach { it.update(delta) }
-        tickAlive++
+        draw()
         animate(delta)
-        if (tickAlive % drawRate == 0.0)
-            draw()
+        effectComponents.forEach { it.update(delta) }
     }
 }

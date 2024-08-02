@@ -94,9 +94,8 @@ abstract class AbstractShape(
     open fun draw(vertex: Vertex) {
         if (!visible) return
         val transformedPoint = vertex.transformedPoint
-        val globalPosition = vertex.globalPosition
-        if (xzPredicate != null && !xzPredicate!!.invoke(globalPosition.x, globalPosition.z)) return
-        if (yPredicate != null && !yPredicate!!.invoke(globalPosition.y)) return
+        if (xzPredicate != null && !xzPredicate!!.invoke(transformedPoint.x, transformedPoint.z)) return
+        if (yPredicate != null && !yPredicate!!.invoke(transformedPoint.y)) return
         effectiveDraw(if (dynamicMorph && shapeMorpher != null) shapeMorpher!!.morphVertex(vertex) else vertex)
     }
 

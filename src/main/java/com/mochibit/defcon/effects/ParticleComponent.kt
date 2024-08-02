@@ -35,7 +35,7 @@ open class ParticleComponent(
     colorSuppliable: ColorSuppliable? = null
 ) : EffectComponent {
     var emitBurstProbability = 0.8; private set
-    var emitRate = 10; private set
+    var emitRate = 20; private set
     fun emitBurstProbability(value: Double) = apply { emitBurstProbability = value }
     fun emitRate(value: Int) = apply { emitRate = value }
     private var lifeCycledSuppliable: Lifecycled? = null
@@ -49,6 +49,7 @@ open class ParticleComponent(
         set(value) {
             particleShape.visible(value)
         }
+    fun visible(visible: Boolean) = apply { this.visible = visible }
 
     init {
         colorSuppliable?.let { particleShape.particle.colorSupplier(it.colorSupplier) }

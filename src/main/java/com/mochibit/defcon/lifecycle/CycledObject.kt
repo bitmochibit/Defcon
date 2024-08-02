@@ -20,36 +20,53 @@
 package com.mochibit.defcon.lifecycle
 
 import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.threading.jobs.Schedulable
+import com.mochibit.defcon.threading.jobs.SchedulableWorkload
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import org.bukkit.Bukkit
 import org.bukkit.scheduler.BukkitTask
 
-abstract class CycledObject : Lifecycled, Schedulable {
+abstract class CycledObject(protected val maxAliveTick: Int = 200) : Lifecycled {
     private var destroyed = false
-    var task : BukkitTask? = null
+    private var task: BukkitTask? = null
+    protected var tickAlive: Double = 0.0
+    private val workload =
+        SchedulableWorkload({ this.update(1.0 / Defcon.instance.server.tps[0]) }, { !this.destroyed })
     val runnable = ScheduledRunnable()
-    fun instantiate(async: Boolean) {
-        this.start()
-        runnable.addWorkload(this)
-        if (async) {
-            task = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, runnable, 20L, 1L)
-        } else {
-            Defcon.Companion.Logger.info("Not implemented")
+
+    var keepWorkersAt
+        get() = runnable.keepWorkersAt
+        set(value) {
+            runnable.keepWorkersAt(value)
         }
+
+    fun instantiate(async: Boolean) {
+        val instantiationRunnable = Runnable {
+            this.start()
+            runnable.addWorkload(workload)
+            Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, Runnable {
+                if (maxAliveTick != 0 && tickAlive > maxAliveTick)
+                    this.destroy()
+                tickAlive++
+            }, 0, 1)
+
+            task = if (async)
+                Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, runnable, 0, 1)
+            else
+                Bukkit.getScheduler().runTaskTimer(Defcon.instance, runnable, 0, 1)
+        }
+
+        if (async) {
+            Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, instantiationRunnable)
+        } else {
+            Bukkit.getScheduler().runTask(Defcon.instance, instantiationRunnable)
+        }
+
     }
+
     fun destroy() {
-        this.stop()
         destroyed = true
         task?.cancel()
-    }
-
-    override fun compute() {
-        this.update(1.0 / Defcon.instance.server.tps[0])
-    }
-
-    override fun shouldBeRescheduled(): Boolean {
-        return !destroyed
+        this.stop()
     }
 
 

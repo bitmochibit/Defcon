@@ -26,7 +26,7 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 
 abstract class GenericParticleProperties(
-    var maxLife: Long = 160,
+    var maxLife: Long = 100,
     var color: Color? = null,
     var scale: Vector3f = Vector3f(1.0f, 1.0f, 1.0f),
 )

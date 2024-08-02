@@ -30,7 +30,7 @@ import org.bukkit.Color
 import org.bukkit.Location
 
 
-class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect(.5, 20 * 60) {
+class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect( 20 * 60) {
     var riseSpeed = 4.0
 
     var currentRadius = 100.0
@@ -47,7 +47,9 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
         ParticleShape(
             ExplosionDustParticle().apply {
                 scale(Vector3(30.0, 30.0, 30.0))
-                particleProperties.color = Color.fromRGB(255, 255, 255)
+                color(Color.WHITE)
+                colorDarkenFactor(0.9, 1.0)
+                colorLightenFactor(0.0, 0.0)
             },
             SphereBuilder()
                 .withRadiusXZ(400.0)
@@ -57,17 +59,20 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
             xzPredicate(showOnlyRadiusPredicate)
         }
     )
+        .visible(false)
         .translate(Vector3(0.0, 30.0, 0.0))
         .apply {
-            applyRadialVelocityFromCenter(Vector3(4.0, 0.0, 4.0))
-            emitRate(20)
+            applyRadialVelocityFromCenter(Vector3(2.0, 0.0, 2.0))
         }
 
     private val secondaryCondensationCloud = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle().apply {
                 scale(Vector3(30.0, 30.0, 30.0))
-                particleProperties.color = Color.fromRGB(255, 255, 255)
+                color(Color.WHITE)
+                colorDarkenFactor(0.9, 1.0)
+                colorLightenFactor(0.0, 0.0)
+
             },
             SphereBuilder()
                 .withRadiusXZ(400.0)
@@ -77,15 +82,17 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
             xzPredicate(showOnlyRadiusPredicate)
         }
     )
+        .visible(false)
         .translate(Vector3(0.0, 90.0, 0.0))
         .apply {
-            applyRadialVelocityFromCenter(Vector3(4.0, 0.0, 4.0))
-            emitRate(20)
+            applyRadialVelocityFromCenter(Vector3(2.0, 0.0, 2.0))
         }
 
     init {
-        effectComponents.add(condensationCloud)
-        effectComponents.add(secondaryCondensationCloud)
+        effectComponents = mutableListOf(
+            condensationCloud,
+            secondaryCondensationCloud
+        )
     }
 
     override fun animate(delta: Double) {
@@ -94,10 +101,15 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, val c
             condensationCloud.translate(Vector3(0.0, deltaMovement, 0.0))
             currentRadius += deltaMovement
 
-            if (tickAlive > 20 * 35) {
-                secondaryCondensationCloud.translate(Vector3(0.0, deltaMovement, 0.0))
-            }
+            secondaryCondensationCloud.translate(Vector3(0.0, deltaMovement*1.5, 0.0))
         }
+    }
+
+    override fun start() {
+        super.start()
+        condensationCloud.setVisibilityAfterDelay(true, 20 * 20)
+        secondaryCondensationCloud.setVisibilityAfterDelay(true, 20 * 35)
+
     }
 
 

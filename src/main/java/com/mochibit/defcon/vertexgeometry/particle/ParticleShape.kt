@@ -19,6 +19,7 @@
 
 package com.mochibit.defcon.vertexgeometry.particle
 
+import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.particles.AbstractParticle
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 import com.mochibit.defcon.vertexgeometry.vertexes.SpawnableVertex

@@ -31,6 +31,7 @@ import com.mochibit.defcon.save.savedata.PlayerDataSave
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import io.papermc.lib.PaperLib
 import org.bukkit.Bukkit
+import org.bukkit.GameMode
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -89,6 +90,8 @@ class Defcon : JavaPlugin() {
             this, Runnable {
                 // Loop through every player and check if they are in a radiation area
                 for (player in Bukkit.getOnlinePlayers()) {
+                    if (player.gameMode == GameMode.CREATIVE || player.gameMode == GameMode.SPECTATOR) continue
+
                     val radiationAreas = RadiationArea.getAtLocation( player.location.add(0.0, 1.0, 0.0))
                     if (radiationAreas.isEmpty()) continue
 
@@ -116,7 +119,6 @@ class Defcon : JavaPlugin() {
         //TODO: Refactor
         Bukkit.getScheduler().runTaskTimer(
             this, Runnable {
-
                 for (player in Bukkit.getOnlinePlayers()) {
                     val radLevel = player.getRadiationLevel()
                     if (radLevel <= 0.0) continue
