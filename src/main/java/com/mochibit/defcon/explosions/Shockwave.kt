@@ -20,90 +20,116 @@
 package com.mochibit.defcon.explosions
 
 import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.threading.jobs.SimpleCompositionJob
+import com.mochibit.defcon.Defcon.Companion.Logger.info
+import com.mochibit.defcon.biomes.CustomBiomeHandler
+import com.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
+import com.mochibit.defcon.threading.jobs.SchedulableWorkload
+import com.mochibit.defcon.threading.jobs.SimpleSchedulable
+import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import com.mochibit.defcon.utils.Geometry
+import javassist.Loader.Simple
 import org.bukkit.Location
-import java.util.*
 import kotlin.math.ceil
-import kotlin.math.exp
 import kotlin.math.roundToInt
+import org.bukkit.Bukkit
+import java.util.concurrent.*
+import kotlin.concurrent.thread
+import kotlin.math.cos
+import kotlin.math.sin
 
 class Shockwave(val center: Location, val shockwaveRadiusStart: Double, val shockwaveRadius: Double, val shockwaveHeight: Double) {
+    private val biome = NuclearFalloutBiome()
+    private val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) as ThreadPoolExecutor
+    private val cylinderQueue = PriorityBlockingQueue<ShockwaveColumn>()
+
     fun explode() {
+        info("Exploding..")
+        thread(true) {
+            info("Calculating cylinders")
+            precalculateCylinders()
+            executor.shutdown()
+            info("Finished calculating cylinders")
+        }
+        startExploding()
+    }
+
+    private fun precalculateCylinders() {
         for (radius in shockwaveRadiusStart.toInt()..shockwaveRadius.toInt()) {
-            val explosionPower = 10f - (radius * 6f / shockwaveRadius)
+            val explosionPower = 6f - (radius * 3f / shockwaveRadius)
 
             // From a radius to another, skip 3 radius
-            if (radius % (1.5*ceil(explosionPower/6)).roundToInt() != 0)
+            if (radius % (1.5 * ceil(explosionPower / 6)).roundToInt() != 0)
                 continue
 
-            for (column in shockwaveCyl(radius.toDouble(), explosionPower.toFloat())) {
-                Defcon.instance.syncRunnable.addWorkload(SimpleCompositionJob(column) {
-                    column.explode()
-                })
+            executor.submit {
+                val columns = shockwaveCyl(radius.toDouble(), explosionPower.toFloat())
+                cylinderQueue.addAll(columns)
+                info("Calculating columns for radius $radius")
             }
         }
     }
-    private fun shockwaveCyl(radius: Double, explosionPower: Float): HashSet<ShockwaveColumn> {
-        val columns = HashSet<ShockwaveColumn>()
 
-        val radiusX: Double = radius
-        val radiusZ: Double = radius
-
-        val invRadiusX: Double = 1 / radiusX
-        val invRadiusZ: Double = 1 / radiusZ
-
-        val ceilRadiusX = ceil(radiusX).toInt()
-        val ceilRadiusZ = ceil(radiusZ).toInt()
-
-        var nextXn = 0.0
-        forX@ for (x in 0..ceilRadiusX) {
-            val xn = nextXn
-            nextXn = (x + 1) * invRadiusX
-            var nextZn = 0.0
-            forZ@ for (z in 0..ceilRadiusZ) {
-                val zn = nextZn
-                nextZn = (z + 1) * invRadiusZ
-
-                val distanceSq: Double = Geometry.lengthSq(xn, zn)
-                if (distanceSq > 1) {
-                    if (z == 0) {
-                        break@forX
-                    }
-                    break@forZ
+    private fun startExploding() {
+        val scheduledRunnable = ScheduledRunnable().maxMillisPerTick(30.0)
+        val taskTimer = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, scheduledRunnable, 0L, 1L)
+        Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, { task ->
+            while (cylinderQueue.isNotEmpty()) {
+                val column = cylinderQueue.poll()
+                column?.let {
+                    scheduledRunnable.addWorkload(SimpleSchedulable {
+                        column.explode()
+                    })
                 }
-
-                if (Geometry.lengthSq(nextXn, zn) <= 1 && Geometry.lengthSq(xn, nextZn) <= 1) {
-                    continue
-                }
-
-
-                columns.add(ShockwaveColumn(
-                    center.clone().add(x.toDouble(), 0.0, z.toDouble()),
-                    explosionPower,
-                    radius.toInt(),
-                    this,
-                ))
-                columns.add(ShockwaveColumn(
-                    center.clone().add(-x.toDouble(), 0.0, z.toDouble()),
-                    explosionPower,
-                    radius.toInt(),
-                    this
-                ))
-                columns.add(ShockwaveColumn(
-                    center.clone().add(x.toDouble(), 0.0, -z.toDouble()),
-                    explosionPower,
-                    radius.toInt(),
-                    this
-                ))
-                columns.add(ShockwaveColumn(
-                    center.clone().add(-x.toDouble(), 0.0, -z.toDouble()),
-                    explosionPower,
-                    radius.toInt(),
-                    this
-                ))
             }
+            if (executor.isTerminated && cylinderQueue.isEmpty() && scheduledRunnable.workloadDeque.isEmpty()) {
+                task.cancel()
+                taskTimer.cancel()
+            }
+        }, 0L, 2L )
+    }
+
+    private fun shockwaveCyl(radius: Double, explosionPower: Float): List<ShockwaveColumn> {
+        val columns = mutableListOf<ShockwaveColumn>()
+
+        // Increase the step size for less precision
+        val angleStep = (1.0 / radius).coerceAtLeast(0.2) // Larger step size for less precision
+
+        // Use a larger step size for generating angles
+        for (angle in 0.0..2 * Math.PI step angleStep) {
+            val x = radius * cos(angle)
+            val z = radius * sin(angle)
+
+            // Add fewer columns for less precision
+            columns.add(ShockwaveColumn(
+                center.clone().add(x, 0.0, z),
+                explosionPower,
+                radius.toInt(),
+                this
+            ))
+            columns.add(ShockwaveColumn(
+                center.clone().add(-x, 0.0, z),
+                explosionPower,
+                radius.toInt(),
+                this
+            ))
+            columns.add(ShockwaveColumn(
+                center.clone().add(x, 0.0, -z),
+                explosionPower,
+                radius.toInt(),
+                this
+            ))
+            columns.add(ShockwaveColumn(
+                center.clone().add(-x, 0.0, -z),
+                explosionPower,
+                radius.toInt(),
+                this
+            ))
         }
         return columns
     }
+
+    private infix fun ClosedRange<Double>.step(step: Double) =
+        generateSequence(start) { previous ->
+            if (previous + step <= endInclusive) previous + step else null
+        }
 }

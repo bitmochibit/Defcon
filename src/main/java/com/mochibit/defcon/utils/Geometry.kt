@@ -20,10 +20,12 @@
 package com.mochibit.defcon.utils
 
 import com.mochibit.defcon.classes.StructureBlock
+import com.mochibit.defcon.extensions.toChunkCoordinate
 import org.bukkit.Location
 import org.bukkit.Material
 import java.util.*
 import kotlin.math.atan2
+import kotlin.math.floor
 
 object Geometry {
     fun getConvexHullXZ(points: List<Location>): MutableList<Location> {
@@ -117,17 +119,42 @@ object Geometry {
     }
 
     fun getMinY(position: Location, maxDepth: Double? = null): Location {
-        val clonedPosition = position.clone();
+        val clonedPosition = position.clone()
         // Coerce the Y coordinate to the world height limit
         clonedPosition.y = clonedPosition.y.coerceAtMost((clonedPosition.world.maxHeight - 1).toDouble());
-
-        var depth = 0;
+        var depth = 0
         while (clonedPosition.world.getBlockAt(clonedPosition).type == Material.AIR && (maxDepth == null || depth < maxDepth) && clonedPosition.y >= position.world.minHeight) {
-            clonedPosition.subtract(0.0, 1.0, 0.0);
-            depth++;
+            clonedPosition.subtract(0.0, 1.0, 0.0)
+            depth++
         }
-        return clonedPosition;
+        return clonedPosition
     }
+
+    fun getMinYUsingSnapshot(position: Location, maxDepth: Double?): Location {
+        val clonedPosition = position.clone()
+        val chunk = clonedPosition.chunk
+        val chunkSnapshot = chunk.chunkSnapshot
+
+        var localX = clonedPosition.blockX and 15
+        var chunkY = clonedPosition.blockY
+        var localZ = clonedPosition.blockZ and 15
+
+        var depth = 0
+        while (chunkSnapshot.getBlockData(
+                localX,
+                chunkY.coerceIn(clonedPosition.world.minHeight..clonedPosition.world.maxHeight),
+                localZ
+            ).material == Material.AIR && (maxDepth == null || depth < maxDepth)) {
+
+            clonedPosition.subtract(0.0, 1.0, 0.0)
+            depth++
+            localX = clonedPosition.blockX and 15
+            chunkY = clonedPosition.blockY
+            localZ = clonedPosition.blockZ and 15
+        }
+        return clonedPosition
+    }
+
 
     fun lengthSq(x: Double, y: Double, z: Double): Double {
         return (x * x) + (y * y) + (z * z);

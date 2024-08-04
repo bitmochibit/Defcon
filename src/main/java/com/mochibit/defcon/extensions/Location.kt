@@ -41,8 +41,15 @@ fun Location.lerp(other: Location, t: Double): Location {
 }
 
 fun Location.toChunkCoordinate(): Vector3 {
-    return Vector3(chunk.x.toDouble(), .0, chunk.z.toDouble())
+    // Convert world coordinates to chunk coordinates
+    return Vector3((blockX shr 4).toDouble(), .0, (blockZ shr 4).toDouble())
 }
+
+fun Location.toLocalChunkCoordinate(): Vector3 {
+    // Convert world coordinates to local chunk coordinates (0-15 range)
+    return Vector3((blockX and 15).toDouble(), blockY.toDouble(), (blockZ and 15).toDouble())
+}
+
 
 fun Location.getCustomBlockId(): String? {
     return getBlockData<String>(BlockDataKey.CustomBlockId)

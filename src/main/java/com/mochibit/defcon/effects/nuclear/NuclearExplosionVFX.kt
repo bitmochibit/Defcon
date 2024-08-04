@@ -37,19 +37,17 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private val visibleWhenLessThanCurrentHeight = { value: Double -> value < currentHeight - 5 }
     private val visibleAfterACertainHeight = { value: Double -> value >= 120 }
 
-    private val condensationCloudVFX = CondensationCloudVFX(nuclearComponent, center)
-    private val fogVFX = NuclearFogVFX(nuclearComponent, center)
-
     private val coreCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
                 .velocity(Vector3(0.0, 1.5, 0.0)),
             SphereBuilder()
                 .withRadiusXZ(30.0)
+                .hollow(true)
                 .withRadiusY(50.0),
             center
         ),
-        TemperatureComponent(temperatureCoolingRate = 80.0)
+        TemperatureComponent(temperatureCoolingRate = 35.0)
     ).emitRate(10)
     private val secondaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
@@ -58,6 +56,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 .velocity(Vector3(0.0, 1.3, 0.0)),
             SphereBuilder()
                 .skipRadiusXZ(30.0)
+                .hollow(true)
                 .withRadiusXZ(50.0)
                 .withRadiusY(50.0),
             center
@@ -71,6 +70,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 .velocity(Vector3(0.0, 1.2, 0.0)),
             SphereBuilder()
                 .skipRadiusXZ(50.0)
+                .hollow(true)
                 .withRadiusXZ(70.0)
                 .withRadiusY(70.0),
             center
@@ -83,6 +83,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 .scale(Vector3(15.0, 15.0, 15.0))
                 .velocity(Vector3(0.0, -.8, 0.0)),
             SphereBuilder()
+                .hollow(true)
                 .skipRadiusXZ(70.0)
                 .withRadiusXZ(90.0)
                 .withRadiusY(60.0),
@@ -96,15 +97,15 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             ExplosionDustParticle()
                 .velocity(Vector3(0.0, -1.0, 0.0)),
             CylinderBuilder()
+                .hollow(true)
                 .withHeight(60.0)
                 .withRadiusX(30.0)
                 .withRadiusZ(30.0)
                 .withRate(20.0)
-                .withHeightRate(1.0)
-                .hollow(false),
+                .withHeightRate(1.0),
             center
         ),
-        TemperatureComponent(temperatureCoolingRate = 75.0)
+        TemperatureComponent(temperatureCoolingRate = 40.0)
     ).translate(Vector3(0.0, -30.0, 0.0)).emitRate(12)
 
 
@@ -159,18 +160,6 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 
     override fun animate(delta: Double) {
         processRise(delta)
-    }
-
-    override fun start() {
-        super.start()
-        condensationCloudVFX.instantiate(true)
-        fogVFX.instantiate(true)
-    }
-
-    override fun stop() {
-        super.stop()
-        condensationCloudVFX.destroy()
-        fogVFX.destroy()
     }
 
 

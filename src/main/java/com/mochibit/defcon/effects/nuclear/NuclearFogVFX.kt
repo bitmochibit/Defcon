@@ -45,12 +45,12 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
                 .withRadiusY(1.0),
             position
         ).apply {
-            snapToFloor(250.0, 150.0, position)
+            snapToFloor(250.0, 150.0, position, true)
         },
         TemperatureComponent(temperatureCoolingRate = 300.0)
     ).apply {
         applyRadialVelocityFromCenter(Vector3(.5, 0.0, .5))
-    }.emitRate(20)
+    }.emitRate(10)
 
     private val footSustain: ParticleComponent = ParticleComponent(
         ParticleShape(
@@ -62,7 +62,7 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
                 .withRadiusY(1.0),
             position
         ).apply {
-            snapToFloor(250.0, 150.0, position)
+            snapToFloor(250.0, 150.0, position, false)
         },
         TemperatureComponent(temperatureCoolingRate = 300.0)
     ).apply {
@@ -81,8 +81,8 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
                 .hollow(false),
             position
         ),
-        TemperatureComponent(temperatureCoolingRate = 285.0)
-    ).emitRate(20)
+        TemperatureComponent(temperatureCoolingRate = 280.0)
+    ).emitRate(5)
 
     init {
         effectComponents = mutableListOf(
@@ -90,12 +90,6 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
             footSustain,
             foot
         )
-    }
-
-    override fun start() {
-        super.start()
-        this.keepWorkersAt = 6
-        info("Nuclear fog VFX started")
     }
 
     override fun animate(delta: Double) {

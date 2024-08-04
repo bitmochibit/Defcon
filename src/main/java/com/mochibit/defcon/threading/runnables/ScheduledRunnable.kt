@@ -6,20 +6,15 @@ import com.mochibit.defcon.threading.jobs.Schedulable
 import kotlin.collections.ArrayDeque
 
 class ScheduledRunnable : Runnable {
-    private var maxMillisPerTick: Double = 20.0
+    private var maxMillisPerTick: Double = 30.0
     private val maxNanosPerTick: Long
         get() = (maxMillisPerTick * 1E6).toLong()
 
-    private val workloadDeque: ArrayDeque<Schedulable> = ArrayDeque()
-
-    var keepWorkersAt = 1 // Number of workloads to reschedule at once to avoid starvation
-    fun keepWorkersAt(value: Int) = apply { keepWorkersAt = value }
-
+    val workloadDeque: ArrayDeque<Schedulable> = ArrayDeque()
     fun maxMillisPerTick(value: Double) = apply { maxMillisPerTick = value }
 
     fun addWorkload(workload: Schedulable) {
-        for (i in 0 until keepWorkersAt)
-            workloadDeque.add(workload)
+        workloadDeque.add(workload)
     }
 
     override fun run() {
@@ -30,10 +25,7 @@ class ScheduledRunnable : Runnable {
         while (System.nanoTime() <= stopTime && workloadDeque.isNotEmpty() && nextLoad !== lastElement) {
             nextLoad = workloadDeque.removeFirstOrNull()
             nextLoad?.compute()
-            if (nextLoad?.shouldBeRescheduled() == true) {
-                for (i in 0 until keepWorkersAt)
-                    if (workloadDeque.size < keepWorkersAt) workloadDeque.add(nextLoad)
-            }
+            if (nextLoad?.shouldBeRescheduled() == true) workloadDeque.add(nextLoad)
         }
     }
 }

@@ -21,9 +21,6 @@ package com.mochibit.defcon.explosions
 
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.Defcon.Companion.Logger.info
-import com.mochibit.defcon.biomes.CustomBiomeHandler
-import com.mochibit.defcon.biomes.definitions.BurningAirBiome
-import com.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
 import com.mochibit.defcon.effects.nuclear.CondensationCloudVFX
 import com.mochibit.defcon.effects.nuclear.NuclearExplosionVFX
 import com.mochibit.defcon.effects.nuclear.NuclearFogVFX
@@ -58,9 +55,10 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         *  When all of this is happening, there will be a sound effect, and a particle effect, to simulate the explosion
         */
 
-        Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
-            NuclearExplosionVFX(nuclearComponent, center).instantiate(true)
-        })
+        NuclearExplosionVFX(nuclearComponent, center).instantiate(true)
+        NuclearFogVFX(nuclearComponent, center).instantiate(true)
+        CondensationCloudVFX(nuclearComponent, center).instantiate(true)
+
 
         // Send to a nearby player the flash of the explosion (radius)
         center.world.getNearbyPlayers(center, 300.0).forEach { player ->
@@ -81,7 +79,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
                     val title = Title.title(
                         Component.text("\uE000"),
                         Component.empty(),
-                        Times.times(Duration.ZERO, Duration.ofSeconds(8), Duration.ofSeconds(2))
+                        Times.times(Duration.ZERO, Duration.ofSeconds(6), Duration.ofSeconds(10))
                     )
                     val angle = player.eyeLocation.direction.angle(direction.multiply(-1.0))
                     info("Angle: $angle")
@@ -119,7 +117,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
         // Give fire damage to all entities in the radius of the thermal radiation (unless they are protected)
         // We will use ray-casting to check if the entity is in the radius of the thermal radiation
-        val thermalRadius = nuclearComponent.thermalPower * 30 * 6
+        val thermalRadius = nuclearComponent.thermalPower * 30 * 10
 
         // For 10 seconds, send the thermal radiation damage
         // TODO: REFACTOR
@@ -161,30 +159,14 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
         }, 0, 20)
 
-        val shockwaveRadius = nuclearComponent.blastPower * 30 * 10
+        val shockwaveRadius = nuclearComponent.blastPower * 60 * 10
         val shockwaveHeight = nuclearComponent.blastPower * 100 * 2
 
         val falloutRadius = shockwaveRadius / 16
 
 
-        // Get area of 10 chunks around the center
-        for (x in -falloutRadius.toInt()..falloutRadius.toInt()) {
-            for (z in -falloutRadius.toInt()..falloutRadius.toInt()) {
-                val chunk = center.world.getChunkAt(center.chunk.x + x, center.chunk.z + z)
-                CustomBiomeHandler.setCustomBiome(chunk, BurningAirBiome())
-            }
-        }
-
-        // After 30 seconds, set the biomes to "nuclear_fallout"
-
-        Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable {
-            for (x in -falloutRadius.toInt()..falloutRadius.toInt()) {
-                for (z in -falloutRadius.toInt()..falloutRadius.toInt()) {
-                    val chunk = center.world.getChunkAt(center.chunk.x + x, center.chunk.z + z)
-                    CustomBiomeHandler.setCustomBiome(chunk, NuclearFalloutBiome())
-                }
-            }
-        }, 20 * 30)
+         //Get area of 10 chunks around the center
+        //Set the biomes to "burning_air" (a custom biome that will be used to simulate the thermal radiation
 
         Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
             RadiationAreaFactory.fromCenter(
@@ -208,6 +190,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
                 }
             }
         }
+
 
         Shockwave(center, 0.0, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode()
     }

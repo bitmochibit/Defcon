@@ -34,7 +34,7 @@ open class ParticleComponent(
     private val particleShape: ParticleShape,
     colorSuppliable: ColorSuppliable? = null
 ) : EffectComponent {
-    var emitBurstProbability = 0.8; private set
+    var emitBurstProbability = 1.0; private set
     var emitRate = 20; private set
     fun emitBurstProbability(value: Double) = apply { emitBurstProbability = value }
     fun emitRate(value: Int) = apply { emitRate = value }

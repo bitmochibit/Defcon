@@ -1,62 +1,88 @@
-/*
- *
- * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.mochibit.defcon.biomes
 
+import com.comphenix.protocol.PacketType
+import com.comphenix.protocol.ProtocolLib
+import com.comphenix.protocol.ProtocolLibrary
+import com.comphenix.protocol.events.PacketContainer
+import com.comphenix.protocol.wrappers.ChunkCoordIntPair
+import com.comphenix.protocol.wrappers.WrappedLevelChunkData
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.threading.jobs.SimpleCompositionJob
-import org.bukkit.*
-
-
+import com.mochibit.defcon.threading.runnables.ScheduledRunnable
+import org.bukkit.Bukkit
+import org.bukkit.Chunk
+import org.bukkit.World
+import org.bukkit.block.Biome
+import org.bukkit.entity.Player
 
 class CustomBiomeHandler {
     companion object {
         private val UNSAFE = Bukkit.getUnsafe()
+        private const val CHUNK_SIZE = 16
         fun setCustomBiome(chunk: Chunk, biome: CustomBiome) {
+            val syncRunnable = ScheduledRunnable().maxMillisPerTick(2.5)
+            val task = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, syncRunnable, 0L, 20L)
 
-            val minX = chunk.x shl 4
-            val maxX = minX + 16
+            Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
+                val minX = chunk.x shl 4
+                val maxX = minX + CHUNK_SIZE
 
-            val minZ = chunk.z shl 4
-            val maxZ = minZ + 16
+                val minZ = chunk.z shl 4
+                val maxZ = minZ + CHUNK_SIZE
 
-            val key = biome.biomeKey
+                val key = biome.biomeKey
+                val maxHeight = chunk.world.maxHeight
 
-            Defcon.instance.syncRunnable.addWorkload(
-                SimpleCompositionJob(key) {
-                    for (x in minX until maxX) {
-                        for (y in 55 until chunk.world.maxHeight) {
-                            for (z in minZ until maxZ) {
-                                // Set the biome of each block to the definitions biome
-                                UNSAFE.setBiomeKey(chunk.world, x, y, z, key)
+                for (x in minX until maxX step 4) {
+                    for (z in minZ until maxZ step 4) {
+                        syncRunnable.addWorkload(SimpleCompositionJob(key) {
+                            for (offsetX in 0 until 4) {
+                                for (offsetZ in 0 until 4) {
+                                    for (y in 55 until maxHeight) {
+                                        // Set the biome of each block to the custom biome
+                                        UNSAFE.setBiomeKey(chunk.world, x + offsetX, y, z + offsetZ, key)
+                                    }
+                                }
                             }
-                        }
+                        })
                     }
-
-                    // Update the chunk to reflect the changes
-                    if (chunk.isLoaded)
-                        chunk.world.refreshChunk(chunk.x, chunk.z)
                 }
-            );
 
+                if (chunk.isLoaded) {
+                    refreshChunkAsync(chunk)
+                }
+            })
 
+            Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
+                task.cancel()
+            }, 20L * 120L)
         }
+
+        private fun refreshChunkAsync(chunk: Chunk) {
+            val players = Bukkit.getOnlinePlayers()
+            val protocolManager = ProtocolLibrary.getProtocolManager()
+            val chunkCoord = ChunkCoordIntPair(chunk.x, chunk.z)
+
+            players.forEach { player ->
+                Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {sendChunkDataPacket(protocolManager, player, chunkCoord)})
+            }
+        }
+        private fun sendChunkDataPacket(
+            protocolManager: com.comphenix.protocol.ProtocolManager,
+            player: Player,
+            chunkCoord: ChunkCoordIntPair
+        ) {
+            val packet = PacketContainer(PacketType.Play.Server.MAP_CHUNK)
+            packet.integers.write(0, chunkCoord.chunkX)
+            packet.integers.write(1, chunkCoord.chunkZ)
+
+            try {
+                protocolManager.sendServerPacket(player, packet)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
     }
 }
 

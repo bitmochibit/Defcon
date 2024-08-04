@@ -19,7 +19,7 @@
 
 package com.mochibit.defcon.vertexgeometry.particle
 
-import com.mochibit.defcon.Defcon.Companion.Logger.info
+import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.particles.AbstractParticle
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 import com.mochibit.defcon.vertexgeometry.vertexes.SpawnableVertex
@@ -32,11 +32,11 @@ class ParticleShape(
     shapeBuilder: VertexShapeBuilder, spawnPoint: Location
 ) : AbstractShape(shapeBuilder, spawnPoint) {
 
-    init {
-        vertexes = shapeBuilder.build().map { SpawnableVertex(it) }.toTypedArray()
+    override fun buildVertexes(): Array<Vertex> {
+        return shapeBuilder.build().map { SpawnableVertex(it) }.toTypedArray()
     }
 
-    fun emit(chance: Double = 0.8, repetitions: Int = 10) {
+    fun emit(chance: Double = 0.8, repetitions: Int = 10) {1
         if (!visible) return
         if (vertexes.isEmpty()) return
         // Call draw (emitter), get a random vertex and draw it a random number of times consecutively

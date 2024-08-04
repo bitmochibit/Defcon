@@ -29,30 +29,33 @@ abstract class CycledObject(protected val maxAliveTick: Int = 200) : Lifecycled 
     private var destroyed = false
     private var task: BukkitTask? = null
     protected var tickAlive: Double = 0.0
+    val runnable = ScheduledRunnable().maxMillisPerTick(900.0)
+    private var tickTime = 0L
+    private val tickFun = {
+        // Calculate the time passed since the last tick
+        val currentTime = System.currentTimeMillis()
+        val timePassed = currentTime - tickTime
+        // Calculate the delta time based on the time passed
+        val deltaTime = timePassed / 1000.0
+        this.update(deltaTime)
+        tickTime = System.currentTimeMillis()
+        if (maxAliveTick != 0 && tickAlive > maxAliveTick)
+            this.destroy()
+        tickAlive += 1
+    }
     private val workload =
-        SchedulableWorkload({ this.update(1.0 / Defcon.instance.server.tps[0]) }, { !this.destroyed })
-    val runnable = ScheduledRunnable()
-
-    var keepWorkersAt
-        get() = runnable.keepWorkersAt
-        set(value) {
-            runnable.keepWorkersAt(value)
-        }
+        SchedulableWorkload(tickFun) { !this.destroyed }
 
     fun instantiate(async: Boolean) {
         val instantiationRunnable = Runnable {
             this.start()
             runnable.addWorkload(workload)
-            Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, Runnable {
-                if (maxAliveTick != 0 && tickAlive > maxAliveTick)
-                    this.destroy()
-                tickAlive++
-            }, 0, 1)
 
             task = if (async)
                 Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, runnable, 0, 1)
             else
                 Bukkit.getScheduler().runTaskTimer(Defcon.instance, runnable, 0, 1)
+            tickTime = System.currentTimeMillis()
         }
 
         if (async) {

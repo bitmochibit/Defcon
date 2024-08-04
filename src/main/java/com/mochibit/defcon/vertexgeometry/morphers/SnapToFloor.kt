@@ -27,10 +27,10 @@ import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import org.bukkit.Location
 import kotlin.math.pow
 
-class SnapToFloor(val maxDepth: Double = 0.0, val startYOffset: Double = 0.0, private val easeFromPoint: Location? = null) : ShapeMorpher {
+class SnapToFloor(private val maxDepth: Double = 0.0, private val startYOffset: Double = 0.0, private val easeFromPoint: Location? = null) : ShapeMorpher {
     override fun morphVertex(basis: Vertex): Vertex {
         val point = basis.point
-        val groundedLoc = Geometry.getMinY(basis.globalPosition.clone().add(0.0,startYOffset, 0.0), maxDepth + startYOffset)
+        val groundedLoc = Geometry.getMinYUsingSnapshot(basis.globalPosition.clone().add(0.0,startYOffset, 0.0), maxDepth + startYOffset)
         if (easeFromPoint != null) {
             val from = easeFromPoint.clone()
             val distance = basis.globalPosition.distance(from)

@@ -38,10 +38,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 
 class Defcon : JavaPlugin() {
-
-    // This whole stuff will be moved, this is just for testing
-    val syncRunnable = ScheduledRunnable()
-
     override fun onLoad() {
         instance = this
 
@@ -81,7 +77,6 @@ class Defcon : JavaPlugin() {
         // (for now they are processed sequentially)
 
 
-        Bukkit.getScheduler().runTaskTimer(this, this.syncRunnable, 0L, 1L)
 
 
 
