@@ -1,6 +1,26 @@
+/*
+ *
+ * DEFCON: Nuclear warfare plugin for minecraft servers.
+ * Copyright (c) 2024 mochibit.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package com.mochibit.defcon.math
 
 import com.mochibit.defcon.utils.MathFunctions
+import org.bukkit.World
 import kotlin.math.atan2
 import kotlin.math.sqrt
 
@@ -21,6 +41,14 @@ class Vector3(
 
         val FORWARD = Vector3(0.0, 0.0, 1.0)
         val BACKWARD = Vector3(0.0, 0.0, -1.0)
+
+        fun fromLocation(location: org.bukkit.Location): Vector3 {
+            return Vector3(location.x, location.y, location.z)
+        }
+
+        fun fromBukkitVector(vector: org.bukkit.util.Vector): Vector3 {
+            return Vector3(vector.x, vector.y, vector.z)
+        }
     }
 
     constructor() : this(0.0, 0.0, 0.0)
@@ -117,6 +145,17 @@ class Vector3(
             kotlin.math.round(y),
             kotlin.math.round(z)
         )
+    }
+
+    fun distanceSquared(other: Vector3): Double {
+        val dx = x - other.x
+        val dy = y - other.y
+        val dz = z - other.z
+        return dx * dx + dy * dy + dz * dz
+    }
+
+    fun distance(other: Vector3): Double {
+        return sqrt(distanceSquared(other))
     }
 
     fun lerp(other: Vector3, t: Double): Vector3 {
@@ -300,6 +339,20 @@ class Vector3(
 
     fun toBukkitVector(): org.bukkit.util.Vector {
         return org.bukkit.util.Vector(x, y, z)
+    }
+
+    fun toLocation(world: World): org.bukkit.Location {
+        return org.bukkit.Location(world, x, y, z)
+    }
+
+    operator fun component1(): Double {
+        return x
+    }
+    operator fun component2(): Double {
+        return y
+    }
+    operator fun component3(): Double {
+        return z
     }
 
 

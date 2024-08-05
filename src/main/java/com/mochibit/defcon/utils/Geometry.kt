@@ -1,10 +1,31 @@
+/*
+ *
+ * DEFCON: Nuclear warfare plugin for minecraft servers.
+ * Copyright (c) 2024 mochibit.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package com.mochibit.defcon.utils
 
 import com.mochibit.defcon.classes.StructureBlock
+import com.mochibit.defcon.extensions.toChunkCoordinate
 import org.bukkit.Location
 import org.bukkit.Material
 import java.util.*
 import kotlin.math.atan2
+import kotlin.math.floor
 
 object Geometry {
     fun getConvexHullXZ(points: List<Location>): MutableList<Location> {
@@ -98,17 +119,42 @@ object Geometry {
     }
 
     fun getMinY(position: Location, maxDepth: Double? = null): Location {
-        val clonedPosition = position.clone();
+        val clonedPosition = position.clone()
         // Coerce the Y coordinate to the world height limit
         clonedPosition.y = clonedPosition.y.coerceAtMost((clonedPosition.world.maxHeight - 1).toDouble());
-
-        var depth = 0;
+        var depth = 0
         while (clonedPosition.world.getBlockAt(clonedPosition).type == Material.AIR && (maxDepth == null || depth < maxDepth) && clonedPosition.y >= position.world.minHeight) {
-            clonedPosition.subtract(0.0, 1.0, 0.0);
-            depth++;
+            clonedPosition.subtract(0.0, 1.0, 0.0)
+            depth++
         }
-        return clonedPosition;
+        return clonedPosition
     }
+
+    fun getMinYUsingSnapshot(position: Location, maxDepth: Double?): Location {
+        val clonedPosition = position.clone()
+        val chunk = clonedPosition.chunk
+        val chunkSnapshot = chunk.chunkSnapshot
+
+        var localX = clonedPosition.blockX and 15
+        var chunkY = clonedPosition.blockY
+        var localZ = clonedPosition.blockZ and 15
+
+        var depth = 0
+        while (chunkSnapshot.getBlockData(
+                localX,
+                chunkY.coerceIn(clonedPosition.world.minHeight..clonedPosition.world.maxHeight),
+                localZ
+            ).material == Material.AIR && (maxDepth == null || depth < maxDepth)) {
+
+            clonedPosition.subtract(0.0, 1.0, 0.0)
+            depth++
+            localX = clonedPosition.blockX and 15
+            chunkY = clonedPosition.blockY
+            localZ = clonedPosition.blockZ and 15
+        }
+        return clonedPosition
+    }
+
 
     fun lengthSq(x: Double, y: Double, z: Double): Double {
         return (x * x) + (y * y) + (z * z);

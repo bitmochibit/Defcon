@@ -6,7 +6,7 @@ Nuke your opponents from your base with missiles and witness the destruction pow
 ---
 ## ✅ Simple guide on installing the plugin.
 
-Make sure the server software is **paper spigot 1.19.3** and not spigot!
+Make sure the server software is **paper spigot 1.20.2** and not spigot (for now)!
 
 Install **Protocollib**, **Worldedit**, **Worldguard** and **Vault**.
 

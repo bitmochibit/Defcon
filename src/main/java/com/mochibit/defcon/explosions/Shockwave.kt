@@ -1,94 +1,135 @@
+/*
+ *
+ * DEFCON: Nuclear warfare plugin for minecraft servers.
+ * Copyright (c) 2024 mochibit.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package com.mochibit.defcon.explosions
 
 import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.threading.jobs.SimpleCompositionJob
+import com.mochibit.defcon.Defcon.Companion.Logger.info
+import com.mochibit.defcon.biomes.CustomBiomeHandler
+import com.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
+import com.mochibit.defcon.threading.jobs.SchedulableWorkload
+import com.mochibit.defcon.threading.jobs.SimpleSchedulable
+import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import com.mochibit.defcon.utils.Geometry
+import javassist.Loader.Simple
 import org.bukkit.Location
-import java.util.*
 import kotlin.math.ceil
+import kotlin.math.roundToInt
+import org.bukkit.Bukkit
+import java.util.concurrent.*
+import kotlin.concurrent.thread
+import kotlin.math.cos
+import kotlin.math.sin
 
 class Shockwave(val center: Location, val shockwaveRadiusStart: Double, val shockwaveRadius: Double, val shockwaveHeight: Double) {
+    private val biome = NuclearFalloutBiome()
+    private val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()) as ThreadPoolExecutor
+    private val cylinderQueue = PriorityBlockingQueue<ShockwaveColumn>()
+
     fun explode() {
-        val columns: HashSet<ShockwaveColumn> = HashSet();
-        for (radius in shockwaveRadiusStart.toInt()..shockwaveRadius.toInt()) {
-            columns.addAll(shockwaveCyl(center, radius.toDouble(), shockwaveHeight.toDouble()));
+        info("Exploding..")
+        thread(true) {
+            info("Calculating cylinders")
+            precalculateCylinders()
+            executor.shutdown()
+            info("Finished calculating cylinders")
         }
-
-        // Convert columns to a thread-safe collection
-        val clonedColumns = Collections.synchronizedList(ArrayList(columns));
-        for (column in clonedColumns.sortedBy { it.radiusGroup }) {
-
-            Defcon.instance.scheduledRunnable.addWorkload(
-                SimpleCompositionJob(column) {
-                    it.explode();
-                }
-            );
-        }
+        startExploding()
     }
-    private fun shockwaveCyl(center: Location, radius: Double, maxHeight: Double): HashSet<ShockwaveColumn> {
-        val columns = HashSet<ShockwaveColumn>();
 
-        val radiusX: Double = radius
-        val radiusZ: Double = radius
+    private fun precalculateCylinders() {
+        for (radius in shockwaveRadiusStart.toInt()..shockwaveRadius.toInt()) {
+            val explosionPower = 6f - (radius * 3f / shockwaveRadius)
 
-        val invRadiusX: Double = 1 / radiusX
-        val invRadiusZ: Double = 1 / radiusZ
+            // From a radius to another, skip 3 radius
+            if (radius % (1.5 * ceil(explosionPower / 6)).roundToInt() != 0)
+                continue
 
-        val ceilRadiusX = ceil(radiusX).toInt()
-        val ceilRadiusZ = ceil(radiusZ).toInt()
-
-        var nextXn = 0.0
-        forX@ for (x in 0..ceilRadiusX) {
-            val xn = nextXn
-            nextXn = (x + 1) * invRadiusX
-            var nextZn = 0.0
-            forZ@ for (z in 0..ceilRadiusZ) {
-                val zn = nextZn
-                nextZn = (z + 1) * invRadiusZ
-
-                val distanceSq: Double = Geometry.lengthSq(xn, zn)
-                if (distanceSq > 1) {
-                    if (z == 0) {
-                        break@forX
-                    }
-                    break@forZ
-                }
-
-                if (Geometry.lengthSq(nextXn, zn) <= 1 && Geometry.lengthSq(xn, nextZn) <= 1) {
-                    continue
-                }
-
-
-                columns.add(ShockwaveColumn(
-                    center,
-                    center.clone().add(x.toDouble(), 0.0, z.toDouble()),
-                    maxHeight,
-                    radius.toInt(),
-                    this
-                ));
-                columns.add(ShockwaveColumn(
-                    center,
-                    center.clone().add(-x.toDouble(), 0.0, z.toDouble()),
-                    maxHeight,
-                    radius.toInt(),
-                    this
-                ));
-                columns.add(ShockwaveColumn(
-                    center,
-                    center.clone().add(x.toDouble(), 0.0, -z.toDouble()),
-                    maxHeight,
-                    radius.toInt(),
-                    this
-                ));
-                columns.add(ShockwaveColumn(
-                    center,
-                    center.clone().add(-x.toDouble(), 0.0, -z.toDouble()),
-                    maxHeight,
-                    radius.toInt(),
-                    this
-                ));
+            executor.submit {
+                val columns = shockwaveCyl(radius.toDouble(), explosionPower.toFloat())
+                cylinderQueue.addAll(columns)
+                info("Calculating columns for radius $radius")
             }
         }
-        return columns;
     }
+
+    private fun startExploding() {
+        val scheduledRunnable = ScheduledRunnable().maxMillisPerTick(30.0)
+        val taskTimer = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, scheduledRunnable, 0L, 1L)
+        Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, { task ->
+            while (cylinderQueue.isNotEmpty()) {
+                val column = cylinderQueue.poll()
+                column?.let {
+                    scheduledRunnable.addWorkload(SimpleSchedulable {
+                        column.explode()
+                    })
+                }
+            }
+            if (executor.isTerminated && cylinderQueue.isEmpty() && scheduledRunnable.workloadDeque.isEmpty()) {
+                task.cancel()
+                taskTimer.cancel()
+            }
+        }, 0L, 2L )
+    }
+
+    private fun shockwaveCyl(radius: Double, explosionPower: Float): List<ShockwaveColumn> {
+        val columns = mutableListOf<ShockwaveColumn>()
+
+        // Increase the step size for less precision
+        val angleStep = (1.0 / radius).coerceAtLeast(0.2) // Larger step size for less precision
+
+        // Use a larger step size for generating angles
+        for (angle in 0.0..2 * Math.PI step angleStep) {
+            val x = radius * cos(angle)
+            val z = radius * sin(angle)
+
+            // Add fewer columns for less precision
+            columns.add(ShockwaveColumn(
+                center.clone().add(x, 0.0, z),
+                explosionPower,
+                radius.toInt(),
+                this
+            ))
+            columns.add(ShockwaveColumn(
+                center.clone().add(-x, 0.0, z),
+                explosionPower,
+                radius.toInt(),
+                this
+            ))
+            columns.add(ShockwaveColumn(
+                center.clone().add(x, 0.0, -z),
+                explosionPower,
+                radius.toInt(),
+                this
+            ))
+            columns.add(ShockwaveColumn(
+                center.clone().add(-x, 0.0, -z),
+                explosionPower,
+                radius.toInt(),
+                this
+            ))
+        }
+        return columns
+    }
+
+    private infix fun ClosedRange<Double>.step(step: Double) =
+        generateSequence(start) { previous ->
+            if (previous + step <= endInclusive) previous + step else null
+        }
 }
