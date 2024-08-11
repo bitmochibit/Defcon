@@ -23,12 +23,14 @@ import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.utils.ColorUtils
 import org.bukkit.Color
 import org.bukkit.Location
+import org.bukkit.entity.Player
 import org.joml.Vector3f
 import kotlin.random.Random
 
 abstract class AbstractParticle(val particleProperties: GenericParticleProperties) : PluginParticle {
     var colorSupplier: (() -> Color)? = null; private set
     var locationConsumer: ((location: Location) -> Unit)? = null; private set
+    var playersSupplier: (() -> Collection<Player>)? = null; private set
     var initialVelocity: Vector3 = Vector3(.0, .0, .0); private set
     var initialDamping: Vector3 = Vector3(.0, .0, .0); private set
     var initialAcceleration: Vector3 = Vector3(.0, .0, .0); private set
@@ -63,6 +65,8 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
             colorDarkenFactorMin = min; colorDarkenFactorMax = max
         }
     }
+
+    fun playersSupplier(supplier: () -> Collection<Player>) = apply { playersSupplier = supplier }
 
     fun colorLightenFactor(min: Double, max: Double) = apply {
         if (min > max) {

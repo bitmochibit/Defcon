@@ -24,7 +24,7 @@ import org.bukkit.Location
 
 abstract class CustomParticle(properties: DisplayParticleProperties) : AbstractParticle(properties) {
     override fun spawnParticle(location: Location) {
-        DisplayItemAsyncHandler(location.clone(), Bukkit.getOnlinePlayers(), particleProperties as DisplayParticleProperties)
+        DisplayItemAsyncHandler(location.clone(), particleProperties as DisplayParticleProperties)
             .initialVelocity(initialVelocity)
             .damping(initialDamping)
             .acceleration(initialAcceleration)

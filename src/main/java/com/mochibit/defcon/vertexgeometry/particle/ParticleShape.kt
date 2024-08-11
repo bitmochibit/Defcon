@@ -31,6 +31,18 @@ class ParticleShape(
     var particle: AbstractParticle,
     shapeBuilder: VertexShapeBuilder, spawnPoint: Location
 ) : AbstractShape(shapeBuilder, spawnPoint) {
+    private val onLoadListeners = mutableListOf<() -> Unit>()
+    var loaded = false
+    fun onLoad(listener: () -> Unit) {
+        onLoadListeners.add(listener)
+    }
+
+    init {
+        this.onShapeCompleted.add {
+            onLoadListeners.forEach { it() }
+            loaded = true
+        }
+    }
 
     override fun buildVertexes(): Array<Vertex> {
         return shapeBuilder.build().map { SpawnableVertex(it) }.toTypedArray()

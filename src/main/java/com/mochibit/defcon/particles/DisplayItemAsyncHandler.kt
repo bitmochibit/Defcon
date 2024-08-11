@@ -45,11 +45,17 @@ enum class RegistryName {
 
 class DisplayItemAsyncHandler(
     val loc: Location,
-    val players: MutableCollection<out Player>,
     val properties: DisplayParticleProperties
 ) {
     companion object {
+        private const val MAX_PARTICLES_PER_PLAYER = 800
+        private const val DEFAULT_DAMPING_FACTOR = 0.1
+        private const val SPEED_THRESHOLD = 0.5
+        private const val INITIAL_PERIOD = 10L
+        private const val MIN_PERIOD = 5L
+        private const val MAX_PERIOD = 20L
 
+        private val playerParticleCount = mutableMapOf<UUID, Int>()
         val cachedSerializers = mutableMapOf<RegistryName, WrappedDataWatcher.Serializer>(
             RegistryName.Vector3f to WrappedDataWatcher.Registry.get(Vector3f::class.java),
             RegistryName.Quatenionf to WrappedDataWatcher.Registry.get(Quaternionf::class.java),
@@ -59,56 +65,56 @@ class DisplayItemAsyncHandler(
             RegistryName.ItemStack to WrappedDataWatcher.Registry.getItemStackSerializer(false)
         )
     }
-    /**
-     * The random ID of the display item. It is a Variable-length data encoding a two's complement signed 32-bit integer;
-     */
+
     val itemID = (Math.random() * Int.MAX_VALUE).toInt()
     val itemUUID = UUID.randomUUID()
     var velocity = Vector3(0.0, 0.0, 0.0); private set
-    var damping = Vector3(0.1, 0.1, 0.1); private set
+    var damping = Vector3(DEFAULT_DAMPING_FACTOR, DEFAULT_DAMPING_FACTOR, DEFAULT_DAMPING_FACTOR); private set
     var acceleration = Vector3(0.0, 0.0, 0.0); private set
     var accelerationTicks = 0; private set
 
-    fun initialVelocity(initialVelocity: Vector3) = apply { this.velocity = initialVelocity.clone()}
+    fun initialVelocity(initialVelocity: Vector3) = apply { this.velocity = initialVelocity.clone() }
     fun damping(damping: Vector3) = apply { this.damping = damping.clone() }
     fun acceleration(acceleration: Vector3) = apply { this.acceleration = acceleration.clone() }
     fun accelerationTicks(accelerationTicks: Int) = apply { this.accelerationTicks = accelerationTicks }
 
-    /**
-     * Sends the packet to the players inside the list, to display the item
-     */
     fun summon(): DisplayItemAsyncHandler {
-        // Create the packet
-        val packet = PacketContainer(PacketType.Play.Server.SPAWN_ENTITY)
-        // Set the entity ID
-        packet.integers.write(0, itemID)
-        // Set the entity UUID
-        packet.uuiDs.write(0, itemUUID)
-        // Set the entity type
-        packet.entityTypeModifier.write(0, EntityType.ITEM_DISPLAY)
-
-        // Set the location
-        packet.doubles.write(0, loc.x)
-        packet.doubles.write(1, loc.y)
-        packet.doubles.write(2, loc.z)
-
-        // Send the packet to the players
-        sendPacket(packet)
+        val packet = createSpawnPacket()
+        getPlayers().forEach {
+            if (canSpawnParticle(it)) {
+                sendPacket(packet, it)
+                incrementParticleCount(it)
+            }
+        }
         applyMetadata()
         processMovement()
-        despawn(properties.maxLife)
+        scheduleDespawn(properties.maxLife)
         return this
     }
 
-    private fun processMovement() {
-        val initialPeriod = 10L // Initial period between updates
-        val minPeriod = 5L // Minimum period between updates
-        val maxPeriod = 20L // Maximum period between updates
-        val speedThreshold = 0.5 // Threshold to increase update frequency
+    private fun createSpawnPacket(): PacketContainer {
+        val packet = PacketContainer(PacketType.Play.Server.SPAWN_ENTITY)
+        packet.integers.write(0, itemID)
+        packet.uuiDs.write(0, itemUUID)
+        packet.entityTypeModifier.write(0, EntityType.ITEM_DISPLAY)
+        packet.doubles.write(0, loc.x)
+        packet.doubles.write(1, loc.y)
+        packet.doubles.write(2, loc.z)
+        return packet
+    }
 
+    private fun canSpawnParticle(player: Player): Boolean {
+        return playerParticleCount.getOrDefault(player.uniqueId, 0) < MAX_PARTICLES_PER_PLAYER
+    }
+
+    private fun incrementParticleCount(player: Player) {
+        playerParticleCount[player.uniqueId] = playerParticleCount.getOrDefault(player.uniqueId, 0) + 1
+    }
+
+    private fun processMovement() {
         object : BukkitRunnable() {
             var runTime = 0L
-            var currentPeriod = initialPeriod
+            var currentPeriod = INITIAL_PERIOD
 
             override fun run() {
                 if (runTime >= properties.maxLife) {
@@ -116,59 +122,42 @@ class DisplayItemAsyncHandler(
                     return
                 }
 
-                // If there is no acceleration and damping, apply only velocity
-                if (acceleration == Vector3(0.0, 0.0, 0.0) && damping == Vector3(0.0, 0.0, 0.0)) {
-                    if (velocity != Vector3(0.0, 0.0, 0.0)) {
-                        // Update position based on velocity only
-                        loc.add(velocity.x, velocity.y, velocity.z)
-                        setTeleportDuration(currentPeriod)
-                        updatePosition()
-                    }
-                } else {
-                    // Apply acceleration and damping
-                    if (runTime < accelerationTicks) {
-                        // Apply acceleration
-                        velocity.x += acceleration.x / (20.0 / currentPeriod)
-                        velocity.y += acceleration.y / (20.0 / currentPeriod)
-                        velocity.z += acceleration.z / (20.0 / currentPeriod)
-                    }
-
-                    // Apply damping
-                    velocity.x = (velocity.x * (1 - damping.x / (20.0 / currentPeriod))).coerceAtLeast(0.0)
-                    velocity.y = (velocity.y * (1 - damping.y / (20.0 / currentPeriod))).coerceAtLeast(0.0)
-                    velocity.z = (velocity.z * (1 - damping.z / (20.0 / currentPeriod))).coerceAtLeast(0.0)
-
-                    // Update position with calculated speed factor
-                    loc.add(velocity.x, velocity.y, velocity.z)
-                    setTeleportDuration(currentPeriod)
-                    updatePosition()
-                }
-
-                // Adjust update period based on velocity and distance
-                val speed = sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z)
-                val playerDistance = players.map { it.location.distance(loc) }.minOrNull() ?: 0.0
-                currentPeriod = when {
-                    speed > speedThreshold -> minPeriod
-                    playerDistance < 10 -> initialPeriod
-                    playerDistance < 50 -> initialPeriod * 2
-                    else -> maxPeriod
-                }
-
+                updateVelocityAndPosition(currentPeriod)
+                adjustUpdatePeriod()
                 runTime += currentPeriod
             }
-        }.runTaskTimerAsynchronously(Defcon.instance, 0, initialPeriod)
+
+            private fun updateVelocityAndPosition(period: Long) {
+                val timeFactor = 20.0 / period
+
+                if (runTime < accelerationTicks) {
+                    velocity = velocity + acceleration.div(timeFactor)
+                }
+
+                velocity = velocity - damping.div(timeFactor)
+                loc.add(velocity.toBukkitVector())
+                setTeleportDuration(period)
+                updatePosition()
+            }
+
+            private fun adjustUpdatePeriod() {
+                val speed = velocity.length()
+                currentPeriod = if (speed > SPEED_THRESHOLD) MIN_PERIOD else MAX_PERIOD
+            }
+        }.runTaskTimerAsynchronously(Defcon.instance, 0, INITIAL_PERIOD)
     }
 
     private fun setTeleportDuration(period: Long) {
-        // Use teleportDuration to ensure smooth interpolation
-        val teleportDuration = period * 2 // Adjust as necessary
-        val packedItems = mutableListOf(
-        WrappedDataValue(
-            10,
-            WrappedDataWatcher.Registry.get(Int::class.javaObjectType),
-            teleportDuration.toInt()
-        ))
-        sendMetadata(packedItems)
+        val teleportDuration = period * 2
+        sendMetadata(
+            listOf(
+                WrappedDataValue(
+                    10,
+                    cachedSerializers.get(RegistryName.Int),
+                    teleportDuration.toInt()
+                )
+            )
+        )
     }
 
     private fun updatePosition(): DisplayItemAsyncHandler {
@@ -177,75 +166,50 @@ class DisplayItemAsyncHandler(
         packet.doubles.write(0, loc.x)
         packet.doubles.write(1, loc.y)
         packet.doubles.write(2, loc.z)
-        packet.bytes.write(0, 0.toByte())
-        packet.bytes.write(1, 0.toByte())
-        packet.booleans.write(0, false)
-
-
-
-        sendPacket(packet)
+        getPlayers().forEach { sendPacket(packet, it) }
         return this
     }
 
-
-
-    private fun despawn(afterTicks: Long): DisplayItemAsyncHandler {
+    private fun scheduleDespawn(afterTicks: Long): DisplayItemAsyncHandler {
         Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
             val packet = PacketContainer(PacketType.Play.Server.ENTITY_DESTROY)
             packet.intLists.write(0, listOf(itemID))
-            sendPacket(packet)
+            getPlayers(true).forEach {
+                decrementParticleCount(it)
+                sendPacket(packet, it)
+            }
         }, afterTicks)
-
         return this
+    }
+
+    private fun decrementParticleCount(player: Player) {
+        playerParticleCount[player.uniqueId] = (playerParticleCount.getOrDefault(player.uniqueId, 0) - 1).coerceAtLeast(0)
     }
 
     private fun applyMetadata(): DisplayItemAsyncHandler {
         val brightnessValue = (properties.brightness.blockLight shl 4) or (properties.brightness.skyLight shl 20)
-        val packedItems = mutableListOf(
-            WrappedDataValue(
-                8,
-                cachedSerializers.get(RegistryName.Int),
-                properties.interpolationDelay
-            ),
-            WrappedDataValue(
-                9,
-                cachedSerializers.get(RegistryName.Int),
-                properties.interpolationDuration
-            ),
-            WrappedDataValue(
-                10,
-                cachedSerializers.get(RegistryName.Int),
-                properties.teleportDuration
-            ),
+        val packedItems = listOf(
+            WrappedDataValue(8, cachedSerializers.get(RegistryName.Int), properties.interpolationDelay),
+            WrappedDataValue(9, cachedSerializers.get(RegistryName.Int), properties.interpolationDuration),
+            WrappedDataValue(10, cachedSerializers.get(RegistryName.Int), properties.teleportDuration),
             WrappedDataValue(11, cachedSerializers.get(RegistryName.Vector3f), properties.translation),
             WrappedDataValue(12, cachedSerializers.get(RegistryName.Vector3f), properties.scale),
             WrappedDataValue(13, cachedSerializers.get(RegistryName.Quatenionf), properties.rotationLeft),
             WrappedDataValue(14, cachedSerializers.get(RegistryName.Quatenionf), properties.rotationRight),
-            WrappedDataValue(
-                15,
-                cachedSerializers.get(RegistryName.Byte),
-                properties.billboard.ordinal.toByte()
-            ),
+            WrappedDataValue(15, cachedSerializers.get(RegistryName.Byte), properties.billboard.ordinal.toByte()),
             WrappedDataValue(16, cachedSerializers.get(RegistryName.Int), brightnessValue),
             WrappedDataValue(17, cachedSerializers.get(RegistryName.Float), properties.viewRange),
             WrappedDataValue(18, cachedSerializers.get(RegistryName.Float), properties.shadowRadius),
-            WrappedDataValue(
-                19,
-                cachedSerializers.get(RegistryName.Float),
-                properties.shadowStrength
-            ),
+            WrappedDataValue(19, cachedSerializers.get(RegistryName.Float), properties.shadowStrength),
             WrappedDataValue(20, cachedSerializers.get(RegistryName.Float), properties.width),
             WrappedDataValue(21, cachedSerializers.get(RegistryName.Float), properties.height),
-
-            WrappedDataValue(
-                23,
-                cachedSerializers.get(RegistryName.ItemStack),
-                MinecraftReflection.getMinecraftItemStack(getItem())
-            ),
+            WrappedDataValue(23, cachedSerializers.get(RegistryName.ItemStack), MinecraftReflection.getMinecraftItemStack(getItem())),
         )
         sendMetadata(packedItems, true)
         return this
+
     }
+
 
     private fun getItem(): ItemStack {
         val itemStack = properties.itemStack.clone()
@@ -262,6 +226,10 @@ class DisplayItemAsyncHandler(
         itemStack.itemMeta = itemStackMeta
         return itemStack
     }
+    private fun getPlayers(getAll: Boolean = false): Collection<Player> {
+        val players = Bukkit.getOnlinePlayers()
+        return if (getAll) players else players.filter { it.location.distanceSquared(loc) < properties.viewRange * properties.viewRange }
+    }
 
     private fun sendMetadata(wrappedDataValues: List<WrappedDataValue>, writeDefaults : Boolean = false) {
         val packet = PacketContainer(PacketType.Play.Server.ENTITY_METADATA)
@@ -270,16 +238,16 @@ class DisplayItemAsyncHandler(
 
         packet.dataValueCollectionModifier.write(0, wrappedDataValues)
 
-        sendPacket(packet)
+        getPlayers().forEach { sendPacket(packet, it) }
     }
 
-    private fun sendPacket(packet: PacketContainer) {
-        try {
-            players.forEach { player ->
+    private fun sendPacket(packet: PacketContainer, player: Player) {
+        Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
+            try {
                 ProtocolLibrary.getProtocolManager().sendServerPacket(player, packet)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        })
     }
 }

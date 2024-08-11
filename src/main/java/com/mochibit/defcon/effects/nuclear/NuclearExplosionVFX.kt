@@ -75,7 +75,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 .withRadiusY(70.0),
             center
         ),
-        TemperatureComponent(temperatureCoolingRate = 110.0)
+        TemperatureComponent(temperatureCoolingRate = 200.0)
     ).emitRate(15)
     private val quaterniaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
@@ -89,7 +89,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 .withRadiusY(60.0),
             center
         ),
-        TemperatureComponent(temperatureCoolingRate = 115.0)
+        TemperatureComponent(temperatureCoolingRate = 300.0)
     ).translate(Vector3(0.0, -5.0, 0.0)).emitRate(17)
 
     private val coreNeck: ParticleComponent = ParticleComponent(
@@ -119,7 +119,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 .withRadiusY(70.0),
             center
         ).apply { yPredicate(visibleAfterACertainHeight) },
-        TemperatureComponent(temperatureCoolingRate = 200.0)
+        TemperatureComponent(temperatureCoolingRate = 100.0)
     ).translate(Vector3(0.0, -90.0, 0.0)).emitRate(15).visible(false).setVisibilityAfterDelay(true, 20*15)
         .applyRadialVelocityFromCenter(Vector3(3.0, -1.0, 3.0))
 
@@ -140,7 +140,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         ).apply{
             yPredicate(visibleWhenLessThanCurrentHeight)
         },
-        TemperatureComponent(temperatureCoolingRate = 140.0)
+        TemperatureComponent(temperatureCoolingRate = 190.0)
     ).emitRate(14)
 
 

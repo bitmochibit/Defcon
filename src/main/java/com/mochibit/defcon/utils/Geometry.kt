@@ -21,6 +21,7 @@ package com.mochibit.defcon.utils
 
 import com.mochibit.defcon.classes.StructureBlock
 import com.mochibit.defcon.extensions.toChunkCoordinate
+import org.bukkit.ChunkSnapshot
 import org.bukkit.Location
 import org.bukkit.Material
 import java.util.*
@@ -130,28 +131,15 @@ object Geometry {
         return clonedPosition
     }
 
-    fun getMinYUsingSnapshot(position: Location, maxDepth: Double?): Location {
+    fun getMinYUsingSnapshot(position: Location, maxDepth: Double?, givenChunkSnapshot: ChunkSnapshot? = null): Location {
         val clonedPosition = position.clone()
-        val chunk = clonedPosition.chunk
-        val chunkSnapshot = chunk.chunkSnapshot
+        val chunkSnapshot = givenChunkSnapshot ?: clonedPosition.chunk.chunkSnapshot
 
-        var localX = clonedPosition.blockX and 15
-        var chunkY = clonedPosition.blockY
-        var localZ = clonedPosition.blockZ and 15
+        val localX = clonedPosition.blockX and 15
+        val localZ = clonedPosition.blockZ and 15
 
-        var depth = 0
-        while (chunkSnapshot.getBlockData(
-                localX,
-                chunkY.coerceIn(clonedPosition.world.minHeight..clonedPosition.world.maxHeight),
-                localZ
-            ).material == Material.AIR && (maxDepth == null || depth < maxDepth)) {
-
-            clonedPosition.subtract(0.0, 1.0, 0.0)
-            depth++
-            localX = clonedPosition.blockX and 15
-            chunkY = clonedPosition.blockY
-            localZ = clonedPosition.blockZ and 15
-        }
+        // Return the location where the material is not air or the maximum depth has been reached
+        clonedPosition.y = chunkSnapshot.getHighestBlockYAt(localX, localZ).toDouble()
         return clonedPosition
     }
 

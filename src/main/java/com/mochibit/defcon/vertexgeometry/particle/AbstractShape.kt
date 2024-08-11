@@ -36,11 +36,13 @@ abstract class AbstractShape(
         get() {
             if (_vertexes == null) {
                 _vertexes = buildAndProcessVertexes()
+                onShapeCompleted.forEach { it.invoke(_vertexes!!)}
             }
             return _vertexes!!
         }
         set(value) {
             _vertexes = processVertexes(value)
+            onShapeCompleted.forEach { it.invoke(_vertexes!!)}
         }
 
     var transform = Transform3D()
@@ -51,6 +53,9 @@ abstract class AbstractShape(
 
     private var xzPredicate: ((Double, Double) -> Boolean)? = null
     private var yPredicate: ((Double) -> Boolean)? = null
+
+    protected val onShapeCompleted = mutableListOf<(Array<Vertex>) -> Unit>()
+
 
     private fun updateTransformedVertexes() {
         _vertexes?.forEach { vertex ->

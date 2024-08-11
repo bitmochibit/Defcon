@@ -41,14 +41,23 @@ open class ParticleComponent(
     private var lifeCycledSuppliable: Lifecycled? = null
     var transform: Transform3D
         get() = particleShape.transform
-        private set(value) { particleShape.transform = value }
+        private set(value) {
+            particleShape.transform = value
+        }
+
     fun transform(transform: Transform3D) = apply { this.transform = transform }
+
+    fun onLoad(onLoad: () -> Unit) = apply { particleShape.onLoad(onLoad) }
+
+    val loaded get() = particleShape.loaded
+
 
     var visible: Boolean
         get() = particleShape.visible
         set(value) {
             particleShape.visible(value)
         }
+
     fun visible(visible: Boolean) = apply { this.visible = visible }
 
     init {
