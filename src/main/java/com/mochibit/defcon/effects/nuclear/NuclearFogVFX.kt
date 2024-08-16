@@ -84,30 +84,9 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
         TemperatureComponent(temperatureCoolingRate = 280.0)
     ).emitRate(5)
 
-    private val onLoadListeners = mutableListOf<() -> Unit>()
-    fun onLoad(onLoad: () -> Unit) = apply {
-        onLoadListeners.add(onLoad)
-    }
 
-    var loadedFog = false
-    var loadedFootSustain = false
-
-    private fun loadCheck() {
-        if (loadedFog && loadedFootSustain) {
-            onLoadListeners.forEach { it() }
-        }
-    }
 
     init {
-        nuclearFog.onLoad {
-            loadedFog = true
-            loadCheck()
-        }
-        footSustain.onLoad {
-            loadedFootSustain = true
-            loadCheck()
-        }
-
         effectComponents = mutableListOf(
             nuclearFog,
             footSustain,

@@ -20,18 +20,22 @@
 package com.mochibit.defcon.effects
 
 import com.mochibit.defcon.lifecycle.CycledObject
+import com.mochibit.defcon.observer.Loadable
 
-abstract class AnimatedEffect(maxAliveTick: Int = 200) : CycledObject(maxAliveTick)
+abstract class AnimatedEffect(maxAliveTick: Int = 200, protected var effectComponents: MutableList<EffectComponent> = mutableListOf()) : CycledObject(maxAliveTick), Loadable<(Unit) -> Unit, Unit>
 {
-    protected var effectComponents: MutableList<EffectComponent> = mutableListOf()
-
+    override var isLoaded: Boolean = false
+    override val observers: MutableList<(Unit) -> Unit> = mutableListOf()
     open fun draw() {
+        if (!isLoaded) return
         effectComponents.forEach { it.emit() }
     }
 
     abstract fun animate(delta: Double)
 
     override fun start() {
+        println("LOADING ${javaClass.simpleName}")
+        load()
         effectComponents.forEach { it.start() }
     }
 
@@ -40,8 +44,28 @@ abstract class AnimatedEffect(maxAliveTick: Int = 200) : CycledObject(maxAliveTi
     }
 
     override fun update(delta: Double) {
+        if (!isLoaded) return
         draw()
         animate(delta)
         effectComponents.forEach { it.update(delta) }
+    }
+
+
+
+    override fun load() {
+        // Get effect components which are Loadable
+        val loadableEffectComponents = effectComponents.filterIsInstance<Loadable<(Unit)->Unit, Unit>>()
+        println("Found ${loadableEffectComponents.size} loadable effect components")
+        loadableEffectComponents.forEach { loadable ->
+            loadable.onLoad{
+                if (loadableEffectComponents.all {it.isLoaded}) {
+                    isLoaded = true
+                    notifyObservers(Unit)
+                }
+            }
+        }
+
+        // Start loading
+        loadableEffectComponents.forEach { it.load() }
     }
 }

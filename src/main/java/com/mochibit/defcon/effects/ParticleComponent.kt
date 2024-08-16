@@ -24,6 +24,7 @@ import com.mochibit.defcon.extensions.toVector3
 import com.mochibit.defcon.lifecycle.Lifecycled
 import com.mochibit.defcon.math.Transform3D
 import com.mochibit.defcon.math.Vector3
+import com.mochibit.defcon.observer.Loadable
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import org.bukkit.Bukkit
 
@@ -32,8 +33,10 @@ import org.bukkit.Bukkit
  */
 open class ParticleComponent(
     private val particleShape: ParticleShape,
-    colorSuppliable: ColorSuppliable? = null
-) : EffectComponent {
+    colorSuppliable: ColorSuppliable? = null,
+    override val observers: MutableList<(Unit) -> Unit> = mutableListOf(),
+    override var isLoaded: Boolean = false
+) : EffectComponent, Loadable<(Unit) -> Unit, Unit> {
     var emitBurstProbability = 1.0; private set
     var emitRate = 20; private set
     fun emitBurstProbability(value: Double) = apply { emitBurstProbability = value }
@@ -47,20 +50,20 @@ open class ParticleComponent(
 
     fun transform(transform: Transform3D) = apply { this.transform = transform }
 
-    fun onLoad(onLoad: () -> Unit) = apply { particleShape.onLoad(onLoad) }
-
-    val loaded get() = particleShape.loaded
-
-
     var visible: Boolean
         get() = particleShape.visible
         set(value) {
-            particleShape.visible(value)
+            particleShape.visible = value
         }
 
     fun visible(visible: Boolean) = apply { this.visible = visible }
 
     init {
+        particleShape.onLoad {
+            isLoaded = true
+            this.observers.forEach { it(Unit) }
+        }
+
         colorSuppliable?.let { particleShape.particle.colorSupplier(it.colorSupplier) }
         if (colorSuppliable is Lifecycled) {
             lifeCycledSuppliable = colorSuppliable
@@ -74,7 +77,7 @@ open class ParticleComponent(
      */
     fun setVisibilityAfterDelay(visible: Boolean, delay: Long) = apply {
         Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
-            particleShape.visible(visible)
+            particleShape.visible = visible
         }, delay)
     }
 
@@ -115,5 +118,10 @@ open class ParticleComponent(
 
     override fun stop() {
         lifeCycledSuppliable?.stop()
+    }
+
+    override fun load() {
+        println("Called load on ParticleComponent")
+        particleShape.load()
     }
 }

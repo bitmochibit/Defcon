@@ -59,7 +59,7 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, priva
                 .withRadiusY(1.0),
             position
         ).apply {
-            xzPredicate(showOnlyRadiusPredicate)
+            xzPredicate = showOnlyRadiusPredicate
         }
     )
         .visible(false)
@@ -82,7 +82,7 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, priva
                 .withRadiusY(1.0),
             position
         ).apply {
-            xzPredicate(showOnlyRadiusPredicate)
+            xzPredicate = showOnlyRadiusPredicate
         }
     )
         .visible(false)

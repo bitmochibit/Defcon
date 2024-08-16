@@ -118,7 +118,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 .withRadiusXZ(40.0)
                 .withRadiusY(70.0),
             center
-        ).apply { yPredicate(visibleAfterACertainHeight) },
+        ).apply { yPredicate = visibleAfterACertainHeight },
         TemperatureComponent(temperatureCoolingRate = 100.0)
     ).translate(Vector3(0.0, -90.0, 0.0)).emitRate(15).visible(false).setVisibilityAfterDelay(true, 20*15)
         .applyRadialVelocityFromCenter(Vector3(3.0, -1.0, 3.0))
@@ -138,7 +138,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 .hollow(false),
             center
         ).apply{
-            yPredicate(visibleWhenLessThanCurrentHeight)
+            yPredicate = visibleWhenLessThanCurrentHeight
         },
         TemperatureComponent(temperatureCoolingRate = 190.0)
     ).emitRate(14)
@@ -146,16 +146,18 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 
 
     init {
-        effectComponents = mutableListOf(
-            coreCloud,
-            secondaryCloud,
-            tertiaryCloud,
-            quaterniaryCloud,
-            coreNeck,
-            neckCone,
-
-            stem,
+        effectComponents.addAll(
+            listOf(
+                coreCloud,
+                coreNeck,
+                secondaryCloud,
+                tertiaryCloud,
+                quaterniaryCloud,
+                neckCone,
+                stem
+            )
         )
+
     }
 
     override fun animate(delta: Double) {

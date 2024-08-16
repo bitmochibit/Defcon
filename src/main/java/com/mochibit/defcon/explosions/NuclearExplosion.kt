@@ -145,15 +145,77 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
         val falloutRadius = shockwaveRadius / 16
 
-        thread(name = "Nuclear explosion") {
+        thread(name = "Nuclear Explosion Thread") {
+            val shockwave = Shockwave(center, 0.0, shockwaveRadius.toDouble(), shockwaveHeight.toDouble())
             val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
             val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
-            NuclearFogVFX(nuclearComponent, center).onLoad {
+            val nuclearFog = NuclearFogVFX(nuclearComponent, center)
+
+            nuclearExplosion.onLoad {
+                println("LOADED NUCLEAR EXPLOSION")
+                shockwave.explode()
+            }
+
+            condensationCloud.onLoad {
+                println("LOADED CONDENSATION CLOUD")
                 nuclearExplosion.instantiate(true)
+            }
+            nuclearFog.onLoad {
+                println("LOADED NUCLEAR FOG")
                 condensationCloud.instantiate(true)
-                Shockwave(center, 0.0, shockwaveRadius.toDouble(), shockwaveHeight.toDouble()).explode()
-            }.instantiate(true)
+            }
+
+            shockwave.onLoad {
+                println("LOADED SHOCKWAVE")
+                nuclearFog.instantiate(true)
+            }
+
+            shockwave.load()
+
         }
+
+
+
+//        center.world.getNearbyPlayers(center, 300.0).forEach { player ->
+//            val task = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, Runnable
+//            {
+//                val playerEyeLocation = player.eyeLocation.clone()
+//                // Get the direction of the player face
+//                //val playerEyesDirection = player.facing.direction
+//                val playerNukeDirection = center.clone().subtract(playerEyeLocation).toVector().normalize()
+//                // Get 3 blocks away from the player in the direction of the nuke
+//                val directionBlock = playerEyeLocation.add(playerNukeDirection.multiply(1.1))
+//                val angle = playerEyeLocation.direction.angle(playerNukeDirection)
+//                if (!player.hasPotionEffect(org.bukkit.potion.PotionEffectType.NIGHT_VISION)) {
+//                    Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable{
+//                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.NIGHT_VISION, 20*20, 255))
+//                    }, 1L)
+//                }
+//
+//
+//                if (angle < 0.5) {
+//                    if (!player.hasPotionEffect(org.bukkit.potion.PotionEffectType.BLINDNESS)) {
+//                        Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable{
+//                            player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.BLINDNESS, 20*5, 255))
+//                        }, 1L)
+//                    }
+//
+//                }
+//
+//                // Spawn the particle flash
+//                player.spawnParticle(
+//                    org.bukkit.Particle.FLASH,
+//                    directionBlock,
+//                    60,
+//                    0.0,
+//                    0.0,
+//                    0.0,
+//                    0.0
+//                )
+//            }, 0, 2L)
+//            Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable {task.cancel() }, 20*20)
+//
+//        }
 //
 //
 //         //Get area of 10 chunks around the center
@@ -189,8 +251,6 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 //                }
 //            }
 //        })
-
-
 
 
     }

@@ -1,22 +1,26 @@
 package com.mochibit.defcon.explosions
 
 import com.mochibit.defcon.Defcon
+import com.mochibit.defcon.observer.Loadable
 import com.mochibit.defcon.threading.jobs.SimpleSchedulable
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import com.mochibit.defcon.utils.Geometry
 import com.mochibit.defcon.utils.MathFunctions
 import org.bukkit.*
 import org.bukkit.block.Block
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import kotlin.math.*
 import kotlin.random.Random
 
 class Shockwave(
     val center: Location,
-    private val shockwaveRadiusStart: Double,
+    shockwaveRadiusStart: Double,
     private val shockwaveRadius: Double,
-    val shockwaveHeight: Double
-) {
+    val shockwaveHeight: Double, override val observers: MutableList<(Unit) -> Unit> = mutableListOf(),
+    override var isLoaded: Boolean = false
+): Loadable<(Unit) -> Unit, Unit> {
     companion object {
         private val BLOCK_TRANSFORMATION_BLACKLIST = hashSetOf(
             Material.BEDROCK,
@@ -70,18 +74,9 @@ class Shockwave(
     private var currentRadius = shockwaveRadiusStart
     private val chunkSnapshots: MutableMap<Pair<Int, Int>, ChunkSnapshot> = mutableMapOf()
     private val explosionSchedule = ScheduledRunnable().maxMillisPerTick(30.0)
-
-
-
-    init {
-        val explosionTask = Bukkit.getScheduler().runTaskTimer(Defcon.instance, explosionSchedule, 0L, 1L)
-    }
-
-    val processedBlocksCoordinates = hashSetOf<Triple<Int, Int, Int>>()
-
-
-    fun explode() {
-        thread(name = "Shockwave Thread - World: ${center.world.name} Center: ${center.blockX + center.blockY + center.blockZ}") {
+    private val processedBlocksCoordinates = hashSetOf<Triple<Int, Int, Int>>()
+    private fun cacheSnapshots() : CompletableFuture<Unit> {
+        return CompletableFuture.supplyAsync {
             // Capture the snapshot of all chunks within the maximum radius
             val maxRadiusChunks = floor(shockwaveRadius / 16.0).toInt() + 1
             val centerChunkX = center.chunk.x
@@ -93,8 +88,23 @@ class Shockwave(
                     chunkSnapshots[Pair(chunk.x, chunk.z)] = chunk.chunkSnapshot
                 }
             }
+            // After the snapshot is captured, start the explosion (notify observers)
+            notifyObservers(Unit)
+        }
+    }
 
-
+    override fun load() {
+        thread(name="Shockwave cache thread") {
+            cacheSnapshots().join()
+            isLoaded = true
+        }
+    }
+    fun explode() {
+        thread(name = "Shockwave Thread - World: ${center.world.name} Center: ${center.blockX + center.blockY + center.blockZ}") {
+            if (!isLoaded) {
+                cacheSnapshots().join()
+            }
+            explosionSchedule.start()
             while (currentRadius < shockwaveRadius) {
                 val explosionPower = MathFunctions.lerp(4.0, 2.0, currentRadius / shockwaveRadius)
                 val columns = generateShockwaveColumns(currentRadius, explosionPower.toFloat())
@@ -102,14 +112,15 @@ class Shockwave(
                     location.world.spawnParticle(Particle.EXPLOSION_HUGE, location, 1, 0.0, 0.0, 0.0, 0.0)
                     simulateExplosion(location, explosionPower)
                     Bukkit.getScheduler().callSyncMethod(Defcon.instance) {
-                        location.getNearbyLivingEntities(1.0, 1.0, 1.0).forEach { entity ->
-                            entity.damage(explosionPower * 3)
+                        location.getNearbyLivingEntities(5.0, 5.0, 5.0).forEach { entity ->
+                            entity.damage(explosionPower * 12)
                         }
                     }
                 }
                 currentRadius += 1.0
-                Thread.sleep(30)
+                //Thread.sleep(30)
             }
+
         }
     }
 
@@ -126,6 +137,7 @@ class Shockwave(
         val baseY = location.blockY
         val baseZ = location.blockZ
 
+        // Loop through all blocks within the radius
         for (x in -radius.toInt()..radius.toInt()) {
             for (y in -radius.toInt()..radius.toInt()) {
                 for (z in -radius.toInt()..radius.toInt()) {
@@ -254,4 +266,6 @@ class Shockwave(
 
         return ringElements
     }
+
+
 }
