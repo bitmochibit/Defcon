@@ -151,30 +151,31 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
             val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
             val nuclearFog = NuclearFogVFX(nuclearComponent, center)
 
-            nuclearExplosion.onLoad {
-                println("LOADED NUCLEAR EXPLOSION")
-                shockwave.explode()
-            }
-
-            condensationCloud.onLoad {
-                println("LOADED CONDENSATION CLOUD")
-                nuclearExplosion.instantiate(true)
-            }
-            nuclearFog.onLoad {
-                println("LOADED NUCLEAR FOG")
-                condensationCloud.instantiate(true)
-            }
-
-            shockwave.onLoad {
-                println("LOADED SHOCKWAVE")
-                nuclearFog.instantiate(true)
-            }
-
-            shockwave.load()
-
+            shockwave.loadPromise()
+                .thenCompose {
+                    println("LOADED SHOCKWAVE")
+                    nuclearFog.loadPromise()
+                }
+                .thenCompose {
+                    println("LOADED NUCLEAR FOG")
+                    condensationCloud.loadPromise()
+                }
+                .thenCompose {
+                    println("LOADED CONDENSATION CLOUD")
+                    nuclearExplosion.loadPromise()
+                }
+                .thenAccept {
+                    println("LOADED NUCLEAR EXPLOSION")
+                    nuclearFog.instantiate(true)
+                    condensationCloud.instantiate(true)
+                    nuclearExplosion.instantiate(true)
+                    shockwave.explode()
+                }
+                .exceptionally { ex ->
+                    println("Error loading effects: ${ex.message}")
+                    null
+                }
         }
-
-
 
 //        center.world.getNearbyPlayers(center, 300.0).forEach { player ->
 //            val task = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, Runnable

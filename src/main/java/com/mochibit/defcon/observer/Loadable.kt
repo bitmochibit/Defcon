@@ -19,14 +19,30 @@
 
 package com.mochibit.defcon.observer
 
-interface Loadable<T : (J) -> Unit, J> : Observable<T, J> {
+import java.util.concurrent.CompletableFuture
+
+interface Loadable<T> : Observable<(T) -> Unit, T> {
     var isLoaded: Boolean
     fun load()
-    fun onLoad(job: T) = apply {
+    fun onLoad(job: (T) -> Unit) = apply {
         addObserver(job)
     }
 
-    override fun notifyObservers(data: J) {
+    fun waitForOthers(loadables: List<Loadable<*>>) : CompletableFuture<Void> {
+        if (loadables.isEmpty()) return CompletableFuture.completedFuture(null)
+        val promises = loadables.map { it.loadPromise() }
+        return CompletableFuture.allOf(*promises.toTypedArray())
+    }
+    fun loadPromise() : CompletableFuture<T> {
+        val promise = CompletableFuture<T>()
+        onLoad { data: T ->
+            promise.complete(data)
+        }
+        load()
+        return promise
+    }
+
+    override fun notifyObservers(data: T) {
         isLoaded = true
         observers.forEach { it.invoke(data) }
     }

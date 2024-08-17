@@ -9,6 +9,8 @@ import com.mochibit.defcon.utils.MathFunctions
 import org.bukkit.*
 import org.bukkit.block.Block
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import kotlin.math.*
@@ -20,7 +22,7 @@ class Shockwave(
     private val shockwaveRadius: Double,
     val shockwaveHeight: Double, override val observers: MutableList<(Unit) -> Unit> = mutableListOf(),
     override var isLoaded: Boolean = false
-): Loadable<(Unit) -> Unit, Unit> {
+): Loadable<Unit> {
     companion object {
         private val BLOCK_TRANSFORMATION_BLACKLIST = hashSetOf(
             Material.BEDROCK,
@@ -75,7 +77,32 @@ class Shockwave(
     private val chunkSnapshots: MutableMap<Pair<Int, Int>, ChunkSnapshot> = mutableMapOf()
     private val explosionSchedule = ScheduledRunnable().maxMillisPerTick(30.0)
     private val processedBlocksCoordinates = hashSetOf<Triple<Int, Int, Int>>()
-    private fun cacheSnapshots() : CompletableFuture<Unit> {
+//    private fun cacheSnapshots() : CompletableFuture<Unit> {
+//        // Divide the task into multiple threads to capture the snapshot of all chunks and then complete the future
+//        return CompletableFuture.supplyAsync {
+//            // Capture the snapshot of all chunks within the maximum radius
+//            val maxRadiusChunks = floor(shockwaveRadius / 16.0).toInt() + 1
+//            val centerChunkX = center.chunk.x
+//            val centerChunkZ = center.chunk.z
+//
+//            for (dx in -maxRadiusChunks..maxRadiusChunks) {
+//                for (dz in -maxRadiusChunks..maxRadiusChunks) {
+//                    val chunk = center.world.getChunkAtAsync(centerChunkX + dx, centerChunkZ + dz).join()
+//                    chunkSnapshots[Pair(chunk.x, chunk.z)] = chunk.chunkSnapshot
+//                }
+//            }
+//            // After the snapshot is captured, start the explosion (notify observers)
+//            notifyObservers(Unit)
+//        }
+//    }
+
+    private fun cacheSnapshots(): CompletableFuture<Unit> {
+        // Create a thread pool with a fixed number of threads
+        val threadPool: ExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+
+        // Create a list to hold the futures for each chunk snapshot task
+        val futures = mutableListOf<CompletableFuture<Void>>()
+
         return CompletableFuture.supplyAsync {
             // Capture the snapshot of all chunks within the maximum radius
             val maxRadiusChunks = floor(shockwaveRadius / 16.0).toInt() + 1
@@ -84,12 +111,24 @@ class Shockwave(
 
             for (dx in -maxRadiusChunks..maxRadiusChunks) {
                 for (dz in -maxRadiusChunks..maxRadiusChunks) {
-                    val chunk = center.world.getChunkAtAsync(centerChunkX + dx, centerChunkZ + dz).join()
-                    chunkSnapshots[Pair(chunk.x, chunk.z)] = chunk.chunkSnapshot
+                    // Submit each chunk snapshot task to the thread pool
+                    val future = CompletableFuture.runAsync({
+                        val chunk = center.world.getChunkAtAsync(centerChunkX + dx, centerChunkZ + dz).join()
+                        chunkSnapshots[Pair(chunk.x, chunk.z)] = chunk.chunkSnapshot
+                    }, threadPool)
+
+                    futures.add(future)
                 }
             }
+
+            // Wait for all chunk snapshot tasks to complete
+            CompletableFuture.allOf(*futures.toTypedArray()).join()
+
             // After the snapshot is captured, start the explosion (notify observers)
             notifyObservers(Unit)
+        }.whenComplete { _, _ ->
+            // Shutdown the thread pool when the task is complete
+            threadPool.shutdown()
         }
     }
 

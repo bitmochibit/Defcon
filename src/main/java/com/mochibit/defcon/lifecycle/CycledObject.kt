@@ -24,12 +24,12 @@ import com.mochibit.defcon.threading.jobs.SchedulableWorkload
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import org.bukkit.Bukkit
 import org.bukkit.scheduler.BukkitTask
+import kotlin.concurrent.thread
 
-abstract class CycledObject(protected val maxAliveTick: Int = 200) : Lifecycled {
+abstract class CycledObject(private val maxAliveTick: Int = 200) : Lifecycled {
     private var destroyed = false
-    private var task: BukkitTask? = null
     protected var tickAlive: Double = 0.0
-    val runnable = ScheduledRunnable().maxMillisPerTick(900.0)
+    val runnable = ScheduledRunnable(40000, this.javaClass.simpleName).maxMillisPerTick(2.5)
     private var tickTime = 0L
     private val tickFun = {
         // Calculate the time passed since the last tick
@@ -46,29 +46,33 @@ abstract class CycledObject(protected val maxAliveTick: Int = 200) : Lifecycled 
     private val workload =
         SchedulableWorkload(tickFun) { !this.destroyed }
 
+    private fun startUpdater() {
+        thread(name="Lifecycle: ${this.javaClass.simpleName}", priority = Thread.MAX_PRIORITY) {
+            while (!this.destroyed) {
+                tickFun()
+                // Wait the next tick
+                Thread.sleep(50)
+            }
+        }
+    }
+
+    private val instantiationFunction = {
+        this.start()
+        startUpdater()
+        tickTime = System.currentTimeMillis()
+    }
     fun instantiate(async: Boolean) {
-        val instantiationRunnable = Runnable {
-            this.start()
-            runnable.addWorkload(workload)
-
-            task = if (async)
-                Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, runnable, 0, 1)
-            else
-                Bukkit.getScheduler().runTaskTimer(Defcon.instance, runnable, 0, 1)
-            tickTime = System.currentTimeMillis()
-        }
-
         if (async) {
-            Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, instantiationRunnable)
+            thread(name="Instantiation thread for ${this.javaClass.simpleName}") {
+                instantiationFunction()
+            }
         } else {
-            Bukkit.getScheduler().runTask(Defcon.instance, instantiationRunnable)
+            Bukkit.getScheduler().callSyncMethod(Defcon.instance, instantiationFunction)
         }
-
     }
 
     fun destroy() {
         destroyed = true
-        task?.cancel()
         this.stop()
     }
 

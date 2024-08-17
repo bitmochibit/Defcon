@@ -22,7 +22,7 @@ package com.mochibit.defcon.effects
 import com.mochibit.defcon.lifecycle.CycledObject
 import com.mochibit.defcon.observer.Loadable
 
-abstract class AnimatedEffect(maxAliveTick: Int = 200, protected var effectComponents: MutableList<EffectComponent> = mutableListOf()) : CycledObject(maxAliveTick), Loadable<(Unit) -> Unit, Unit>
+abstract class AnimatedEffect(maxAliveTick: Int = 200, protected var effectComponents: MutableList<EffectComponent> = mutableListOf()) : CycledObject(maxAliveTick), Loadable<Unit>
 {
     override var isLoaded: Boolean = false
     override val observers: MutableList<(Unit) -> Unit> = mutableListOf()
@@ -34,8 +34,9 @@ abstract class AnimatedEffect(maxAliveTick: Int = 200, protected var effectCompo
     abstract fun animate(delta: Double)
 
     override fun start() {
-        println("LOADING ${javaClass.simpleName}")
-        load()
+        if (!isLoaded) { // This part is useful for preloading
+            loadPromise().join()
+        }
         effectComponents.forEach { it.start() }
     }
 
@@ -54,17 +55,14 @@ abstract class AnimatedEffect(maxAliveTick: Int = 200, protected var effectCompo
 
     override fun load() {
         // Get effect components which are Loadable
-        val loadableEffectComponents = effectComponents.filterIsInstance<Loadable<(Unit)->Unit, Unit>>()
-        println("Found ${loadableEffectComponents.size} loadable effect components")
-        loadableEffectComponents.forEach { loadable ->
-            loadable.onLoad{
-                if (loadableEffectComponents.all {it.isLoaded}) {
-                    isLoaded = true
-                    notifyObservers(Unit)
-                }
-            }
+        val loadableEffectComponents = effectComponents.filterIsInstance<Loadable<Unit>>()
+        waitForOthers(loadableEffectComponents).thenAccept {
+            isLoaded = true
+            observers.forEach { it.invoke(Unit) }
+        }.exceptionally{ex->
+            println("Error loading effect components: ${ex.message}")
+            null
         }
-
         // Start loading
         loadableEffectComponents.forEach { it.load() }
     }

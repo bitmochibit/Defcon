@@ -7,19 +7,25 @@ import org.bukkit.Bukkit
 import org.bukkit.scheduler.BukkitTask
 import kotlin.collections.ArrayDeque
 
-class ScheduledRunnable(val maxTimeBeforeStop: Int = 5000) : Runnable {
+class ScheduledRunnable(val maxTimeBeforeStop: Int = 5000, val name: String = "! Unnamed !") : Runnable {
     private var maxMillisPerTick: Double = 30.0
     fun maxMillisPerTick(value: Double) = apply { maxMillisPerTick = value }
     private val maxNanosPerTick: Long
         get() = (maxMillisPerTick * 1E6).toLong()
 
+    // Using a ConcurrentLinkedQueue for thread-safe operations
     private val workloadDeque: ArrayDeque<Schedulable> = ArrayDeque()
-    val hasWork get() = workloadDeque.isNotEmpty()
-    // Get the current time
-    var workloadAddTime = System.currentTimeMillis()
+    val hasWork get() = synchronized(workloadDeque) { workloadDeque.isNotEmpty() }
+
+    @Volatile
+    private var workloadAddTime = System.currentTimeMillis()
+
+    // Synchronize access to addWorkload
     fun addWorkload(workload: Schedulable) {
-        workloadDeque.add(workload)
-        workloadAddTime = System.currentTimeMillis()
+        synchronized(workloadDeque) {
+            workloadDeque.add(workload)
+            workloadAddTime = System.currentTimeMillis()
+        }
     }
 
     private val delay = 0L
@@ -33,19 +39,18 @@ class ScheduledRunnable(val maxTimeBeforeStop: Int = 5000) : Runnable {
 
     override fun run() {
         val stopTime = System.nanoTime() + maxNanosPerTick
-        val lastElement: Schedulable = workloadDeque.lastOrNull() ?: return
+        val lastElement: Schedulable? = synchronized(workloadDeque) { workloadDeque.lastOrNull() }
         var nextLoad: Schedulable? = null
-
-        while (System.nanoTime() <= stopTime && workloadDeque.isNotEmpty() && nextLoad !== lastElement) {
-            nextLoad = workloadDeque.removeFirstOrNull()
+        while (System.nanoTime() <= stopTime && synchronized(workloadDeque) { workloadDeque.isNotEmpty() } && nextLoad !== lastElement) {
+            nextLoad = synchronized(workloadDeque) { workloadDeque.removeFirstOrNull() }
             nextLoad?.compute()
-            if (nextLoad?.shouldBeRescheduled() == true) workloadDeque.add(nextLoad)
+            if (nextLoad?.shouldBeRescheduled() == true) addWorkload(nextLoad)
             Thread.yield() // Allow other threads to run
         }
 
-        if (workloadDeque.isEmpty() && System.currentTimeMillis() - workloadAddTime > maxTimeBeforeStop) {
+        if (synchronized(workloadDeque) { workloadDeque.isEmpty() } && System.currentTimeMillis() - workloadAddTime > maxTimeBeforeStop) {
             updater.cancel()
         }
     }
-
 }
+

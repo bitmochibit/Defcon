@@ -36,7 +36,7 @@ open class ParticleComponent(
     colorSuppliable: ColorSuppliable? = null,
     override val observers: MutableList<(Unit) -> Unit> = mutableListOf(),
     override var isLoaded: Boolean = false
-) : EffectComponent, Loadable<(Unit) -> Unit, Unit> {
+) : EffectComponent, Loadable<Unit> {
     var emitBurstProbability = 1.0; private set
     var emitRate = 20; private set
     fun emitBurstProbability(value: Double) = apply { emitBurstProbability = value }
@@ -109,6 +109,7 @@ open class ParticleComponent(
     }
 
     override fun start() {
+        println("Current loaded state of particle component: $isLoaded")
         lifeCycledSuppliable?.start()
     }
 
@@ -121,7 +122,6 @@ open class ParticleComponent(
     }
 
     override fun load() {
-        println("Called load on ParticleComponent")
         particleShape.load()
     }
 }

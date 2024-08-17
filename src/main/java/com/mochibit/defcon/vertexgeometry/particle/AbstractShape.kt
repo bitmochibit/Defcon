@@ -17,7 +17,7 @@ abstract class AbstractShape(
     var spawnPoint: Location,
     override val observers: MutableList<(Array<Vertex>) -> Unit> = mutableListOf(),
     override var isLoaded: Boolean = false
-) : Loadable<(Array<Vertex>) -> Unit, Array<Vertex>> {
+) : Loadable<Array<Vertex>> {
 
     // Use immutable collections and atomic references where possible
     var center: Vector3 = Vector3.ZERO
@@ -48,13 +48,11 @@ abstract class AbstractShape(
     var yPredicate: ((Double) -> Boolean)? = null
 
     override fun load() {
-        thread(name = "Particle Shape ${this.javaClass.name} Builder thread") {
-            val newVertexes = buildAndProcessVertexes()
-            lock.withLock {
-                _vertexes = newVertexes
-                isLoaded = true
-                observers.forEach { it.invoke(_vertexes!!) }
-            }
+        val newVertexes = buildAndProcessVertexes()
+        lock.withLock {
+            _vertexes = newVertexes
+            isLoaded = true
+            observers.forEach { it.invoke(_vertexes!!) }
         }
     }
 
