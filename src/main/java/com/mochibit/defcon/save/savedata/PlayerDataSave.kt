@@ -76,9 +76,6 @@ class PlayerDataSave(val uuid: String) :
     fun resetRadiationLevel() {
         val schemaTest = getCacheOrLoad()
         this.schema.radiationLevel = 0.0
-        info(schemaTest.toString())
-        info("VS")
-        info(this.schema.toString())
     }
 }
 

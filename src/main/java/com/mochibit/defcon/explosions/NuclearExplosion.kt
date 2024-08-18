@@ -140,7 +140,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 //
 //        }, 0, 20)
 //
-        val shockwaveRadius = nuclearComponent.blastPower * 300
+        val shockwaveRadius = nuclearComponent.blastPower * 600
         val shockwaveHeight = nuclearComponent.blastPower * 100 * 2
 
         val falloutRadius = shockwaveRadius / 16
@@ -153,19 +153,15 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 
             shockwave.loadPromise()
                 .thenCompose {
-                    println("LOADED SHOCKWAVE")
                     nuclearFog.loadPromise()
                 }
                 .thenCompose {
-                    println("LOADED NUCLEAR FOG")
                     condensationCloud.loadPromise()
                 }
                 .thenCompose {
-                    println("LOADED CONDENSATION CLOUD")
                     nuclearExplosion.loadPromise()
                 }
                 .thenAccept {
-                    println("LOADED NUCLEAR EXPLOSION")
                     nuclearFog.instantiate(true)
                     condensationCloud.instantiate(true)
                     nuclearExplosion.instantiate(true)

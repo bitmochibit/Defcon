@@ -9,6 +9,7 @@ import com.mochibit.defcon.utils.MathFunctions
 import org.bukkit.*
 import org.bukkit.block.Block
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -74,9 +75,9 @@ class Shockwave(
     }
 
     private var currentRadius = shockwaveRadiusStart
-    private val chunkSnapshots: MutableMap<Pair<Int, Int>, ChunkSnapshot> = mutableMapOf()
+    private val chunkSnapshots: MutableMap<Pair<Int, Int>, ChunkSnapshot> = ConcurrentHashMap()
+    private val processedBlocksCoordinates = ConcurrentHashMap.newKeySet<Triple<Int, Int, Int>>()
     private val explosionSchedule = ScheduledRunnable().maxMillisPerTick(30.0)
-    private val processedBlocksCoordinates = hashSetOf<Triple<Int, Int, Int>>()
 //    private fun cacheSnapshots() : CompletableFuture<Unit> {
 //        // Divide the task into multiple threads to capture the snapshot of all chunks and then complete the future
 //        return CompletableFuture.supplyAsync {
@@ -105,15 +106,18 @@ class Shockwave(
 
         return CompletableFuture.supplyAsync {
             // Capture the snapshot of all chunks within the maximum radius
-            val maxRadiusChunks = floor(shockwaveRadius / 16.0).toInt() + 1
-            val centerChunkX = center.chunk.x
-            val centerChunkZ = center.chunk.z
+            val maxRadiusChunks = (floor(shockwaveRadius).toInt() shr 4) + 4
+            val centerX = center.blockX shr 4
+            val centerZ = center.blockY shr 4
 
             for (dx in -maxRadiusChunks..maxRadiusChunks) {
                 for (dz in -maxRadiusChunks..maxRadiusChunks) {
                     // Submit each chunk snapshot task to the thread pool
                     val future = CompletableFuture.runAsync({
-                        val chunk = center.world.getChunkAtAsync(centerChunkX + dx, centerChunkZ + dz).join()
+                        val newX = centerX + dx
+                        val newZ = centerZ + dz
+                        if (chunkSnapshots.containsKey(Pair(newX, newZ))) return@runAsync
+                        val chunk = center.world.getChunkAtAsyncUrgently(newX, newZ).join()
                         chunkSnapshots[Pair(chunk.x, chunk.z)] = chunk.chunkSnapshot
                     }, threadPool)
 
@@ -145,19 +149,20 @@ class Shockwave(
             }
             explosionSchedule.start()
             while (currentRadius < shockwaveRadius) {
-                val explosionPower = MathFunctions.lerp(4.0, 2.0, currentRadius / shockwaveRadius)
+                //val explosionPower = MathFunctions.lerp(4.0, 2.0, currentRadius / shockwaveRadius)
+                val explosionPower = 4.0
                 val columns = generateShockwaveColumns(currentRadius, explosionPower.toFloat())
                 for (location in columns) {
                     location.world.spawnParticle(Particle.EXPLOSION_HUGE, location, 1, 0.0, 0.0, 0.0, 0.0)
-                    simulateExplosion(location, explosionPower)
                     Bukkit.getScheduler().callSyncMethod(Defcon.instance) {
                         location.getNearbyLivingEntities(5.0, 5.0, 5.0).forEach { entity ->
                             entity.damage(explosionPower * 12)
                         }
                     }
+                    simulateExplosion(location, explosionPower)
                 }
-                currentRadius += 1.0
-                //Thread.sleep(30)
+                Thread.yield()
+                currentRadius += explosionPower/2
             }
 
         }
@@ -172,9 +177,14 @@ class Shockwave(
         val innerRadiusSquared = innerRadius * innerRadius
         val radiusSquared = radius * radius
 
+
+
         val baseX = location.blockX
         val baseY = location.blockY
         val baseZ = location.blockZ
+
+        val worldMaxHeight = world.maxHeight
+        val worldMinHeight = world.minHeight
 
         // Loop through all blocks within the radius
         for (x in -radius.toInt()..radius.toInt()) {
@@ -186,14 +196,15 @@ class Shockwave(
                     if (distanceSquared > radiusSquared) continue
 
                     val newX = baseX + x
-                    val newY = baseY + y
+                    val newY = (baseY + y).coerceIn(worldMinHeight, worldMaxHeight)
                     val newZ = baseZ + z
 
                     if (processedBlocksCoordinates.contains(Triple(newX, newY, newZ))) continue
 
                     val chunkX = newX shr 4
                     val chunkZ = newZ shr 4
-                    val chunkSnapshot = chunkSnapshots[Pair(chunkX, chunkZ)] ?: continue
+
+                    val chunkSnapshot = chunkSnapshots[Pair(chunkX, chunkZ)] ?: continue // Skip if the chunk snapshot is not available
 
                     val localX = newX and 15
                     val localZ = newZ and 15
@@ -277,7 +288,7 @@ class Shockwave(
             // Get the terrain height from the snapshot
             val chunkX = floor(x).toInt() shr 4
             val chunkZ = floor(z).toInt() shr 4
-            val chunkSnapshot = chunkSnapshots[Pair(chunkX, chunkZ)]!!
+            val chunkSnapshot = chunkSnapshots[Pair(chunkX, chunkZ)] ?: continue // Skip if the chunk snapshot is not available
             val floorHeight = Geometry.getMinYUsingSnapshot(loc, shockwaveHeight * 2, chunkSnapshot)
 
             // Connect with the previous point if height difference is significant

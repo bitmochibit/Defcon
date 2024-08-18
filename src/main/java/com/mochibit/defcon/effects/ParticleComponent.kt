@@ -109,7 +109,6 @@ open class ParticleComponent(
     }
 
     override fun start() {
-        println("Current loaded state of particle component: $isLoaded")
         lifeCycledSuppliable?.start()
     }
 

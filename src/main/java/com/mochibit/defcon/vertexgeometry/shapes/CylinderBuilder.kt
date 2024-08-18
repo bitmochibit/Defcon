@@ -37,9 +37,6 @@ class CylinderBuilder() : VertexShapeBuilder {
         val result = HashSet<Vertex>();
         var y = 0.0
 
-        info("Building cylinder with height: $height, radiusX: $radiusX, radiusZ: $radiusZ, rate: $rate, hollow: $hollow")
-
-
         val circleBuilder = CircleBuilder()
             .withRadiusX(radiusX)
             .withRadiusZ(radiusZ)

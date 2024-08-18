@@ -26,55 +26,64 @@ import org.bukkit.Bukkit
 import org.bukkit.scheduler.BukkitTask
 import kotlin.concurrent.thread
 
-abstract class CycledObject(private val maxAliveTick: Int = 200) : Lifecycled {
-    private var destroyed = false
-    protected var tickAlive: Double = 0.0
-    val runnable = ScheduledRunnable(40000, this.javaClass.simpleName).maxMillisPerTick(2.5)
-    private var tickTime = 0L
-    private val tickFun = {
-        // Calculate the time passed since the last tick
-        val currentTime = System.currentTimeMillis()
-        val timePassed = currentTime - tickTime
-        // Calculate the delta time based on the time passed
-        val deltaTime = timePassed / 1000.0
-        this.update(deltaTime)
-        tickTime = System.currentTimeMillis()
-        if (maxAliveTick != 0 && tickAlive > maxAliveTick)
-            this.destroy()
-        tickAlive += 1
-    }
-    private val workload =
-        SchedulableWorkload(tickFun) { !this.destroyed }
+abstract class CycledObject(private val maxAliveTicks: Int = 200) : Lifecycled {
+    private var isDestroyed = false
+    var tickAlive: Double = 0.0
+    private var lastTickTime = 0L
+    private val runnable = ScheduledRunnable(40000, this.javaClass.simpleName).maxMillisPerTick(2.5)
 
-    private fun startUpdater() {
-        thread(name="Lifecycle: ${this.javaClass.simpleName}", priority = Thread.MAX_PRIORITY) {
-            while (!this.destroyed) {
-                tickFun()
-                // Wait the next tick
+    private val tickFunction: () -> Unit = {
+        val currentTime = System.currentTimeMillis()
+        val deltaTime = (currentTime - lastTickTime) / 1000.0
+        lastTickTime = currentTime
+
+        update(deltaTime)
+
+        tickAlive++
+        if (maxAliveTicks > 0 && tickAlive > maxAliveTicks) {
+            destroy()
+        }
+    }
+
+    private val workload = SchedulableWorkload(tickFunction) { !isDestroyed }
+
+    private fun startAsyncUpdater() {
+        thread(name = "Lifecycle: ${this.javaClass.simpleName}", priority = Thread.MAX_PRIORITY) {
+            while (!isDestroyed) {
+                tickFunction()
                 Thread.sleep(50)
             }
         }
     }
 
-    private val instantiationFunction = {
-        this.start()
-        startUpdater()
-        tickTime = System.currentTimeMillis()
+    private fun startSyncUpdater() {
+        runnable.addWorkload(workload)
+        runnable.start(false)
     }
+
+    private fun initialize() {
+        start()
+        lastTickTime = System.currentTimeMillis()
+    }
+
     fun instantiate(async: Boolean) {
         if (async) {
-            thread(name="Instantiation thread for ${this.javaClass.simpleName}") {
-                instantiationFunction()
+            thread(name = "Instantiation thread for ${this.javaClass.simpleName}") {
+                initialize()
+                startAsyncUpdater()
             }
         } else {
-            Bukkit.getScheduler().callSyncMethod(Defcon.instance, instantiationFunction)
+            Bukkit.getScheduler().callSyncMethod(Defcon.instance) {
+                initialize()
+                startSyncUpdater()
+            }
         }
     }
 
     fun destroy() {
-        destroyed = true
-        this.stop()
+        if (!isDestroyed) {
+            isDestroyed = true
+            stop()
+        }
     }
-
-
 }

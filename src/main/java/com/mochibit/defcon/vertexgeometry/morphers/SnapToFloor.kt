@@ -56,7 +56,6 @@ class SnapToFloor(private val maxDepth: Double = 0.0, private val startYOffset: 
     }
 
     override fun morph(basis: Array<Vertex>) : Array<Vertex> {
-        println("Snapping to ground...")
         return basis.map { morphVertex(it) }.toTypedArray()
     }
 }
