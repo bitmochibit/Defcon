@@ -78,24 +78,6 @@ class Shockwave(
     private val chunkSnapshots: MutableMap<Pair<Int, Int>, ChunkSnapshot> = ConcurrentHashMap()
     private val processedBlocksCoordinates = ConcurrentHashMap.newKeySet<Triple<Int, Int, Int>>()
     private val explosionSchedule = ScheduledRunnable().maxMillisPerTick(30.0)
-//    private fun cacheSnapshots() : CompletableFuture<Unit> {
-//        // Divide the task into multiple threads to capture the snapshot of all chunks and then complete the future
-//        return CompletableFuture.supplyAsync {
-//            // Capture the snapshot of all chunks within the maximum radius
-//            val maxRadiusChunks = floor(shockwaveRadius / 16.0).toInt() + 1
-//            val centerChunkX = center.chunk.x
-//            val centerChunkZ = center.chunk.z
-//
-//            for (dx in -maxRadiusChunks..maxRadiusChunks) {
-//                for (dz in -maxRadiusChunks..maxRadiusChunks) {
-//                    val chunk = center.world.getChunkAtAsync(centerChunkX + dx, centerChunkZ + dz).join()
-//                    chunkSnapshots[Pair(chunk.x, chunk.z)] = chunk.chunkSnapshot
-//                }
-//            }
-//            // After the snapshot is captured, start the explosion (notify observers)
-//            notifyObservers(Unit)
-//        }
-//    }
 
     private fun cacheSnapshots(): CompletableFuture<Unit> {
         // Create a thread pool with a fixed number of threads
