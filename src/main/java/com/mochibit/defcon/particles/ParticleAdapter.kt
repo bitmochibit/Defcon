@@ -19,16 +19,17 @@
 
 package com.mochibit.defcon.particles
 
-import org.bukkit.Bukkit
-import org.bukkit.Location
+import com.mochibit.defcon.particles.templates.GenericParticleProperties
 
-abstract class CustomParticle(properties: DisplayParticleProperties) : AbstractParticle(properties) {
-    override fun spawnParticle(location: Location) {
-        DisplayItemAsyncHandler(location.clone(), particleProperties as DisplayParticleProperties)
-            .initialVelocity(initialVelocity)
-            .damping(initialDamping)
-            .acceleration(initialAcceleration)
-            .accelerationTicks(initialAccelerationTicks)
-            .summon()
-    }
+import org.bukkit.Location
+import org.bukkit.entity.Player
+import org.joml.Vector3f
+import java.util.*
+
+abstract class ParticleAdapter {
+    abstract fun summon(location: Vector3f, particleProperties: GenericParticleProperties, players: List<Player>, displayID: Int, displayUUID: UUID)
+    abstract fun remove(displayID: Int, players: List<Player>)
+    abstract fun updatePosition(displayID: Int, newLocation: Vector3f, players: List<Player>)
+
+    open fun setMotionTime(displayID: Int, time: Int, players: List<Player>) {}
 }

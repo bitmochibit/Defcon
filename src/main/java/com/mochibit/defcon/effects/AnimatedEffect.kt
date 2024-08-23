@@ -31,7 +31,7 @@ abstract class AnimatedEffect(maxAliveTick: Int = 200, protected var effectCompo
         effectComponents.forEach { it.emit() }
     }
 
-    abstract fun animate(delta: Double)
+    abstract fun animate(delta: Float)
 
     override fun start() {
         if (!isLoaded) { // This part is useful for preloading
@@ -44,7 +44,7 @@ abstract class AnimatedEffect(maxAliveTick: Int = 200, protected var effectCompo
         effectComponents.forEach { it.stop() }
     }
 
-    override fun update(delta: Double) {
+    override fun update(delta: Float) {
         if (!isLoaded) return
         draw()
         animate(delta)

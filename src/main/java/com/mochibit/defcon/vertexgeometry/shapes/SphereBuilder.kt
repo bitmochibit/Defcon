@@ -3,6 +3,7 @@ package com.mochibit.defcon.vertexgeometry.shapes
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
+import org.joml.Vector3d
 
 /**
  * This class represents a full sphere shape, which is a sphere that is filled with particles
@@ -48,7 +49,7 @@ class SphereBuilder : VertexShapeBuilder {
                     }
 
                     if (radiusCheck <= 1) {
-                        sphere.add(Vertex(Vector3(x, y, z)))
+                        sphere.add(Vertex(Vector3d(x, y, z)))
                     }
                     z += incrementValue
                 }

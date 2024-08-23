@@ -23,6 +23,7 @@ import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
+import org.joml.Vector3d
 
 class CylinderBuilder() : VertexShapeBuilder {
     private var height: Double = 1.0
@@ -50,7 +51,7 @@ class CylinderBuilder() : VertexShapeBuilder {
         while (y < height) {
             result.addAll(
                 circle.map { vertex ->
-                    Vertex(Vector3(vertex.point.x, y, vertex.point.z))
+                    Vertex(Vector3d(vertex.point.x, y, vertex.point.z))
                 }
             )
             y += heightRate

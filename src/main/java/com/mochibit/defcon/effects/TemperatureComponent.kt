@@ -22,9 +22,7 @@ package com.mochibit.defcon.effects
 import com.mochibit.defcon.lifecycle.Lifecycled
 import com.mochibit.defcon.utils.Gradient
 import com.mochibit.defcon.utils.MathFunctions
-import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import org.bukkit.Color
-import org.bukkit.Location
 
 class TemperatureComponent(
     var minTemperatureEmission: Double = 1500.0,
@@ -44,7 +42,7 @@ class TemperatureComponent(
     val color: Color
         get() = blackBodyEmission()
 
-    fun coolDown(delta: Double = 1.0) {
+    fun coolDown(delta: Float = 1.0f) {
         temperature -= temperatureCoolingRate * delta
     }
 
@@ -71,7 +69,7 @@ class TemperatureComponent(
 
     override fun start() {}
 
-    override fun update(delta: Double) {
+    override fun update(delta: Float) {
         coolDown(delta)
     }
 

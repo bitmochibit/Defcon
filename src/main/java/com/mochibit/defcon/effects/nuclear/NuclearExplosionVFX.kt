@@ -24,23 +24,29 @@ import com.mochibit.defcon.effects.ParticleComponent
 import com.mochibit.defcon.effects.TemperatureComponent
 import com.mochibit.defcon.explosions.NuclearComponent
 import com.mochibit.defcon.math.Vector3
-import com.mochibit.defcon.particles.ExplosionDustParticle
+import com.mochibit.defcon.particles.ParticleEmitter
+import com.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Location
+import org.joml.Vector3f
 
 class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val center: Location) : AnimatedEffect(3600) {
     private val maxHeight = 250.0
-    private var currentHeight = 0.0
-    private var riseSpeed = 5.0
+    private var currentHeight = 0.0f
+    private var riseSpeed = 5.0f
     private val visibleWhenLessThanCurrentHeight = { value: Double -> value < currentHeight - 5 }
     private val visibleAfterACertainHeight = { value: Double -> value >= 120 }
+
+    private val mushroomCloudEmitter = ParticleEmitter(center, 3000.0)
 
     private val coreCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .velocity(Vector3(0.0, 1.5, 0.0)),
+                .velocity(Vector3f(0.0f, .5f, 0.0f))
+                .damping(Vector3f(0.0f, 0.1f, 0.0f)),
+            mushroomCloudEmitter,
             SphereBuilder()
                 .withRadiusXZ(30.0)
                 .hollow(true)
@@ -52,8 +58,10 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private val secondaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3(12.0, 12.0, 12.0))
-                .velocity(Vector3(0.0, 1.3, 0.0)),
+                .scale(Vector3f(12.0f, 12.0f, 12.0f))
+                .velocity(Vector3f(0.0f, .3f, 0.0f))
+                .damping(Vector3f(0.0f, 0.1f, 0.0f)),
+            mushroomCloudEmitter,
             SphereBuilder()
                 .skipRadiusXZ(30.0)
                 .hollow(true)
@@ -66,8 +74,10 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private val tertiaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3(14.0, 14.0, 14.0))
-                .velocity(Vector3(0.0, 1.2, 0.0)),
+                .scale(Vector3f(14.0f, 14.0f, 14.0f))
+                .velocity(Vector3f(0.0f, .2f, 0.0f))
+                .damping(Vector3f(0.0f, 0.1f, 0.0f)),
+            mushroomCloudEmitter,
             SphereBuilder()
                 .skipRadiusXZ(50.0)
                 .hollow(true)
@@ -80,8 +90,10 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private val quaterniaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3(15.0, 15.0, 15.0))
-                .velocity(Vector3(0.0, -.8, 0.0)),
+                .scale(Vector3f(15.0f, 15.0f, 15.0f))
+                .velocity(Vector3f(0.0f, -.8f, 0.0f))
+                .damping(Vector3f(0.0f, 0.1f, 0.0f)),
+            mushroomCloudEmitter,
             SphereBuilder()
                 .hollow(true)
                 .skipRadiusXZ(70.0)
@@ -90,12 +102,13 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 300.0)
-    ).translate(Vector3(0.0, -5.0, 0.0)).emitRate(17)
+    ).translate(Vector3f(0.0f, -5.0f, 0.0f)).emitRate(17)
 
     private val coreNeck: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .velocity(Vector3(0.0, -1.0, 0.0)),
+                .velocity(Vector3f(0.0f, -1.0f, 0.0f)),
+            mushroomCloudEmitter,
             CylinderBuilder()
                 .hollow(true)
                 .withHeight(60.0)
@@ -106,12 +119,13 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             center
         ),
         TemperatureComponent(temperatureCoolingRate = 40.0)
-    ).translate(Vector3(0.0, -30.0, 0.0)).emitRate(12)
+    ).translate(Vector3f(0.0f, -30.0f, 0.0f)).emitRate(12)
 
 
     private val neckCone: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle(),
+            mushroomCloudEmitter,
             SphereBuilder()
                 .hollow(true)
                 .withYStart(-15.0)
@@ -120,16 +134,17 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             center
         ).apply { yPredicate = visibleAfterACertainHeight },
         TemperatureComponent(temperatureCoolingRate = 100.0)
-    ).translate(Vector3(0.0, -90.0, 0.0)).emitRate(15).visible(false).setVisibilityAfterDelay(true, 20*15)
-        .applyRadialVelocityFromCenter(Vector3(3.0, -1.0, 3.0))
+    ).translate(Vector3f(0.0f, -90.0f, 0.0f)).emitRate(15).visible(false).setVisibilityAfterDelay(true, 20*15)
+        .applyRadialVelocityFromCenter(Vector3f(1.0f, -1.0f, 1.0f))
 
 
 
     private val stem: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3(11.0, 11.0, 11.0))
-                .velocity(Vector3(0.0, 2.0, 0.0)),
+                .scale(Vector3f(11.0f, 11.0f, 11.0f))
+                .velocity(Vector3f(0.0f, 1.0f, 0.0f)),
+            mushroomCloudEmitter,
             CylinderBuilder()
                 .withHeight(maxHeight)
                 .withRadiusX(15.0)
@@ -160,21 +175,21 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 
     }
 
-    override fun animate(delta: Double) {
+    override fun animate(delta: Float) {
         processRise(delta)
     }
 
 
-    private fun processRise(delta: Double) {
+    private fun processRise(delta: Float) {
         if (currentHeight > maxHeight) return
         val deltaMovement = riseSpeed * delta
         // Elevate the sphere using transform translation
-        coreCloud.translate(Vector3(0.0, deltaMovement, 0.0))
-        coreNeck.translate(Vector3(0.0, deltaMovement, 0.0))
-        secondaryCloud.translate(Vector3(0.0, deltaMovement, 0.0))
-        tertiaryCloud.translate(Vector3(0.0, deltaMovement, 0.0))
-        quaterniaryCloud.translate(Vector3(0.0, deltaMovement, 0.0))
-        neckCone.translate(Vector3(0.0, deltaMovement, 0.0))
+        coreCloud.translate(Vector3f(0.0f, deltaMovement, 0.0f))
+        coreNeck.translate(Vector3f(0.0f, deltaMovement, 0.0f))
+        secondaryCloud.translate(Vector3f(0.0f, deltaMovement, 0.0f))
+        tertiaryCloud.translate(Vector3f(0.0f, deltaMovement, 0.0f))
+        quaterniaryCloud.translate(Vector3f(0.0f, deltaMovement, 0.0f))
+        neckCone.translate(Vector3f(0.0f, deltaMovement, 0.0f))
         currentHeight += deltaMovement
     }
 

@@ -23,7 +23,6 @@ import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.threading.jobs.SchedulableWorkload
 import com.mochibit.defcon.threading.runnables.ScheduledRunnable
 import org.bukkit.Bukkit
-import org.bukkit.scheduler.BukkitTask
 import kotlin.concurrent.thread
 
 abstract class CycledObject(private val maxAliveTicks: Int = 200) : Lifecycled {
@@ -34,7 +33,7 @@ abstract class CycledObject(private val maxAliveTicks: Int = 200) : Lifecycled {
 
     private val tickFunction: () -> Unit = {
         val currentTime = System.currentTimeMillis()
-        val deltaTime = (currentTime - lastTickTime) / 1000.0
+        val deltaTime = (currentTime - lastTickTime) / 1000.0f
         lastTickTime = currentTime
 
         update(deltaTime)

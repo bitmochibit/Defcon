@@ -130,6 +130,7 @@ class Shockwave(
                 cacheSnapshots().join()
             }
             explosionSchedule.start()
+            var resetRadius = 0
             while (currentRadius < shockwaveRadius) {
                 //val explosionPower = MathFunctions.lerp(4.0, 2.0, currentRadius / shockwaveRadius)
                 val explosionPower = 4.0
@@ -142,6 +143,11 @@ class Shockwave(
                         }
                     }
                     simulateExplosion(location, explosionPower)
+                }
+                resetRadius++
+                if (resetRadius > 5) {
+                    resetRadius = 0
+                  processedBlocksCoordinates.clear()
                 }
                 Thread.yield()
                 currentRadius += explosionPower/2

@@ -24,9 +24,14 @@ import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.utils.MathFunctions
 import com.mochibit.defcon.utils.MetaManager
 import org.bukkit.Location
+import org.joml.Vector3f
 
 fun Location.toVector3(): Vector3 {
     return Vector3(x, y, z)
+}
+
+fun Location.toVector3f(): Vector3f {
+    return Vector3f(x.toFloat(), y.toFloat(), z.toFloat())
 }
 
 fun Location.lerp(other: Location, t: Double): Location {

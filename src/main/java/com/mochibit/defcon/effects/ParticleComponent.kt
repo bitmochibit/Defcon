@@ -20,13 +20,15 @@
 package com.mochibit.defcon.effects
 
 import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.extensions.toVector3
+import com.mochibit.defcon.extensions.toVector3f
 import com.mochibit.defcon.lifecycle.Lifecycled
 import com.mochibit.defcon.math.Transform3D
 import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.observer.Loadable
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import org.bukkit.Bukkit
+import org.joml.Matrix4d
+import org.joml.Vector3f
 
 /**
  * Represents an effect component that can be added to an effect.
@@ -42,13 +44,13 @@ open class ParticleComponent(
     fun emitBurstProbability(value: Double) = apply { emitBurstProbability = value }
     fun emitRate(value: Int) = apply { emitRate = value }
     private var lifeCycledSuppliable: Lifecycled? = null
-    var transform: Transform3D
+    var transform: Matrix4d
         get() = particleShape.transform
         private set(value) {
             particleShape.transform = value
         }
 
-    fun transform(transform: Transform3D) = apply { this.transform = transform }
+    fun transform(transform: Matrix4d) = apply { this.transform = transform }
 
     var visible: Boolean
         get() = particleShape.visible
@@ -81,26 +83,26 @@ open class ParticleComponent(
         }, delay)
     }
 
-    fun translate(translation: Vector3) = apply {
-        transform = transform.translated(translation)
+    fun translate(translation: Vector3f) = apply {
+        transform.translate(translation)
     }
 
-    fun rotate(axis: Vector3, angle: Double) = apply {
-        transform = transform.rotated(axis, angle)
+    fun rotate(axis: Vector3f, angle: Double) = apply {
+        transform.rotate(angle, axis)
     }
 
     /**
      * Apply a radial
      */
-    fun applyRadialVelocityFromCenter(velocity: Vector3) = apply {
+    fun applyRadialVelocityFromCenter(velocity: Vector3f) = apply {
         // Use the normalized direction as offset for the particle
         //particleBuilder.offset(normalized.x, particleBuilder.offsetY(), normalized.z);
         particleShape.particle.locationConsumer {
-            val point = it.clone().subtract(particleShape.spawnPoint).toVector3()
-            val direction = point - particleShape.center
-            val normalized = direction.normalized()
+            val point = it.clone().subtract(particleShape.spawnPoint).toVector3f()
+            val direction = point.sub(particleShape.center)
+            val normalized = direction.normalize()
             // Modify existing velocity to move directionally from the center (without overriding existing velocity)
-            particleShape.particle.velocity(normalized * velocity)
+            particleShape.particle.velocity(normalized.mul(velocity))
         }
     }
 
@@ -110,14 +112,17 @@ open class ParticleComponent(
 
     override fun start() {
         lifeCycledSuppliable?.start()
+        particleShape.emitter.start()
     }
 
-    override fun update(delta: Double) {
+    override fun update(delta: Float) {
         lifeCycledSuppliable?.update(delta)
+        particleShape.emitter.update(delta)
     }
 
     override fun stop() {
         lifeCycledSuppliable?.stop()
+        particleShape.emitter.stop()
     }
 
     override fun load() {

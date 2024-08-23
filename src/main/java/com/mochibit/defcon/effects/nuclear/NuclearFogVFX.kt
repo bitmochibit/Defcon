@@ -19,26 +19,29 @@
 
 package com.mochibit.defcon.effects.nuclear
 
-import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.effects.AnimatedEffect
 import com.mochibit.defcon.effects.ParticleComponent
 import com.mochibit.defcon.effects.TemperatureComponent
 import com.mochibit.defcon.explosions.NuclearComponent
-import com.mochibit.defcon.math.Vector3
-import com.mochibit.defcon.particles.ExplosionDustParticle
+import com.mochibit.defcon.particles.ParticleEmitter
+import com.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Location
+import org.joml.Vector3f
 
 class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val position: Location) :
     AnimatedEffect( 3600) {
 
+    private val fogEmitter = ParticleEmitter(position, 3000.0)
+
     private val nuclearFog: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3(14.0, 14.0, 14.0))
-                .displacement(Vector3(.0, .5, .0)),
+                .scale(Vector3f(14.0f, 14.0f, 14.0f))
+                .displacement(Vector3f(.0f, .5f, .0f)),
+            fogEmitter,
             SphereBuilder()
                 .withRadiusXZ(160.0)
                 .skipRadiusXZ(80.0)
@@ -49,14 +52,15 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
         },
         TemperatureComponent(temperatureCoolingRate = 300.0)
     ).apply {
-        applyRadialVelocityFromCenter(Vector3(.5, 0.0, .5))
+        applyRadialVelocityFromCenter(Vector3f(.5f, 0.0f, .5f))
     }.emitRate(10)
 
     private val footSustain: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3(14.0, 14.0, 14.0))
-                .displacement(Vector3(.0, .5, .0)),
+                .scale(Vector3f(14.0f, 14.0f, 14.0f))
+                .displacement(Vector3f(.0f, .5f, .0f)),
+            fogEmitter,
             SphereBuilder()
                 .withRadiusXZ(80.0)
                 .withRadiusY(1.0),
@@ -66,13 +70,14 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
         },
         TemperatureComponent(temperatureCoolingRate = 300.0)
     ).apply {
-        applyRadialVelocityFromCenter(Vector3(.5, 0.0, .5))
+        applyRadialVelocityFromCenter(Vector3f(.5f, 0.0f, .5f))
     }.emitRate(20)
 
     private val foot: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .velocity(Vector3(0.0, 1.0, 0.0)),
+                .velocity(Vector3f(0.0f, 1.0f, 0.0f)),
+            fogEmitter,
             CylinderBuilder()
                 .withHeight(15.0)
                 .withRadiusX(30.0)
@@ -94,7 +99,7 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
         )
     }
 
-    override fun animate(delta: Double) {
+    override fun animate(delta: Float) {
 
     }
 

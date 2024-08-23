@@ -21,23 +21,23 @@ package com.mochibit.defcon.effects.nuclear
 
 import com.mochibit.defcon.effects.AnimatedEffect
 import com.mochibit.defcon.effects.ParticleComponent
-import com.mochibit.defcon.effects.TemperatureComponent
 import com.mochibit.defcon.explosions.NuclearComponent
 import com.mochibit.defcon.math.Vector3
-import com.mochibit.defcon.particles.ExplosionDustParticle
+import com.mochibit.defcon.particles.ParticleEmitter
+import com.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
-import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Color
 import org.bukkit.Location
+import org.joml.Vector3f
 
 
 class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, private val position: Location) :
     AnimatedEffect(20 * 60) {
-    var riseSpeed = 4.0
+    var riseSpeed = 4.0f
 
-    var currentRadius = 100.0
-    val ringWidth = 30.0
+    var currentRadius = 100.0f
+    val ringWidth = 30.0f
 
     private val showOnlyRadiusPredicate: (Double, Double) -> Boolean = { x, z ->
         val distSquared = x * x + z * z
@@ -46,14 +46,17 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, priva
         distSquared >= innerRadius * innerRadius && distSquared <= outerRadius * outerRadius
     }
 
+    val condensationCloudEmitter = ParticleEmitter(position, 3000.0)
+
     private val condensationCloud = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle().apply {
-                scale(Vector3(30.0, 30.0, 30.0))
+                scale(Vector3f(30.0f, 30.0f, 30.0f))
                 color(Color.WHITE)
                 colorDarkenFactor(0.9, 1.0)
                 colorLightenFactor(0.0, 0.0)
             },
+            condensationCloudEmitter,
             SphereBuilder()
                 .withRadiusXZ(400.0)
                 .withRadiusY(1.0),
@@ -63,20 +66,20 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, priva
         }
     )
         .visible(false)
-        .translate(Vector3(0.0, 60.0, 0.0))
+        .translate(Vector3f(0.0f, 60.0f, 0.0f))
         .apply {
-            applyRadialVelocityFromCenter(Vector3(2.0, 0.0, 2.0))
+            applyRadialVelocityFromCenter(Vector3f(2.0f, 0.0f, 2.0f))
         }.emitRate(50)
 
     private val secondaryCondensationCloud = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle().apply {
-                scale(Vector3(30.0, 30.0, 30.0))
+                scale(Vector3f(30.0f, 30.0f, 30.0f))
                 color(Color.WHITE)
                 colorDarkenFactor(0.9, 1.0)
                 colorLightenFactor(0.0, 0.0)
-
             },
+            condensationCloudEmitter,
             SphereBuilder()
                 .withRadiusXZ(400.0)
                 .withRadiusY(1.0),
@@ -86,9 +89,9 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, priva
         }
     )
         .visible(false)
-        .translate(Vector3(0.0, 140.0, 0.0))
+        .translate(Vector3f(0.0f, 140.0f, 0.0f))
         .apply {
-            applyRadialVelocityFromCenter(Vector3(2.0, 0.0, 2.0))
+            applyRadialVelocityFromCenter(Vector3f(2.0f, 0.0f, 2.0f))
         }.emitRate(50)
 
 
@@ -100,13 +103,13 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, priva
         )
     }
 
-    override fun animate(delta: Double) {
+    override fun animate(delta: Float) {
         if (tickAlive > 20 * 20) {
             val deltaMovement = riseSpeed * delta
-            condensationCloud.translate(Vector3(0.0, deltaMovement, 0.0))
+            condensationCloud.translate(Vector3f(0.0f, deltaMovement, 0.0f))
             currentRadius += deltaMovement
 
-            secondaryCondensationCloud.translate(Vector3(0.0, deltaMovement * 1.5, 0.0))
+            secondaryCondensationCloud.translate(Vector3f(0.0f, deltaMovement * 1.5f, 0.0f))
         }
     }
 

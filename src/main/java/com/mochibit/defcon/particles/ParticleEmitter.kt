@@ -1,41 +1,53 @@
-/*
- *
- * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.mochibit.defcon.particles
 
 import com.mochibit.defcon.lifecycle.Lifecycled
+import com.mochibit.defcon.particles.templates.AbstractParticle
+import org.bukkit.Bukkit
+import org.bukkit.Location
+import org.bukkit.entity.Player
 
-class ParticleEmitter : Lifecycled {
-    val particles = mutableListOf<PluginParticle>()
-    fun spawnParticle(particle: PluginParticle) {
+class ParticleEmitter(val origin: Location, val range: Double) : Lifecycled {
+    companion object {
+        private const val MAX_PARTICLES = 5000
+    }
 
+    private val particles = mutableListOf<ParticleInstance>()
+
+    fun spawnParticle(particle: AbstractParticle, location: Location) {
+        if (particles.size >= MAX_PARTICLES) return
+        particles.add(ParticleInstance.fromTemplate(particle, location))
     }
 
     override fun start() {
-
+        // No initialization required
     }
 
-    override fun update(delta: Double) {
+    override fun update(delta: Float) {
+        val players = getPlayersInRange()
 
+        val iterator = particles.iterator()
+        while (iterator.hasNext()) {
+            val particle = iterator.next()
+            particle.update(delta, players)
+            particle.show(players)
+
+            if (particle.isDead()) {
+                particle.remove(players)
+                iterator.remove()
+            }
+        }
     }
 
     override fun stop() {
+        val players = getPlayersInRange()
+        particles.forEach { it.remove(players) }
+        particles.clear()
+    }
 
+    private fun getPlayersInRange(): List<Player> {
+        val world = origin.world
+        return Bukkit.getOnlinePlayers().filter {
+            it.world == world && it.location.distanceSquared(origin) <= range * range
+        }
     }
 }

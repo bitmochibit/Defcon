@@ -17,10 +17,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.mochibit.defcon.particles
+package com.mochibit.defcon.particles.templates.definition
 
-import org.bukkit.Location
+import com.mochibit.defcon.particles.templates.CustomParticle
+import com.mochibit.defcon.particles.templates.DisplayParticleProperties
+import org.bukkit.Color
+import org.bukkit.Material
+import org.bukkit.inventory.ItemStack
+import org.joml.Vector3f
 
-interface PluginParticle {
-    fun spawn(location: Location)
-}
+class ExplosionDustParticle : CustomParticle(
+    DisplayParticleProperties(
+        itemStack = ItemStack(Material.LEATHER_BOOTS),
+        viewRange = 500.0f,
+        modelData = 2
+    ).apply {
+        color = Color.fromRGB(49,49,49)
+        scale = Vector3f(10.0f, 10.0f, 10.0f)
+    }
+)

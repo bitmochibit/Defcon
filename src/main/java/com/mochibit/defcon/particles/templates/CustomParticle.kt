@@ -17,21 +17,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.mochibit.defcon.particles
+package com.mochibit.defcon.particles.templates
 
-import org.bukkit.Color
-import org.bukkit.Material
-import org.bukkit.entity.Display
-import org.bukkit.inventory.ItemStack
-import org.joml.Vector3f
+import com.mochibit.defcon.particles.ItemParticleAdapter
+import com.mochibit.defcon.particles.ParticleAdapter
 
-class ExplosionDustParticle : CustomParticle(
-    DisplayParticleProperties(
-        itemStack = ItemStack(Material.LEATHER_BOOTS),
-        viewRange = 500.0f,
-        modelData = 2
-    ).apply {
-        color = Color.fromRGB(49,49,49)
-        scale = Vector3f(10.0f, 10.0f, 10.0f)
+abstract class CustomParticle(properties: DisplayParticleProperties) : AbstractParticle(properties) {
+    override fun getAdapter(): ParticleAdapter {
+        return ItemParticleAdapter
     }
-)
+}

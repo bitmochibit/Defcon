@@ -1,14 +1,15 @@
 package com.mochibit.defcon.vertexgeometry.particle
 
 import com.mochibit.defcon.Defcon.Companion.Logger.info
-import com.mochibit.defcon.math.Transform3D
-import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.observer.Loadable
 import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 import com.mochibit.defcon.vertexgeometry.morphers.ShapeMorpher
 import com.mochibit.defcon.vertexgeometry.morphers.SnapToFloor
 import org.bukkit.Location
+import org.joml.Vector3d
+import org.joml.Matrix4d
+import org.joml.Vector3f
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 
@@ -20,8 +21,8 @@ abstract class AbstractShape(
 ) : Loadable<Array<Vertex>> {
 
     // Use immutable collections and atomic references where possible
-    var center: Vector3 = Vector3.ZERO
-    private var transformedCenter: Vector3 = Vector3.ZERO
+    var center: Vector3f = Vector3f(0.0f, 0.0f, 0.0f)
+    private var transformedCenter: Vector3d = Vector3d(0.0, 0.0, 0.0)
     var visible: Boolean = true
     private var shapeMorpher: ShapeMorpher? = null
     private var dynamicMorph: Boolean = false
@@ -36,12 +37,10 @@ abstract class AbstractShape(
     protected val vertexes: Array<Vertex>
         get() = _vertexes ?: throw IllegalStateException("Vertexes not loaded")
 
-    var transform: Transform3D = Transform3D()
+    var transform: Matrix4d = Matrix4d().identity()
         set(value) {
-            lock.withLock {
-                field = value
-                updateTransformedVertexes()
-            }
+            field = value
+            updateTransformedVertexes()
         }
 
     var xzPredicate: ((Double, Double) -> Boolean)? = null
@@ -49,21 +48,19 @@ abstract class AbstractShape(
 
     override fun load() {
         val newVertexes = buildAndProcessVertexes()
-        lock.withLock {
-            _vertexes = newVertexes
-            isLoaded = true
-            observers.forEach { it.invoke(_vertexes!!) }
-        }
+        _vertexes = newVertexes
+        isLoaded = true
+        observers.forEach { it.invoke(_vertexes!!) }
     }
 
     private fun updateTransformedVertexes() {
-        lock.withLock {
-            _vertexes?.forEach { vertex ->
-                vertex.transformedPoint = transform.xform(vertex.point)
-                vertex.globalPosition = spawnPoint.clone().add(vertex.transformedPoint.toBukkitVector())
-            }
-            transformedCenter = transform.xform(center)
+        _vertexes?.forEach { vertex ->
+            val transformedPoint = Vector3d(vertex.point)
+            transform.transformPosition(transformedPoint)
+            vertex.transformedPoint = transformedPoint
+            vertex.globalPosition = spawnPoint.clone().add(transformedPoint.x, transformedPoint.y, transformedPoint.z)
         }
+        transformedCenter = transform.transformPosition(Vector3d(center))
     }
 
     private fun buildAndProcessVertexes(): Array<Vertex> {
@@ -72,21 +69,21 @@ abstract class AbstractShape(
     }
 
     private fun processVertexes(vertexes: Array<Vertex>): Array<Vertex> {
-        lock.withLock {
-            val result = vertexes.copyOf()
-            center = Vector3(
-                result.map { it.point.x }.average(),
-                result.map { it.point.y }.average(),
-                result.map { it.point.z }.average()
-            )
-            transformedCenter = transform.xform(center)
+        val result = vertexes.copyOf()
+        center = Vector3f(
+            result.map { it.point.x }.average().toFloat(),
+            result.map { it.point.y }.average().toFloat(),
+            result.map { it.point.z }.average().toFloat()
+        )
+        transformedCenter = transform.transformPosition(Vector3d(center))
 
-            result.forEach { vertex ->
-                vertex.transformedPoint = transform.xform(vertex.point)
-                vertex.globalPosition = spawnPoint.clone().add(vertex.transformedPoint.toBukkitVector())
-            }
-            return shapeMorpher?.takeIf { !dynamicMorph }?.morph(result) ?: result
+        result.forEach { vertex ->
+            val transformedPoint = Vector3d(vertex.point)
+            transform.transformPosition(transformedPoint)
+            vertex.transformedPoint = transformedPoint
+            vertex.globalPosition = spawnPoint.clone().add(transformedPoint.x, transformedPoint.y, transformedPoint.z)
         }
+        return shapeMorpher?.takeIf { !dynamicMorph }?.morph(result) ?: result
     }
 
     open fun buildVertexes(): Array<Vertex> {
@@ -99,15 +96,13 @@ abstract class AbstractShape(
     open fun draw(vertex: Vertex) {
         if (!visible) return
 
-        lock.withLock {
-            val transformedPoint = vertex.transformedPoint
-            if (xzPredicate?.invoke(transformedPoint.x, transformedPoint.z) == false) return
-            if (yPredicate?.invoke(transformedPoint.y) == false) return
+        val transformedPoint = vertex.transformedPoint
+        if (xzPredicate?.invoke(transformedPoint.x, transformedPoint.z) == false) return
+        if (yPredicate?.invoke(transformedPoint.y) == false) return
 
-            effectiveDraw(
-                if (dynamicMorph) shapeMorpher?.morphVertex(vertex) ?: vertex else vertex
-            )
-        }
+        effectiveDraw(
+            if (dynamicMorph) shapeMorpher?.morphVertex(vertex) ?: vertex else vertex
+        )
     }
 
     abstract fun effectiveDraw(vertex: Vertex)
@@ -122,14 +117,5 @@ abstract class AbstractShape(
         this.dynamicMorph = dynamicMorph
         this.shapeMorpher = SnapToFloor(maxDepth, startYOffset, easeFromPoint)
         return this
-    }
-
-    private inline fun <T> ReentrantLock.withLock(action: () -> T): T {
-        lock()
-        return try {
-            action()
-        } finally {
-            unlock()
-        }
     }
 }

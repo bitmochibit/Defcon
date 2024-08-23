@@ -23,6 +23,8 @@ import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.utils.MathFunctions
 import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
+import org.joml.Vector3d
+import org.joml.Vector3f
 import kotlin.math.*
 
 class CircleBuilder() : VertexShapeBuilder {
@@ -84,7 +86,7 @@ class CircleBuilder() : VertexShapeBuilder {
             val x = radiusX * cos(extension * theta)
             val z = radiusZ * sin(extension * theta)
 
-            result.add(Vertex(Vector3(x, 0.0, z)))
+            result.add(Vertex(Vector3d(x, 0.0, z)))
             theta += rateDiv
         }
 

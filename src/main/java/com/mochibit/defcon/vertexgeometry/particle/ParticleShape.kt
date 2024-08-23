@@ -19,26 +19,28 @@
 
 package com.mochibit.defcon.vertexgeometry.particle
 
-import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.particles.AbstractParticle
+import com.mochibit.defcon.particles.ParticleEmitter
+import com.mochibit.defcon.particles.templates.AbstractParticle
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 import com.mochibit.defcon.vertexgeometry.vertexes.SpawnableVertex
 import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import org.bukkit.*
+import kotlin.concurrent.thread
 import kotlin.random.Random
 
 class ParticleShape(
     var particle: AbstractParticle,
+    val emitter : ParticleEmitter,
     shapeBuilder: VertexShapeBuilder, spawnPoint: Location
 ) : AbstractShape(shapeBuilder, spawnPoint) {
     override fun buildVertexes(): Array<Vertex> {
         return shapeBuilder.build().map { SpawnableVertex(it) }.toTypedArray()
     }
 
-    fun emit(chance: Double = 0.8, repetitions: Int = 10) {1
+    fun emit(chance: Double = 0.8, repetitions: Int = 10) {
         if (!visible) return
         if (vertexes.isEmpty()) return
-        // Call draw (emitter), get a random vertex and draw it a random number of times consecutively
+        //Call draw (emitter), get a random vertex and draw it a random number of times consecutively
         val randomCount = Random.nextInt(1, repetitions) * (if (Random.nextDouble() < chance) 1 else 0)
         for (i in 0 until randomCount) {
             draw(vertexes.random())
@@ -48,8 +50,7 @@ class ParticleShape(
     override fun effectiveDraw(vertex: Vertex) {
         if (vertex !is SpawnableVertex) return
         if (vertex.spawnTime != 0L && System.currentTimeMillis() - vertex.spawnTime < particle.particleProperties.maxLife) return
-        // Treat particles vertexes as particle emitters
-        particle.spawn(vertex.globalPosition)
+        emitter.spawnParticle(particle, vertex.globalPosition)
         vertex.spawnTime = System.currentTimeMillis()
     }
 
