@@ -23,7 +23,6 @@ import com.mochibit.defcon.effects.AnimatedEffect
 import com.mochibit.defcon.effects.ParticleComponent
 import com.mochibit.defcon.effects.TemperatureComponent
 import com.mochibit.defcon.explosions.NuclearComponent
-import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.particles.ParticleEmitter
 import com.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
@@ -183,13 +182,14 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private fun processRise(delta: Float) {
         if (currentHeight > maxHeight) return
         val deltaMovement = riseSpeed * delta
+        val movementVector = Vector3f(0.0f, deltaMovement, 0.0f)
         // Elevate the sphere using transform translation
-        coreCloud.translate(Vector3f(0.0f, deltaMovement, 0.0f))
-        coreNeck.translate(Vector3f(0.0f, deltaMovement, 0.0f))
-        secondaryCloud.translate(Vector3f(0.0f, deltaMovement, 0.0f))
-        tertiaryCloud.translate(Vector3f(0.0f, deltaMovement, 0.0f))
-        quaterniaryCloud.translate(Vector3f(0.0f, deltaMovement, 0.0f))
-        neckCone.translate(Vector3f(0.0f, deltaMovement, 0.0f))
+        coreCloud.translate(movementVector)
+        coreNeck.translate(movementVector)
+        secondaryCloud.translate(movementVector)
+        tertiaryCloud.translate(movementVector)
+        quaterniaryCloud.translate(movementVector)
+        neckCone.translate(movementVector)
         currentHeight += deltaMovement
     }
 

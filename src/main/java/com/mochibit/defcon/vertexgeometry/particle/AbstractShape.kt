@@ -1,17 +1,16 @@
 package com.mochibit.defcon.vertexgeometry.particle
 
-import com.mochibit.defcon.Defcon.Companion.Logger.info
 import com.mochibit.defcon.observer.Loadable
 import com.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 import com.mochibit.defcon.vertexgeometry.morphers.ShapeMorpher
 import com.mochibit.defcon.vertexgeometry.morphers.SnapToFloor
+import org.bukkit.ChunkSnapshot
 import org.bukkit.Location
 import org.joml.Vector3d
 import org.joml.Matrix4d
 import org.joml.Vector3f
 import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.thread
 
 abstract class AbstractShape(
     protected val shapeBuilder: VertexShapeBuilder,
@@ -38,10 +37,6 @@ abstract class AbstractShape(
         get() = _vertexes ?: throw IllegalStateException("Vertexes not loaded")
 
     var transform: Matrix4d = Matrix4d().identity()
-        set(value) {
-            field = value
-            updateTransformedVertexes()
-        }
 
     var xzPredicate: ((Double, Double) -> Boolean)? = null
     var yPredicate: ((Double) -> Boolean)? = null
@@ -53,12 +48,12 @@ abstract class AbstractShape(
         observers.forEach { it.invoke(_vertexes!!) }
     }
 
-    private fun updateTransformedVertexes() {
+    fun updateTransformedVertexes() {
         _vertexes?.forEach { vertex ->
-            val transformedPoint = Vector3d(vertex.point)
-            transform.transformPosition(transformedPoint)
-            vertex.transformedPoint = transformedPoint
-            vertex.globalPosition = spawnPoint.clone().add(transformedPoint.x, transformedPoint.y, transformedPoint.z)
+            vertex.transformedPoint.set(vertex.point)
+            transform.transformPosition(vertex.transformedPoint)
+            // to optimize memory of this one
+            vertex.globalPosition.set(spawnPoint.x + vertex.transformedPoint.x, spawnPoint.y + vertex.transformedPoint.y, spawnPoint.z + vertex.transformedPoint.z)
         }
         transformedCenter = transform.transformPosition(Vector3d(center))
     }
@@ -81,8 +76,9 @@ abstract class AbstractShape(
             val transformedPoint = Vector3d(vertex.point)
             transform.transformPosition(transformedPoint)
             vertex.transformedPoint = transformedPoint
-            vertex.globalPosition = spawnPoint.clone().add(transformedPoint.x, transformedPoint.y, transformedPoint.z)
+            vertex.globalPosition.set(spawnPoint.x + transformedPoint.x, spawnPoint.y + transformedPoint.y, spawnPoint.z + transformedPoint.z)
         }
+//        return shapeMorpher?.takeIf { !dynamicMorph }?.morph(result) ?: result
         return shapeMorpher?.takeIf { !dynamicMorph }?.morph(result) ?: result
     }
 
@@ -101,21 +97,23 @@ abstract class AbstractShape(
         if (yPredicate?.invoke(transformedPoint.y) == false) return
 
         effectiveDraw(
-            if (dynamicMorph) shapeMorpher?.morphVertex(vertex) ?: vertex else vertex
+            if (dynamicMorph) shapeMorpher?.morphVertex(vertex) ?: vertex else vertex,
+            spawnPoint.world.name
         )
     }
 
-    abstract fun effectiveDraw(vertex: Vertex)
+    abstract fun effectiveDraw(vertex: Vertex, worldName: String)
 
     // Shape morphing methods
     fun snapToFloor(
         maxDepth: Double = 0.0,
         startYOffset: Double = 0.0,
-        easeFromPoint: Location? = null,
-        dynamicMorph: Boolean = false
+        easeFromPoint: Vector3d? = null,
+        dynamicMorph: Boolean = false,
+        chunkSnapshotCache: MutableMap<Pair<Int, Int>, ChunkSnapshot>
     ): AbstractShape {
         this.dynamicMorph = dynamicMorph
-        this.shapeMorpher = SnapToFloor(maxDepth, startYOffset, easeFromPoint)
+        this.shapeMorpher = SnapToFloor(spawnPoint.world, maxDepth, startYOffset, easeFromPoint, chunkSnapshotCache)
         return this
     }
 }

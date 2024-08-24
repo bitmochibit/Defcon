@@ -24,4 +24,4 @@ import org.bukkit.Location
 import org.joml.Vector3d
 import org.joml.Vector3f
 
-open class Vertex(var point: Vector3d, var transformedPoint: Vector3d = point, var globalPosition : Location = Location(null, 0.0, 0.0, 0.0))
+open class Vertex(var point: Vector3d, var transformedPoint: Vector3d = Vector3d(point), var globalPosition : Vector3d = Vector3d(point))

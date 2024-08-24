@@ -23,18 +23,24 @@ import com.mochibit.defcon.effects.AnimatedEffect
 import com.mochibit.defcon.effects.ParticleComponent
 import com.mochibit.defcon.effects.TemperatureComponent
 import com.mochibit.defcon.explosions.NuclearComponent
+import com.mochibit.defcon.explosions.Shockwave
+import com.mochibit.defcon.extensions.toVector3d
 import com.mochibit.defcon.particles.ParticleEmitter
 import com.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import com.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
 import com.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
+import org.bukkit.ChunkSnapshot
 import org.bukkit.Location
 import org.joml.Vector3f
 
 class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val position: Location) :
-    AnimatedEffect( 3600) {
+    AnimatedEffect(3600) {
 
+    private val snapFromVector = position.toVector3d()
     private val fogEmitter = ParticleEmitter(position, 3000.0)
+    var chunkSnapshotCache: MutableMap<Pair<Int, Int>, ChunkSnapshot> = mutableMapOf()
+
 
     private val nuclearFog: ParticleComponent = ParticleComponent(
         ParticleShape(
@@ -48,7 +54,7 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
                 .withRadiusY(1.0),
             position
         ).apply {
-            snapToFloor(250.0, 150.0, position, false)
+            snapToFloor(250.0, 150.0, snapFromVector, false, chunkSnapshotCache)
         },
         TemperatureComponent(temperatureCoolingRate = 300.0)
     ).apply {
@@ -66,7 +72,7 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
                 .withRadiusY(1.0),
             position
         ).apply {
-            snapToFloor(250.0, 150.0, position, false)
+            snapToFloor(250.0, 150.0, snapFromVector, false, chunkSnapshotCache)
         },
         TemperatureComponent(temperatureCoolingRate = 300.0)
     ).apply {
@@ -88,7 +94,6 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
         ),
         TemperatureComponent(temperatureCoolingRate = 280.0)
     ).emitRate(5)
-
 
 
     init {

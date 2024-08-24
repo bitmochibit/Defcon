@@ -28,6 +28,7 @@ import com.mochibit.defcon.observer.Loadable
 import com.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import org.bukkit.Bukkit
 import org.joml.Matrix4d
+import org.joml.Vector3d
 import org.joml.Vector3f
 
 /**
@@ -84,11 +85,14 @@ open class ParticleComponent(
     }
 
     fun translate(translation: Vector3f) = apply {
-        transform.translate(translation)
+        transform.translate(translation, transform)
+        particleShape.updateTransformedVertexes()
+
     }
 
     fun rotate(axis: Vector3f, angle: Double) = apply {
-        transform.rotate(angle, axis)
+        transform = transform.rotation(angle, axis)
+        particleShape.updateTransformedVertexes()
     }
 
     /**
@@ -98,7 +102,9 @@ open class ParticleComponent(
         // Use the normalized direction as offset for the particle
         //particleBuilder.offset(normalized.x, particleBuilder.offsetY(), normalized.z);
         particleShape.particle.locationConsumer {
-            val point = it.clone().subtract(particleShape.spawnPoint).toVector3f()
+            val point = Vector3f((it.x - particleShape.spawnPoint.x).toFloat(),
+                (it.y - particleShape.spawnPoint.y).toFloat(), (it.z - particleShape.spawnPoint.z).toFloat()
+            )
             val direction = point.sub(particleShape.center)
             val normalized = direction.normalize()
             // Modify existing velocity to move directionally from the center (without overriding existing velocity)

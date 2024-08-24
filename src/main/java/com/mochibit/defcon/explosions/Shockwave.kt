@@ -70,14 +70,13 @@ class Shockwave(
             Material.COARSE_DIRT,
             Material.PODZOL
         )
-
-
     }
 
     private var currentRadius = shockwaveRadiusStart
-    private val chunkSnapshots: MutableMap<Pair<Int, Int>, ChunkSnapshot> = ConcurrentHashMap()
     private val processedBlocksCoordinates = ConcurrentHashMap.newKeySet<Triple<Int, Int, Int>>()
     private val explosionSchedule = ScheduledRunnable().maxMillisPerTick(30.0)
+    val chunkSnapshotsCache: MutableMap<Pair<Int, Int>, ChunkSnapshot> = ConcurrentHashMap()
+
 
     private fun cacheSnapshots(): CompletableFuture<Unit> {
         // Create a thread pool with a fixed number of threads
@@ -98,9 +97,9 @@ class Shockwave(
                     val future = CompletableFuture.runAsync({
                         val newX = centerX + dx
                         val newZ = centerZ + dz
-                        if (chunkSnapshots.containsKey(Pair(newX, newZ))) return@runAsync
+                        if (chunkSnapshotsCache.containsKey(Pair(newX, newZ))) return@runAsync
                         val chunk = center.world.getChunkAtAsyncUrgently(newX, newZ).join()
-                        chunkSnapshots[Pair(chunk.x, chunk.z)] = chunk.chunkSnapshot
+                        chunkSnapshotsCache[Pair(chunk.x, chunk.z)] = chunk.chunkSnapshot
                     }, threadPool)
 
                     futures.add(future)
@@ -192,7 +191,7 @@ class Shockwave(
                     val chunkX = newX shr 4
                     val chunkZ = newZ shr 4
 
-                    val chunkSnapshot = chunkSnapshots[Pair(chunkX, chunkZ)] ?: continue // Skip if the chunk snapshot is not available
+                    val chunkSnapshot = chunkSnapshotsCache[Pair(chunkX, chunkZ)] ?: continue // Skip if the chunk snapshot is not available
 
                     val localX = newX and 15
                     val localZ = newZ and 15
@@ -276,7 +275,7 @@ class Shockwave(
             // Get the terrain height from the snapshot
             val chunkX = floor(x).toInt() shr 4
             val chunkZ = floor(z).toInt() shr 4
-            val chunkSnapshot = chunkSnapshots[Pair(chunkX, chunkZ)] ?: continue // Skip if the chunk snapshot is not available
+            val chunkSnapshot = chunkSnapshotsCache[Pair(chunkX, chunkZ)] ?: continue // Skip if the chunk snapshot is not available
             val floorHeight = Geometry.getMinYUsingSnapshot(loc, shockwaveHeight * 2, chunkSnapshot)
 
             // Connect with the previous point if height difference is significant

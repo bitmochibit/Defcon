@@ -7,6 +7,7 @@ import com.mochibit.defcon.utils.ColorUtils
 import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.entity.Player
+import org.joml.Vector3d
 import org.joml.Vector3f
 import java.util.*
 import kotlin.random.Random
@@ -108,7 +109,7 @@ class ParticleInstance(
             }
         }
 
-        fun fromTemplate(particleTemplate: AbstractParticle, location: Location): ParticleInstance {
+        fun fromTemplate(particleTemplate: AbstractParticle, location: Vector3d, worldName: String): ParticleInstance {
             val particleAdapter = particleTemplate.getAdapter()
             val particleProperties = particleTemplate.particleProperties.clone().apply {
                 color = color?.let { baseColor ->
@@ -129,7 +130,7 @@ class ParticleInstance(
 
             return ParticleInstance(
                 Vector3f(location.x.toFloat(), location.y.toFloat(), location.z.toFloat()),
-                location.world!!.name,
+                worldName,
                 particleProperties,
                 particleAdapter,
                 particleTemplate.initialVelocity,

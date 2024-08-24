@@ -25,12 +25,13 @@ import com.mochibit.defcon.utils.ColorUtils
 import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.entity.Player
+import org.joml.Vector3d
 import org.joml.Vector3f
 import kotlin.random.Random
 
 abstract class AbstractParticle(val particleProperties: GenericParticleProperties) {
     var colorSupplier: (() -> Color)? = null; private set
-    var locationConsumer: ((location: Location) -> Unit)? = null; private set
+    var locationConsumer: ((location: Vector3d) -> Unit)? = null; private set
     var playersSupplier: (() -> Collection<Player>)? = null; private set
     var initialVelocity: Vector3f = Vector3f(0f, 0f, 0f); private set
     var initialDamping: Vector3f = Vector3f(0f, 0f, 0f); private set
@@ -52,7 +53,7 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     fun randomizeColorBrightness(randomize: Boolean) = apply { randomizeColorBrightness = randomize }
     fun displacement(vector3: Vector3f) = apply { displacement = vector3 }
     fun colorSupplier(supplier: (() -> Color)?) = apply { colorSupplier = supplier }
-    fun locationConsumer(consumer: ((location: Location) -> Unit)?) = apply { locationConsumer = consumer }
+    fun locationConsumer(consumer: ((location: Vector3d) -> Unit)?) = apply { locationConsumer = consumer }
     fun scale(scale: Vector3f) =
         apply { particleProperties.scale = scale }
 

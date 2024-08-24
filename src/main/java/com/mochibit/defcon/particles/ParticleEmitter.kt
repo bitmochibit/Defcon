@@ -5,6 +5,7 @@ import com.mochibit.defcon.particles.templates.AbstractParticle
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.Player
+import org.joml.Vector3d
 
 class ParticleEmitter(val origin: Location, val range: Double) : Lifecycled {
     companion object {
@@ -13,9 +14,9 @@ class ParticleEmitter(val origin: Location, val range: Double) : Lifecycled {
 
     private val particles = mutableListOf<ParticleInstance>()
 
-    fun spawnParticle(particle: AbstractParticle, location: Location) {
+    fun spawnParticle(particle: AbstractParticle, location: Vector3d, world: String) {
         if (particles.size >= MAX_PARTICLES) return
-        particles.add(ParticleInstance.fromTemplate(particle, location))
+        particles.add(ParticleInstance.fromTemplate(particle, location, world))
     }
 
     override fun start() {

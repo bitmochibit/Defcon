@@ -20,10 +20,14 @@
 package com.mochibit.defcon.utils
 
 import com.mochibit.defcon.classes.StructureBlock
+import com.mochibit.defcon.explosions.Shockwave
 import com.mochibit.defcon.extensions.toChunkCoordinate
 import org.bukkit.ChunkSnapshot
 import org.bukkit.Location
 import org.bukkit.Material
+import org.bukkit.World
+import org.joml.Vector3d
+import org.joml.Vector3f
 import java.util.*
 import kotlin.math.atan2
 import kotlin.math.floor
@@ -131,12 +135,26 @@ object Geometry {
         return clonedPosition
     }
 
+    fun getMinYUsingSnapshotFromCache(world: World, position: Vector3d, maxDepth: Double?, chunkSnapshotCache: MutableMap<Pair<Int, Int>, ChunkSnapshot>): Vector3d {
+        position.y = getMinYUsingSnapshotFromCache(Location(world, position.x, position.y, position.z), maxDepth, chunkSnapshotCache).y
+        return position
+    }
+
+    fun getMinYUsingSnapshotFromCache(position: Location, maxDepth: Double?, chunkSnapshotCache: MutableMap<Pair<Int, Int>, ChunkSnapshot>): Location {
+        val blockX = position.blockX
+        val blockZ = position.blockZ
+        return if (chunkSnapshotCache.containsKey(Pair(blockX shr 4, blockZ shr 4)))
+            getMinYUsingSnapshot(position, maxDepth, chunkSnapshotCache[Pair(blockX shr 4, blockZ shr 4)])
+        else
+            getMinYUsingSnapshot(position, maxDepth)
+    }
+
     fun getMinYUsingSnapshot(position: Location, maxDepth: Double?, givenChunkSnapshot: ChunkSnapshot? = null): Location {
         val clonedPosition = position.clone()
-        val chunkSnapshot = givenChunkSnapshot ?: clonedPosition.chunk.chunkSnapshot
+        val chunkSnapshot = givenChunkSnapshot ?: position.chunk.chunkSnapshot
 
-        val localX = clonedPosition.blockX and 15
-        val localZ = clonedPosition.blockZ and 15
+        val localX = position.blockX and 15
+        val localZ = position.blockZ and 15
 
         // Return the location where the material is not air or the maximum depth has been reached
         clonedPosition.y = chunkSnapshot.getHighestBlockYAt(localX, localZ).toDouble()
