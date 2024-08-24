@@ -128,6 +128,13 @@ class ParticleInstance(
             }
             particleTemplate.locationConsumer?.invoke(location)
 
+            if (particleTemplate.randomizeScale) {
+                val scale = particleProperties.scale
+                // Get a random scale from the base scale (slightly smaller or larger)
+                val scaleRandom = Random.nextDouble(0.9, 1.3).toFloat()
+                particleProperties.scale = scale.mul(scaleRandom)
+            }
+
             return ParticleInstance(
                 Vector3f(location.x.toFloat(), location.y.toFloat(), location.z.toFloat()),
                 worldName,

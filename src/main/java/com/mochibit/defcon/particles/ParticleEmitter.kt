@@ -13,8 +13,10 @@ class ParticleEmitter(val origin: Location, val range: Double) : Lifecycled {
     }
 
     private val particles = mutableListOf<ParticleInstance>()
+    var dyingOut = false
 
     fun spawnParticle(particle: AbstractParticle, location: Vector3d, world: String) {
+        if (dyingOut) return
         if (particles.size >= MAX_PARTICLES) return
         particles.add(ParticleInstance.fromTemplate(particle, location, world))
     }
@@ -39,10 +41,9 @@ class ParticleEmitter(val origin: Location, val range: Double) : Lifecycled {
         }
     }
 
-    override fun stop() {
-        val players = getPlayersInRange()
-        particles.forEach { it.remove(players) }
-        particles.clear()
+    override fun stop()
+    {
+        dyingOut = true
     }
 
     private fun getPlayersInRange(): List<Player> {
