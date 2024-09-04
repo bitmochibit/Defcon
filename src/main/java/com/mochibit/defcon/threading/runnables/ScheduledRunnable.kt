@@ -20,6 +20,10 @@ class ScheduledRunnable(val maxTimeBeforeStop: Int = 5000, val name: String = "!
     @Volatile
     private var workloadAddTime = System.currentTimeMillis()
 
+    fun clear() {
+        synchronized(workloadDeque) { workloadDeque.clear() }
+    }
+
     // Synchronize access to addWorkload
     fun addWorkload(workload: Schedulable) {
         synchronized(workloadDeque) {

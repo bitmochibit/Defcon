@@ -151,10 +151,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
             val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
             val nuclearFog = NuclearFogVFX(nuclearComponent, center)
 
-            shockwave.loadPromise()
-                .thenCompose {
-                    nuclearFog.loadPromise()
-                }
+            nuclearFog.loadPromise()
                 .thenCompose {
                     condensationCloud.loadPromise()
                 }
@@ -163,13 +160,10 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
                 }
                 .thenAccept {
                     nuclearFog
-                        .apply {
-                            chunkSnapshotCache = shockwave.chunkSnapshotsCache
-                        }
                         .instantiate(true)
                     condensationCloud.instantiate(true)
                     nuclearExplosion.instantiate(true)
-                    //shockwave.explode()
+                    shockwave.explode()
                 }
                 .exceptionally { ex ->
                     println("Error loading effects: ${ex.message}")

@@ -8,22 +8,24 @@ import com.mochibit.defcon.utils.Geometry
 import com.mochibit.defcon.utils.MathFunctions
 import org.bukkit.*
 import org.bukkit.block.Block
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import org.bukkit.entity.LivingEntity
+import org.bukkit.util.Vector
+import org.joml.Vector3i
+import java.util.LinkedList
+import java.util.Queue
+import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import kotlin.math.*
 import kotlin.random.Random
 
 class Shockwave(
     val center: Location,
-    shockwaveRadiusStart: Double,
+    val shockwaveRadiusStart: Double,
     private val shockwaveRadius: Double,
-    val shockwaveHeight: Double, override val observers: MutableList<(Unit) -> Unit> = mutableListOf(),
-    override var isLoaded: Boolean = false
-): Loadable<Unit> {
+    val shockwaveHeight: Double,
+) {
     companion object {
         private val BLOCK_TRANSFORMATION_BLACKLIST = hashSetOf(
             Material.BEDROCK,
@@ -72,237 +74,289 @@ class Shockwave(
         )
     }
 
-    private var currentRadius = shockwaveRadiusStart
-    private val processedBlocksCoordinates = ConcurrentHashMap.newKeySet<Triple<Int, Int, Int>>()
-    private val explosionSchedule = ScheduledRunnable().maxMillisPerTick(30.0)
-    val chunkSnapshotsCache: MutableMap<Pair<Int, Int>, ChunkSnapshot> = ConcurrentHashMap()
+    private val explosionSchedule = ScheduledRunnable(999999).maxMillisPerTick(60.0)
 
+    private val world = center.world
 
-    private fun cacheSnapshots(): CompletableFuture<Unit> {
-        // Create a thread pool with a fixed number of threads
-        val threadPool: ExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+    // BlockingQueue for thread-safe communication between shockwave generator and explosion processor
+    private val explosionColumns: Queue<Triple<Int, Int, Set<Vector3i>>> = LinkedList()
 
-        // Create a list to hold the futures for each chunk snapshot task
-        val futures = mutableListOf<CompletableFuture<Void>>()
+    // Initialize the chunk snapshot buffer with a specified cache size
+    private val chunkSnapshotBuffer = ChunkSnapshotBuffer(world)
 
-        return CompletableFuture.supplyAsync {
-            // Capture the snapshot of all chunks within the maximum radius
-            val maxRadiusChunks = (floor(shockwaveRadius).toInt() shr 4) + 4
-            val centerX = center.blockX shr 4
-            val centerZ = center.blockY shr 4
+    // Store three int values for the block coordinates in a hash set, this hash set is a cache
+    private val processedBlockCoordinates = HashSet<Triple<Int, Int, Int>>()
 
-            for (dx in -maxRadiusChunks..maxRadiusChunks) {
-                for (dz in -maxRadiusChunks..maxRadiusChunks) {
-                    // Submit each chunk snapshot task to the thread pool
-                    val future = CompletableFuture.runAsync({
-                        val newX = centerX + dx
-                        val newZ = centerZ + dz
-                        if (chunkSnapshotsCache.containsKey(Pair(newX, newZ))) return@runAsync
-                        val chunk = center.world.getChunkAtAsyncUrgently(newX, newZ).join()
-                        chunkSnapshotsCache[Pair(chunk.x, chunk.z)] = chunk.chunkSnapshot
-                    }, threadPool)
-
-                    futures.add(future)
-                }
-            }
-
-            // Wait for all chunk snapshot tasks to complete
-            CompletableFuture.allOf(*futures.toTypedArray()).join()
-
-            // After the snapshot is captured, start the explosion (notify observers)
-            notifyObservers(Unit)
-        }.whenComplete { _, _ ->
-            // Shutdown the thread pool when the task is complete
-            threadPool.shutdown()
-        }
-    }
-
-    override fun load() {
-        thread(name="Shockwave cache thread") {
-            cacheSnapshots().join()
-            isLoaded = true
-        }
-    }
+    val isExploding = AtomicBoolean(false)
     fun explode() {
-        thread(name = "Shockwave Thread - World: ${center.world.name} Center: ${center.blockX + center.blockY + center.blockZ}") {
-            if (!isLoaded) {
-                cacheSnapshots().join()
-            }
-            explosionSchedule.start()
-            var resetRadius = 0
+        explosionSchedule.clear()
+        val shockwaveSpeed = 125.0 // Blocks per second
+
+        isExploding.set(true)
+        thread(
+            name = "Shockwave Thread - World: ${center.world.name} Center: ${center.blockX + center.blockY + center.blockZ}",
+            priority = Thread.MAX_PRIORITY
+        ) {
+            val bLoc = center.clone()
+            val kLoc = center.clone()
+            var currentRadius = shockwaveRadiusStart
             while (currentRadius < shockwaveRadius) {
-                //val explosionPower = MathFunctions.lerp(4.0, 2.0, currentRadius / shockwaveRadius)
-                val explosionPower = 4.0
-                val columns = generateShockwaveColumns(currentRadius, explosionPower.toFloat())
+                val explosionPower = MathFunctions.lerp(4.0, 8.0, currentRadius / shockwaveRadius)
+                val columns = generateShockwaveColumns(currentRadius)
+                explosionColumns.add(Triple(currentRadius.toInt(), explosionPower.toInt(), columns))
                 for (location in columns) {
-                    location.world.spawnParticle(Particle.EXPLOSION_HUGE, location, 1, 0.0, 0.0, 0.0, 0.0)
-                    Bukkit.getScheduler().callSyncMethod(Defcon.instance) {
-                        location.getNearbyLivingEntities(5.0, 5.0, 5.0).forEach { entity ->
-                            entity.damage(explosionPower * 12)
+                    bLoc.set(location.x.toDouble(), location.y.toDouble(), location.z.toDouble())
+                    world.spawnParticle(Particle.EXPLOSION_HUGE, bLoc, 1, 0.0, 0.0, 0.0, 0.0)
+                    Bukkit.getScheduler().runTaskLater(Defcon.instance, { task ->
+                        kLoc.set(location.x.toDouble(), location.y.toDouble(), location.z.toDouble())
+                        world.getNearbyLivingEntities(kLoc, 3.0, 2.0, 3.0).forEach { entity ->
+                            entity.damage(explosionPower * 4.0)
+                            // Add knockback directed radially from the shockwave column
+                            val knockback = Vector(
+                                entity.location.x - kLoc.x,
+                                entity.location.y - kLoc.y,
+                                entity.location.z - kLoc.z
+                            ).normalize().multiply(4)
+                            entity.velocity = knockback
                         }
-                    }
-                    simulateExplosion(location, explosionPower)
+                    }, 20L)
                 }
-                resetRadius++
-                if (resetRadius > 5) {
-                    resetRadius = 0
-                  processedBlocksCoordinates.clear()
-                }
-                Thread.yield()
-                currentRadius += explosionPower/2
+                Thread.sleep((shockwaveRadius / shockwaveSpeed).toLong())
+                currentRadius += 1
             }
+            isExploding.set(false)
+            startExplosionProcessor()
 
         }
     }
 
+    private fun startExplosionProcessor() {
+        // Start a new thread to process the explosion
+        thread(name = "Explosion Processor") {
+            explosionSchedule.start()
+            while (!explosionColumns.isEmpty() || isExploding.get()) {
+                val rColumns = explosionColumns.poll() ?: continue
+                val (cRadius, explPwr, locations) = rColumns
+                locations.parallelStream().forEach { location ->
+                    simulateExplosion(location, explPwr.toDouble(), cRadius)
+                }
+            }
+        }
+    }
 
-
-    private fun simulateExplosion(location: Location, explosionPower: Double) {
-        val world = location.world ?: return
-        val radius = explosionPower
-        val innerRadius = radius - 1
-        val innerRadiusSquared = innerRadius * innerRadius
-        val radiusSquared = radius * radius
-
-
-
-        val baseX = location.blockX
-        val baseY = location.blockY
-        val baseZ = location.blockZ
+    private fun simulateExplosion(location: Vector3i, explosionPower: Double, currentRadius: Int = 0) {
+        val radius = explosionPower.toInt()
+        val baseX = location.x
+        val baseY = location.y
+        val baseZ = location.z
 
         val worldMaxHeight = world.maxHeight
         val worldMinHeight = world.minHeight
 
-        // Loop through all blocks within the radius
-        for (x in -radius.toInt()..radius.toInt()) {
-            for (y in -radius.toInt()..radius.toInt()) {
-                for (z in -radius.toInt()..radius.toInt()) {
-                    val distanceSquared = (x * x + y * y + z * z)
+        val radiusX = radius
+        //val scaleFactor = 1.0 - (currentRadius.toDouble() / radius.toDouble() * 10)
+        // val radiusY = (radius * scaleFactor).toInt().coerceAtLeast(1)
+        val radiusY = radius
+        val radiusZ = radius
 
-                    // Skip if outside the outer radius
+        val radiusSquared = radiusX * radiusX + radiusY * radiusY + radiusZ * radiusZ
+        val innerRadiusSquared =
+            (radiusX - 1) * (radiusX - 1) + (radiusY - 1) * (radiusY - 1) + (radiusZ - 1) * (radiusZ - 1)
+
+        for (x in -radiusX..radiusX) {
+            for (y in -radiusY..radiusY) {
+                for (z in -radiusZ..radiusZ) {
+                    val distanceSquared = (x * x + y * y + z * z)
                     if (distanceSquared > radiusSquared) continue
 
                     val newX = baseX + x
                     val newY = (baseY + y).coerceIn(worldMinHeight, worldMaxHeight)
                     val newZ = baseZ + z
 
-                    if (processedBlocksCoordinates.contains(Triple(newX, newY, newZ))) continue
+                    if (!processedBlockCoordinates.add(Triple(newX, newY, newZ))) continue
+                    val block = world.getBlockAt(newX, newY, newZ)
+                    if (distanceSquared <= innerRadiusSquared) {
+                        if (currentRadius >= shockwaveRadius / 3 && Random.nextDouble() < 0.6) continue;
+                        explosionSchedule.addWorkload(SimpleSchedulable { block.type = Material.AIR })
+                        continue
+                    }
+
 
                     val chunkX = newX shr 4
                     val chunkZ = newZ shr 4
-
-                    val chunkSnapshot = chunkSnapshotsCache[Pair(chunkX, chunkZ)] ?: continue // Skip if the chunk snapshot is not available
-
-                    val localX = newX and 15
-                    val localZ = newZ and 15
-                    val blockType = chunkSnapshot.getBlockType(localX, newY, localZ)
-                    // Skip if the block is air, blacklisted, or liquid
-                    if (blockType == Material.AIR || BLOCK_TRANSFORMATION_BLACKLIST.contains(blockType) || LIQUID_MATERIALS.contains(blockType)) continue
-                    val block = world.getBlockAt(newX, newY, newZ)
-
-                    if (blockType.name.endsWith("_LOG") && currentRadius > shockwaveRadius / 3) {
-                        processedBlocksCoordinates.add(Triple(newX, newY, newZ))
-                        val newMaterial = LOG_REPLACEMENTS.random()
-                        explosionSchedule.addWorkload(SimpleSchedulable {
-                            block.type = newMaterial
-                        })
-                        continue
+                    val chunkSnapshot = chunkSnapshotBuffer.getChunkSnapshot(chunkX, chunkZ).join()
+                    val blockType = run {
+                        val localX = newX and 15
+                        val localZ = newZ and 15
+                        chunkSnapshot.getBlockType(localX, newY, localZ)
                     }
 
+                    if (blockType == Material.AIR || BLOCK_TRANSFORMATION_BLACKLIST.contains(blockType) || LIQUID_MATERIALS.contains(
+                            blockType
+                        )
+                    ) continue
 
-                    if (blockType == Material.DIRT && currentRadius > shockwaveRadius / 2) {
-                        processedBlocksCoordinates.add(Triple(newX, newY, newZ))
-                        val newMaterial = DIRT_REPLACEMENTS.random()
-                        explosionSchedule.addWorkload(SimpleSchedulable {
-                            block.type = newMaterial
-                        })
-                        continue
-                    }
-
-                    if (blockType.name.endsWith("_LEAVES")) {
-                        processedBlocksCoordinates.add(Triple(newX, newY, newZ))
-                        explosionSchedule.addWorkload(SimpleSchedulable {
-                            block.type = Material.AIR
-                        })
-                        continue
-                    }
-
-                    //processedBlocksCoordinates.add(Triple(newX, newY, newZ))
-                    // Inside the inner radius: destroy the block
-                    if (distanceSquared < innerRadiusSquared) {
-                        processedBlocksCoordinates.add(Triple(newX, newY, newZ))
-                        explosionSchedule.addWorkload(SimpleSchedulable {
-                            block.type = Material.AIR
-                        })
-                        continue
-                    } else {
-                        // At the edge between the inner and outer radius: replace the block
-                        val newMaterial = when {
-                            blockType.name.endsWith("_STAIRS") -> RUINED_STAIRS_BLOCK.random()
-                            blockType.name.endsWith("_SLAB") -> RUINED_SLABS_BLOCK.random()
-                            blockType.name.endsWith("_WALL") -> RUINED_WALLS_BLOCK.random()
-                            else -> RUINED_BLOCKS.random()
+                    val blockTypeName = blockType.name
+                    val replacementType = when {
+                        blockTypeName.endsWith("_WALL") && currentRadius > shockwaveRadius / 3 -> {
+                            RUINED_WALLS_BLOCK.random()
                         }
-                        explosionSchedule.addWorkload(SimpleSchedulable {
-                            block.type = newMaterial
-                        })
+
+                        blockTypeName.endsWith("_SLAB") && currentRadius > shockwaveRadius / 3 -> {
+                            RUINED_SLABS_BLOCK.random()
+                        }
+
+                        blockTypeName.endsWith("_STAIRS") && currentRadius > shockwaveRadius / 3 -> {
+                            RUINED_STAIRS_BLOCK.random()
+                        }
+
+                        blockTypeName.endsWith("_LOG") && currentRadius > shockwaveRadius / 3 -> {
+                            LOG_REPLACEMENTS.random()
+                        }
+
+                        blockTypeName.endsWith("_LEAVES") -> {
+                            Material.AIR
+                        }
+
+                        blockType == Material.DIRT || blockType == Material.GRASS_BLOCK && currentRadius > shockwaveRadius / 2 -> {
+                            DIRT_REPLACEMENTS.random()
+                        }
+
+                        else -> {
+                            RUINED_BLOCKS.random()
+                        }
                     }
+
+                    explosionSchedule.addWorkload(SimpleSchedulable {
+//                        val e = world.spawnFallingBlock(block.location, replacementType, block.data)
+//                        e.dropItem = false
+                        block.type = replacementType
+                    })
                 }
             }
         }
     }
 
 
+    private fun generateShockwaveColumns(radius: Double): Set<Vector3i> {
+        val ringElements = mutableSetOf<Vector3i>()
 
+        // Adjust the number of steps based on the radius
+        val steps = (radius * 6).toInt() // You can tweak the multiplier (6) for more or less precision
+        val angleIncrement = 2 * Math.PI / steps
 
-    private fun generateShockwaveColumns(radius: Double, explosionPower: Float): Set<Location> {
-        val ringElements = mutableSetOf<Location>()
-        val angleIncrement = 2 * Math.PI / 360 // 360 points around the circle
+        val centerX = center.blockX
+        val centerY = center.blockY
+        val centerZ = center.blockZ
 
-        var previousHeight: Double? = null
-        var previousPosition: Location? = null
-        val loc = Location(center.world, 0.0, 0.0, 0.0)
+        val previousPosition = Vector3i(centerX, centerY, centerZ)
+        val loc = Vector3i(0, 0, 0)
+        val floorHeight = Vector3i(0, 0, 0)
 
-        for (i in 0 until 360) {
+        var previousHeight: Int? = null
+
+        for (i in 0 until steps) {
             val angleRad = i * angleIncrement
             val dirX = cos(angleRad) * radius
             val dirZ = sin(angleRad) * radius
 
-            val x = center.x + dirX
-            val z = center.z + dirZ
-            loc.set(x, center.y, z)
+            val x = (centerX + dirX).toInt()
+            val z = (centerZ + dirZ).toInt()
 
-            // Get the terrain height from the snapshot
-            val chunkX = floor(x).toInt() shr 4
-            val chunkZ = floor(z).toInt() shr 4
-            val chunkSnapshot = chunkSnapshotsCache[Pair(chunkX, chunkZ)] ?: continue // Skip if the chunk snapshot is not available
-            val floorHeight = Geometry.getMinYUsingSnapshot(loc, shockwaveHeight * 2, chunkSnapshot)
+            loc.set(x, centerY, z)
+
+            // Get the height of the highest block at the location
+            floorHeight.set(x, world.getHighestBlockYAt(x, z), z)
 
             // Connect with the previous point if height difference is significant
-            if (previousHeight != null && abs(previousHeight - floorHeight.y) > 1) {
-                val minY = minOf(previousHeight, floorHeight.y)
-                val maxY = maxOf(previousHeight, floorHeight.y)
-                val steps = (maxY - minY).toInt()
+            previousHeight?.let { prevHeight ->
+                val heightDiff = abs(prevHeight - floorHeight.y)
+                if (heightDiff > 1) {
+                    val stepsToInterpolate = heightDiff
+                    val dx = (x - previousPosition.x) / stepsToInterpolate.toDouble()
+                    val dz = (z - previousPosition.z) / stepsToInterpolate.toDouble()
 
-                for (y in 0..steps) {
-                    val interpolatedY = minY + y
-                    val interpolatedX = previousPosition!!.x + (x - previousPosition.x) * y / steps
-                    val interpolatedZ = previousPosition.z + (z - previousPosition.z) * y / steps
-
-                    ringElements.add(Location(center.world, interpolatedX, interpolatedY, interpolatedZ))
+                    for (step in 0 until stepsToInterpolate) {
+                        val interpolatedX = (previousPosition.x + dx * step).toInt()
+                        val interpolatedY = minOf(prevHeight, floorHeight.y) + step
+                        val interpolatedZ = (previousPosition.z + dz * step).toInt()
+                        ringElements.add(Vector3i(interpolatedX, interpolatedY, interpolatedZ))
+                    }
                 }
             }
 
             // Add the current point
-            ringElements.add(floorHeight)
+            ringElements.add(Vector3i(floorHeight.x, floorHeight.y, floorHeight.z))
 
-            // Store the current point for the next iteration
+            // Update the previous position and height
             previousHeight = floorHeight.y
-            previousPosition = loc.clone() // Clone here only once to avoid creating unnecessary objects
+            previousPosition.set(x, floorHeight.y, z)
         }
 
         return ringElements
     }
 
 
+}
+
+class ChunkSnapshotBuffer(private val world: World) {
+
+    companion object {
+        private const val MAX_CACHE_SIZE = 10000
+    }
+
+    // Cache with LRU eviction policy
+    private val chunkCache: MutableMap<Pair<Int, Int>, ChunkSnapshot> =
+        object : LinkedHashMap<Pair<Int, Int>, ChunkSnapshot>(MAX_CACHE_SIZE, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<Int, Int>, ChunkSnapshot>?): Boolean {
+                return size > MAX_CACHE_SIZE
+            }
+        }
+
+    // Queue to handle asynchronous tasks
+    private val taskQueue = ConcurrentLinkedQueue<Runnable>()
+
+    // Get available threads
+    private val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+
+    init {
+        // Start a single background thread to process tasks asynchronously
+        executor.submit {
+            while (true) {
+                val task = taskQueue.poll()
+                task?.run()
+            }
+        }
+    }
+
+    // Retrieves the chunk snapshot, either from cache or by loading it asynchronously
+    fun getChunkSnapshot(x: Int, z: Int): CompletableFuture<ChunkSnapshot> {
+        val chunkCoords = Pair(x, z)
+        synchronized(chunkCache) {
+            chunkCache[chunkCoords]?.let {
+                return CompletableFuture.completedFuture(it)
+            }
+        }
+
+        // If not in cache, load asynchronously
+        val future = CompletableFuture<ChunkSnapshot>()
+        taskQueue.add {
+            val chunkSnapshot = world.getChunkAtAsync(x, z).thenApply { chunk ->
+                chunk.getChunkSnapshot(true, false, false)
+            }.join()
+
+            synchronized(chunkCache) {
+                chunkCache[chunkCoords] = chunkSnapshot
+            }
+            future.complete(chunkSnapshot)
+        }
+
+        return future
+    }
+
+    fun preloadChunkSnapshots(chunks: List<Pair<Int, Int>>) {
+        chunks.forEach { (x, z) ->
+            getChunkSnapshot(x, z) // Preload the snapshot into the cache
+        }
+    }
 }

@@ -58,12 +58,12 @@ class TemperatureComponent(
             Color.fromRGB(67, 58, 53),
             Color.fromRGB(102, 74, 66),
             Color.fromRGB(157, 108, 92),
-            Color.fromRGB(194, 133, 112),
-            Color.fromRGB(223, 135, 73),
-            Color.fromRGB(238, 160, 101),
-            Color.fromRGB(241, 183, 120),
-            Color.fromRGB(245, 209, 142),
-            Color.fromRGB(255, 243, 170)
+            Color.fromRGB(51, 22, 15),
+            Color.fromRGB(178, 34, 34),
+            Color.fromRGB(255, 122, 0),
+            Color.fromRGB(241, 198, 9),
+            Color.fromRGB(255, 243, 71),
+            Color.fromRGB(253, 255, 165)
         )
     )
 

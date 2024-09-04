@@ -1,5 +1,6 @@
 package com.mochibit.defcon.particles
 
+import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.lifecycle.Lifecycled
 import com.mochibit.defcon.particles.templates.AbstractParticle
 import org.bukkit.Bukkit
@@ -41,9 +42,12 @@ class ParticleEmitter(val origin: Location, val range: Double) : Lifecycled {
         }
     }
 
-    override fun stop()
-    {
+    override fun stop() {
         dyingOut = true
+        while (particles.isNotEmpty()) {
+            update(0f)
+            Thread.sleep(10)
+        }
     }
 
     private fun getPlayersInRange(): List<Player> {
