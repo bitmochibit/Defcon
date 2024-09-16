@@ -26,6 +26,7 @@ import org.bukkit.Color
 import java.util.regex.Pattern
 import kotlin.math.ln
 import kotlin.math.pow
+import kotlin.random.Random
 
 object ColorUtils {
     private val rgbPattern = Pattern.compile("&#[a-fA-F0-9]{6}")
@@ -89,6 +90,41 @@ object ColorUtils {
         val g = (color.green + (255 - color.green) * factor).coerceIn(0.0, 255.0).toInt()
         val b = (color.blue + (255 - color.blue) * factor).coerceIn(0.0, 255.0).toInt()
         return Color.fromRGB(r, g, b)
+    }
+
+    /**
+     * Randomizes the brightness of a given color.
+     *
+     * @param color The original color.
+     * @param darkenMax The maximum darken factor.
+     * @param darkenMin The minimum darken factor.
+     * @param lightenMax The maximum lighten factor.
+     * @param lightenMin The minimum lighten factor.
+     * @return The color with adjusted brightness.
+     */
+    fun randomizeColorBrightness(
+        color: Color,
+        darkenMax: Double, darkenMin: Double,
+        lightenMax: Double, lightenMin: Double
+    ): Color {
+        val factor: Double
+        if (Random.nextBoolean()) {
+            if (darkenMax == 0.0 && darkenMin == 0.0) return color
+            factor = if (darkenMin == darkenMax) {
+                darkenMin
+            } else {
+                Random.nextDouble(darkenMin, darkenMax)
+            }
+            return darkenColor(color, factor)
+        } else {
+            if (lightenMax == 0.0 && lightenMin == 0.0) return color
+            factor = if (lightenMin == lightenMax) {
+                lightenMin
+            } else {
+                Random.nextDouble(lightenMin, lightenMax)
+            }
+            return lightenColor(color, factor)
+        }
     }
 
 }

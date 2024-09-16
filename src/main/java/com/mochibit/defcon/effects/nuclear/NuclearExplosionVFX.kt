@@ -57,7 +57,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private val secondaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3f(12.0f, 12.0f, 12.0f))
+                .scale(Vector3f(45.0f, 45.0f, 45.0f))
                 .velocity(Vector3f(0.0f, .3f, 0.0f))
                 .damping(Vector3f(0.0f, 0.1f, 0.0f)),
             mushroomCloudEmitter,
@@ -73,7 +73,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private val tertiaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3f(14.0f, 14.0f, 14.0f))
+                .scale(Vector3f(50.0f, 50.0f, 50.0f))
                 .velocity(Vector3f(0.0f, .2f, 0.0f))
                 .damping(Vector3f(0.0f, 0.1f, 0.0f)),
             mushroomCloudEmitter,
@@ -89,7 +89,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private val quaterniaryCloud: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3f(15.0f, 15.0f, 15.0f))
+                .scale(Vector3f(55.0f, 55.0f, 55.0f))
                 .velocity(Vector3f(0.0f, -.8f, 0.0f))
                 .damping(Vector3f(0.0f, 0.1f, 0.0f)),
             mushroomCloudEmitter,
@@ -141,7 +141,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private val stem: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3f(11.0f, 11.0f, 11.0f))
+                .scale(Vector3f(40.0f, 40.0f, 40.0f))
                 .velocity(Vector3f(0.0f, 1.0f, 0.0f)),
             mushroomCloudEmitter,
             CylinderBuilder()

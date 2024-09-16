@@ -3,6 +3,7 @@ package com.mochibit.defcon.particles
 import com.mochibit.defcon.Defcon
 import com.mochibit.defcon.lifecycle.Lifecycled
 import com.mochibit.defcon.particles.templates.AbstractParticle
+import com.mochibit.defcon.particles.templates.GenericParticleProperties
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.Player

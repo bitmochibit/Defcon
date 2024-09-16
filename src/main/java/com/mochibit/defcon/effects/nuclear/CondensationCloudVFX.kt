@@ -51,7 +51,7 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, priva
     private val condensationCloud = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle().apply {
-                scale(Vector3f(30.0f, 30.0f, 30.0f))
+                scale(Vector3f(60.0f, 60.0f, 60.0f))
                 color(Color.WHITE)
                 colorDarkenFactor(0.9, 1.0)
                 colorLightenFactor(0.0, 0.0)
@@ -74,7 +74,7 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, priva
     private val secondaryCondensationCloud = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle().apply {
-                scale(Vector3f(30.0f, 30.0f, 30.0f))
+                scale(Vector3f(70.0f, 70.0f, 70.0f))
                 color(Color.WHITE)
                 colorDarkenFactor(0.9, 1.0)
                 colorLightenFactor(0.0, 0.0)

@@ -19,20 +19,22 @@
 
 package com.mochibit.defcon.particles.templates.definition
 
-import com.mochibit.defcon.particles.templates.CustomParticle
 import com.mochibit.defcon.particles.templates.DisplayParticleProperties
+import com.mochibit.defcon.particles.templates.TextDisplayParticle
+import com.mochibit.defcon.particles.templates.TextDisplayParticleProperties
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.TextComponent
 import org.bukkit.Color
 import org.bukkit.Material
 import org.bukkit.inventory.ItemStack
 import org.joml.Vector3f
 
-class ExplosionDustParticle : CustomParticle(
-    DisplayParticleProperties(
-        itemStack = ItemStack(Material.LEATHER_BOOTS),
-        viewRange = 500.0f,
-        modelData = 2
+class ExplosionDustParticle : TextDisplayParticle(
+    TextDisplayParticleProperties(
+        text = "\uE000",
     ).apply {
         color = Color.fromRGB(49,49,49)
-        scale = Vector3f(10.0f, 10.0f, 10.0f)
+        scale = Vector3f(40.0f, 40.0f, 40.0f)
+        viewRange = 500.0f
     }
 )

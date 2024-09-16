@@ -45,7 +45,7 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
     private val nuclearFog: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3f(14.0f, 14.0f, 14.0f))
+                .scale(Vector3f(60.0f, 60.0f, 60.0f))
                 .displacement(Vector3f(.0f, .5f, .0f)),
             fogEmitter,
             SphereBuilder()
@@ -64,7 +64,7 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
     private val footSustain: ParticleComponent = ParticleComponent(
         ParticleShape(
             ExplosionDustParticle()
-                .scale(Vector3f(14.0f, 14.0f, 14.0f))
+                .scale(Vector3f(50.0f, 50.0f, 50.0f))
                 .displacement(Vector3f(.0f, .5f, .0f)),
             fogEmitter,
             SphereBuilder()

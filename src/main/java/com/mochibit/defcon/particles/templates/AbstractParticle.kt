@@ -19,15 +19,13 @@
 
 package com.mochibit.defcon.particles.templates
 
-import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.particles.ParticleAdapter
-import com.mochibit.defcon.utils.ColorUtils
 import org.bukkit.Color
-import org.bukkit.Location
 import org.bukkit.entity.Player
 import org.joml.Vector3d
 import org.joml.Vector3f
 import kotlin.random.Random
+import kotlin.reflect.KClass
 
 abstract class AbstractParticle(val particleProperties: GenericParticleProperties) {
     var colorSupplier: (() -> Color)? = null; private set
@@ -44,6 +42,8 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     var colorDarkenFactorMax = 1.0; private set
     var colorLightenFactorMin = 0.1; private set
     var colorLightenFactorMax = 0.2; private set
+
+    lateinit var particleAdapter: ParticleAdapter
 
 
     fun accelerationTicks(ticks: Int) = apply { initialAccelerationTicks = ticks }
@@ -87,8 +87,6 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
         particleProperties.scale = particleProperties.scale.mul(randomizedFactor.toFloat())
 
     }
-
-    abstract fun getAdapter(): ParticleAdapter
 
 
     private fun applyRandomDisplacement() {

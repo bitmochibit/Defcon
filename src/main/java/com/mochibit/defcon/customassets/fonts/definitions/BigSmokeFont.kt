@@ -17,13 +17,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.mochibit.defcon.particles.templates
+package com.mochibit.defcon.customassets.fonts.definitions
 
-import com.mochibit.defcon.particles.ItemParticleAdapter
-import com.mochibit.defcon.particles.ParticleAdapter
-
-abstract class CustomParticle(properties: DisplayParticleProperties) : AbstractParticle(properties) {
-    override fun getAdapter(): ParticleAdapter {
-        return ItemParticleAdapter
-    }
-}
+import com.mochibit.defcon.customassets.fonts.AbstractCustomFont
+import com.mochibit.defcon.customassets.fonts.FontData
+class BigSmokeFont : AbstractCustomFont(
+    FontData(
+        type = "bitmap",
+        file = "minecraft:custom_particles/explosion_dust/frame-0.png",
+        ascent = 16,
+        height = 16,
+        chars = hashSetOf("\uE000")
+    )
+)

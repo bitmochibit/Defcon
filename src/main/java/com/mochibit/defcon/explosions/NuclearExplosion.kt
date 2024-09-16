@@ -146,12 +146,14 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         val falloutRadius = shockwaveRadius / 16
 
         thread(name = "Nuclear Explosion Thread") {
-            val shockwave = Shockwave(center, 0.0, shockwaveRadius.toDouble(), shockwaveHeight.toDouble())
+            val shockwave = Shockwave(center, 0, shockwaveRadius.toInt(), shockwaveHeight.toDouble())
             val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
             val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
             val nuclearFog = NuclearFogVFX(nuclearComponent, center)
 
-            nuclearFog.loadPromise()
+            shockwave.loadPromise().thenCompose {
+                nuclearFog.loadPromise()
+            }
                 .thenCompose {
                     condensationCloud.loadPromise()
                 }

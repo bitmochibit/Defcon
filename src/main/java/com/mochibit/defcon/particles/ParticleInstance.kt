@@ -74,48 +74,13 @@ class ParticleInstance(
     fun isDead() = life >= particleProperties.maxLife
 
     companion object {
-        /**
-         * Randomizes the brightness of a given color.
-         *
-         * @param color The original color.
-         * @param darkenMax The maximum darken factor.
-         * @param darkenMin The minimum darken factor.
-         * @param lightenMax The maximum lighten factor.
-         * @param lightenMin The minimum lighten factor.
-         * @return The color with adjusted brightness.
-         */
-        private fun randomizeColorBrightness(
-            color: Color,
-            darkenMax: Double, darkenMin: Double,
-            lightenMax: Double, lightenMin: Double
-        ): Color {
-            val factor: Double
-            if (Random.nextBoolean()) {
-                if (darkenMax == 0.0 && darkenMin == 0.0) return color
-                factor = if (darkenMin == darkenMax) {
-                    darkenMin
-                } else {
-                    Random.nextDouble(darkenMin, darkenMax)
-                }
-                return ColorUtils.darkenColor(color, factor)
-            } else {
-                if (lightenMax == 0.0 && lightenMin == 0.0) return color
-                factor = if (lightenMin == lightenMax) {
-                    lightenMin
-                } else {
-                    Random.nextDouble(lightenMin, lightenMax)
-                }
-                return ColorUtils.lightenColor(color, factor)
-            }
-        }
-
         fun fromTemplate(particleTemplate: AbstractParticle, location: Vector3d, worldName: String): ParticleInstance {
-            val particleAdapter = particleTemplate.getAdapter()
+            val particleAdapter = particleTemplate.particleAdapter
             val particleProperties = particleTemplate.particleProperties.clone().apply {
                 color = color?.let { baseColor ->
                     var adjustedColor = particleTemplate.colorSupplier?.invoke() ?: baseColor
                     if (particleTemplate.randomizeColorBrightness) {
-                        adjustedColor = randomizeColorBrightness(
+                        adjustedColor = ColorUtils.randomizeColorBrightness(
                             adjustedColor,
                             particleTemplate.colorDarkenFactorMax,
                             particleTemplate.colorDarkenFactorMin,

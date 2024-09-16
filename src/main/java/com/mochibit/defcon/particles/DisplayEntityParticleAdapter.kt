@@ -22,26 +22,23 @@ package com.mochibit.defcon.particles
 import com.comphenix.protocol.PacketType
 import com.comphenix.protocol.ProtocolLibrary
 import com.comphenix.protocol.events.PacketContainer
+import com.comphenix.protocol.wrappers.WrappedChatComponent
 import com.comphenix.protocol.wrappers.WrappedDataValue
 import com.comphenix.protocol.wrappers.WrappedDataWatcher
-import com.mochibit.defcon.Defcon
-import com.mochibit.defcon.math.Vector3
 import com.mochibit.defcon.particles.templates.DisplayParticleProperties
 import com.mochibit.defcon.particles.templates.GenericParticleProperties
-import org.bukkit.Bukkit
-import org.bukkit.Location
 import org.bukkit.entity.Player
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import java.util.*
-import java.util.function.Consumer
+
 
 enum class RegistryName {
-    Vector3f, Quatenionf, Byte, Int, Float, ItemStack
+    Vector3f, Quatenionf, Byte, Int, Float, TextComponent, OptionalTextComponent, NBTCompound
 }
 
 
-abstract class  DisplayEntityParticleAdapter() : ParticleAdapter() {
+abstract class DisplayEntityParticleAdapter<T: DisplayParticleProperties>(private var properties: T) : ParticleAdapter{
     companion object {
         val cachedSerializers = mutableMapOf<RegistryName, WrappedDataWatcher.Serializer>(
             RegistryName.Vector3f to WrappedDataWatcher.Registry.get(Vector3f::class.java),
@@ -49,23 +46,73 @@ abstract class  DisplayEntityParticleAdapter() : ParticleAdapter() {
             RegistryName.Byte to WrappedDataWatcher.Registry.get(Byte::class.javaObjectType),
             RegistryName.Int to WrappedDataWatcher.Registry.get(Int::class.javaObjectType),
             RegistryName.Float to WrappedDataWatcher.Registry.get(Float::class.javaObjectType),
-            RegistryName.ItemStack to WrappedDataWatcher.Registry.getItemStackSerializer(false)
+            RegistryName.TextComponent to WrappedDataWatcher.Registry.getChatComponentSerializer(false),
+            RegistryName.OptionalTextComponent to WrappedDataWatcher.Registry.getChatComponentSerializer(true),
+            RegistryName.NBTCompound to WrappedDataWatcher.Registry.getNBTCompoundSerializer(),
         )
     }
 
     abstract fun getSpawnPacket(displayID: Int, displayUUID: UUID, location: Vector3f): PacketContainer
 
-    override fun summon(location: Vector3f, particleProperties: GenericParticleProperties, players: List<Player>, displayID: Int, displayUUID: UUID){
-        if (particleProperties !is DisplayParticleProperties) {
-            throw IllegalArgumentException("DisplayEntitySpawnStrategy requires DisplayParticleProperties")
-        }
-
+    override fun summon(
+        location: Vector3f,
+        players: List<Player>,
+        displayID: Int,
+        displayUUID: UUID
+    ) {
         val spawnPacket = getSpawnPacket(displayID, displayUUID, location)
         sendPacketToAll(spawnPacket, players)
-        applyMetadata(displayID, particleProperties, players)
+        applyMetadata(displayID, properties, players)
     }
-    protected abstract fun applyMetadata(displayID: Int, particleProperties: DisplayParticleProperties, players: List<Player>)
 
+    override fun summon(
+        location: Vector3f,
+        particleProperties: GenericParticleProperties,
+        players: List<Player>,
+        displayID: Int,
+        displayUUID: UUID
+    ) {
+        val spawnPacket = getSpawnPacket(displayID, displayUUID, location)
+        sendPacketToAll(spawnPacket, players)
+        @Suppress("UNCHECKED_CAST")
+        applyMetadata(displayID, particleProperties as T, players)
+    }
+
+    protected open fun applyMetadata(displayID: Int, particleProperties: T, players: List<Player>) {
+        val brightnessValue =
+            (particleProperties.brightness.blockLight shl 4) or (particleProperties.brightness.skyLight shl 20)
+        val packedItems = mutableListOf(
+            WrappedDataValue(8, cachedSerializers[RegistryName.Int], particleProperties.interpolationDelay),
+            WrappedDataValue(9, cachedSerializers[RegistryName.Int], particleProperties.interpolationDuration),
+            WrappedDataValue(10, cachedSerializers[RegistryName.Int], particleProperties.teleportDuration),
+            WrappedDataValue(11, cachedSerializers[RegistryName.Vector3f], particleProperties.translation),
+            WrappedDataValue(12, cachedSerializers[RegistryName.Vector3f], particleProperties.scale),
+            WrappedDataValue(13, cachedSerializers[RegistryName.Quatenionf], particleProperties.rotationLeft),
+            WrappedDataValue(14, cachedSerializers[RegistryName.Quatenionf], particleProperties.rotationRight),
+            WrappedDataValue(
+                15,
+                cachedSerializers[RegistryName.Byte],
+                particleProperties.billboard.ordinal.toByte()
+            ),
+            WrappedDataValue(16, cachedSerializers[RegistryName.Int], brightnessValue),
+            WrappedDataValue(17, cachedSerializers[RegistryName.Float], particleProperties.viewRange),
+            WrappedDataValue(18, cachedSerializers[RegistryName.Float], particleProperties.shadowRadius),
+            WrappedDataValue(19, cachedSerializers[RegistryName.Float], particleProperties.shadowStrength),
+            WrappedDataValue(20, cachedSerializers[RegistryName.Float], particleProperties.width),
+            WrappedDataValue(21, cachedSerializers[RegistryName.Float], particleProperties.height),
+        )
+        packedItems.addAll(getSubMeta(displayID, particleProperties, players))
+        sendMetadata(displayID, packedItems, players)
+    }
+
+    protected abstract fun getSubMeta(displayID: Int, particleProperties: T, players: List<Player>) : List<WrappedDataValue>
+    protected fun sendMetadata(displayID: Int, wrappedDataValues: List<WrappedDataValue>, players: List<Player>) {
+        val packet = PacketContainer(PacketType.Play.Server.ENTITY_METADATA)
+        packet.modifier.writeDefaults()
+        packet.integers.write(0, displayID)
+        packet.dataValueCollectionModifier.write(0, wrappedDataValues)
+        sendPacketToAll(packet, players)
+    }
     protected fun setTeleportDuration(displayID: Int, teleportDuration: Long, players: List<Player>) {
         sendMetadata(
             displayID = displayID,
@@ -100,19 +147,11 @@ abstract class  DisplayEntityParticleAdapter() : ParticleAdapter() {
         sendPacketToAll(packet, players)
     }
 
-    protected fun sendMetadata(displayID: Int, wrappedDataValues: List<WrappedDataValue>, players: List<Player>) {
-        val packet = PacketContainer(PacketType.Play.Server.ENTITY_METADATA)
-        packet.modifier.writeDefaults()
-        packet.integers.write(0, displayID)
-
-        packet.dataValueCollectionModifier.write(0, wrappedDataValues)
-
-        sendPacketToAll(packet, players)
-    }
 
     protected fun sendPacketToAll(packet: PacketContainer, players: List<Player>) {
         players.forEach { sendPacket(packet, it) }
     }
+
     protected fun sendPacket(packet: PacketContainer, player: Player) {
         try {
             ProtocolLibrary.getProtocolManager().sendServerPacket(player, packet)

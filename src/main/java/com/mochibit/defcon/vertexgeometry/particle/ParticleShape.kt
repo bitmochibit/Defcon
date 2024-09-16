@@ -21,6 +21,7 @@ package com.mochibit.defcon.vertexgeometry.particle
 
 import com.mochibit.defcon.particles.ParticleEmitter
 import com.mochibit.defcon.particles.templates.AbstractParticle
+import com.mochibit.defcon.particles.templates.GenericParticleProperties
 import com.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 import com.mochibit.defcon.vertexgeometry.vertexes.SpawnableVertex
 import com.mochibit.defcon.vertexgeometry.vertexes.Vertex

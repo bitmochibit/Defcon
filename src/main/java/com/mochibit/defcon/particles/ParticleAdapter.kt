@@ -19,17 +19,20 @@
 
 package com.mochibit.defcon.particles
 
+import com.mochibit.defcon.particles.templates.DisplayParticleProperties
 import com.mochibit.defcon.particles.templates.GenericParticleProperties
 
 import org.bukkit.Location
 import org.bukkit.entity.Player
 import org.joml.Vector3f
 import java.util.*
+import kotlin.reflect.KClass
 
-abstract class ParticleAdapter {
-    abstract fun summon(location: Vector3f, particleProperties: GenericParticleProperties, players: List<Player>, displayID: Int, displayUUID: UUID)
-    abstract fun remove(displayID: Int, players: List<Player>)
-    abstract fun updatePosition(displayID: Int, newLocation: Vector3f, players: List<Player>)
+interface ParticleAdapter {
+    fun summon(location: Vector3f, players: List<Player>, displayID: Int, displayUUID: UUID)
+    fun summon(location: Vector3f, particleProperties: GenericParticleProperties, players: List<Player>, displayID: Int, displayUUID: UUID)
+    fun remove(displayID: Int, players: List<Player>)
+    fun updatePosition(displayID: Int, newLocation: Vector3f, players: List<Player>)
 
-    open fun setMotionTime(displayID: Int, time: Int, players: List<Player>) {}
+    fun setMotionTime(displayID: Int, time: Int, players: List<Player>)
 }

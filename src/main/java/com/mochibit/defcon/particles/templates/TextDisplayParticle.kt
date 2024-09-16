@@ -17,17 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.mochibit.defcon.customassets.fonts.definitions
+package com.mochibit.defcon.particles.templates
 
-import com.mochibit.defcon.customassets.fonts.AbstractCustomFont
-import com.mochibit.defcon.customassets.fonts.FontData
+import com.mochibit.defcon.particles.TextParticleAdapter
+import com.mochibit.defcon.particles.ParticleAdapter
+import kotlin.reflect.KClass
 
-class NukeFlashFont : AbstractCustomFont(
-    FontData(
-        type = "bitmap",
-        file = "minecraft:nuke/nuke_flash.png",
-        ascent = 128,
-        height = 256,
-        chars = hashSetOf("\uE000")
-    )
-) {}
+abstract class TextDisplayParticle(properties: TextDisplayParticleProperties) : AbstractParticle(properties) {
+    init {
+        particleAdapter = TextParticleAdapter(properties)
+    }
+}

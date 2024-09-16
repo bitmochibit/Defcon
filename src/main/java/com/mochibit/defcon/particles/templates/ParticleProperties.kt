@@ -18,8 +18,10 @@
 
 package com.mochibit.defcon.particles.templates
 
+import net.kyori.adventure.text.TextComponent
 import org.bukkit.Color
 import org.bukkit.entity.Display
+import org.bukkit.entity.TextDisplay.TextAlignment
 import org.bukkit.inventory.ItemStack
 import org.joml.Quaternionf
 import org.joml.Vector3f
@@ -67,8 +69,8 @@ abstract class GenericParticleProperties(
  * @property modelData Custom model data for the particle.
  * @property modelDataAnimation The animation properties for the particle's model data.
  */
-data class DisplayParticleProperties(
-    var itemStack: ItemStack,
+abstract class DisplayParticleProperties(
+    var itemStack: ItemStack? = null,
 
     var interpolationDelay: Int = 0,
     var interpolationDuration: Int = 0,
@@ -138,3 +140,17 @@ data class DisplayParticleProperties(
         }
     }
 }
+
+data class TextDisplayParticleProperties(
+    var text: String,
+
+    var lineWidth: Int = 200,
+    var backgroundColor: Color = Color.fromARGB(0,0,0,0),
+    var textOpacity: Byte = -1,
+
+    // Byte-mask values
+    var hasShadow : Boolean = false, // 0x01
+    var isSeeThrough : Boolean = false, // 0x02
+    var useDefaultBackground : Boolean = false, // 0x04
+    var alignment: TextAlignment = TextAlignment.CENTER // 0x08
+) : DisplayParticleProperties()
