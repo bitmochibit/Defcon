@@ -1,6 +1,6 @@
 name: Defcon
 version: '${project.version}'
-main: com.mochibit.defcon.Defcon
+main: me.mochibit.defcon.Defcon
 api-version: 1.19
 authors: [ Rynoooo, Corvinoo ]
 description: A plugin that adds nuclear energy, along with his advantages and dangers

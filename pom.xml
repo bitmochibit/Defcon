@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.mochibit</groupId>
+    <groupId>me.mochibit</groupId>
     <artifactId>Defcon</artifactId>
     <version>1.4-SNAPSHOT</version>
     <packaging>jar</packaging>
@@ -41,6 +41,7 @@
     </distributionManagement>
 
     <build>
+        <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -50,11 +51,11 @@
                     <relocations>
                         <relocation>
                             <pattern>io.papermc.lib</pattern>
-                            <shadedPattern>com.mochibit.defcon.api.paperlib</shadedPattern>
+                            <shadedPattern>me.mochibit.defcon.api.paperlib</shadedPattern>
                         </relocation>
                         <relocation>
                             <pattern>com.jeff_media.customblockdata</pattern>
-                            <shadedPattern>com.mochibit.defcon.api.customblockdata</shadedPattern>
+                            <shadedPattern>me.mochibit.defcon.api.customblockdata</shadedPattern>
                         </relocation>
                     </relocations>
                 </configuration>
@@ -78,12 +79,6 @@
                         <goals>
                             <goal>compile</goal>
                         </goals>
-                        <configuration>
-                            <sourceDirs>
-                                <source>src/main/java</source>
-                                <source>target/generated-sources/annotations</source>
-                            </sourceDirs>
-                        </configuration>
                     </execution>
                     <execution>
                         <id>test-compile</id>
