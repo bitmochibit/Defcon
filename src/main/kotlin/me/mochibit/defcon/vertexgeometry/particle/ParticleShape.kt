@@ -51,7 +51,7 @@ class ParticleShape(
     override fun effectiveDraw(vertex: Vertex, worldName: String) {
         if (vertex !is SpawnableVertex) return
         if (vertex.spawnTime != 0L && System.currentTimeMillis() - vertex.spawnTime < particle.particleProperties.maxLife) return
-        emitter.spawnParticle(particle, vertex.globalPosition, worldName)
+        //emitter.spawnParticle(particle, vertex.globalPosition, worldName)
         vertex.spawnTime = System.currentTimeMillis()
     }
 

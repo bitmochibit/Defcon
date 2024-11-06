@@ -22,5 +22,5 @@ package me.mochibit.defcon.effects
 import me.mochibit.defcon.lifecycle.Lifecycled
 
 interface EffectComponent : Lifecycled {
-    fun emit()
+
 }

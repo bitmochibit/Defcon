@@ -74,7 +74,7 @@ class ParticleInstance(
     fun isDead() = life >= particleProperties.maxLife
 
     companion object {
-        fun fromTemplate(particleTemplate: AbstractParticle, location: Vector3d, worldName: String): ParticleInstance {
+        fun fromTemplate(particleTemplate: AbstractParticle, location: Vector3f, worldName: String): ParticleInstance {
             val particleAdapter = particleTemplate.particleAdapter
             val particleProperties = particleTemplate.particleProperties.clone().apply {
                 color = color?.let { baseColor ->
@@ -91,7 +91,7 @@ class ParticleInstance(
                     adjustedColor
                 }
             }
-            particleTemplate.locationConsumer?.invoke(location)
+            //particleTemplate.locationConsumer?.invoke(location)
 
             if (particleTemplate.randomizeScale) {
                 val scale = particleProperties.scale

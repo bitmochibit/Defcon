@@ -18,7 +18,8 @@ val customBlockDataVersion = "2.2.3"
 val gsonVersion = "2.10"
 
 // Get the output directory from system properties or use default `build/libs`
-val outputPluginDirectory = project.findProperty("outputDir")?.toString() ?: "${layout.buildDirectory}/libs"
+val outputPluginDirectory = project.findProperty("outputDir")?.toString() ?: layout.buildDirectory.dir("libs").get().asFile.path
+println("Output directory: $outputPluginDirectory")
 
 repositories {
     mavenCentral()

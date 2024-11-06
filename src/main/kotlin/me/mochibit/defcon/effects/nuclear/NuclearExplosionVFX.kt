@@ -24,6 +24,9 @@ import me.mochibit.defcon.effects.ParticleComponent
 import me.mochibit.defcon.effects.TemperatureComponent
 import me.mochibit.defcon.explosions.NuclearComponent
 import me.mochibit.defcon.particles.ParticleEmitter
+import me.mochibit.defcon.particles.emitter.CylinderShape
+import me.mochibit.defcon.particles.emitter.SphereShape
+import me.mochibit.defcon.particles.emitter.SphereSurfaceShape
 import me.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
 import me.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import me.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
@@ -35,139 +38,146 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private val maxHeight = 250.0
     private var currentHeight = 0.0f
     private var riseSpeed = 5.0f
-    private val visibleWhenLessThanCurrentHeight = { value: Double -> value < currentHeight - 5 }
+
     private val visibleAfterACertainHeight = { value: Double -> value >= 120 }
 
-    private val mushroomCloudEmitter = ParticleEmitter(center, 3000.0)
-
     private val coreCloud: ParticleComponent = ParticleComponent(
-        ParticleShape(
-            ExplosionDustParticle()
-                .velocity(Vector3f(0.0f, .5f, 0.0f))
-                .damping(Vector3f(0.0f, 0.1f, 0.0f)),
-            mushroomCloudEmitter,
-            SphereBuilder()
-                .withRadiusXZ(30.0)
-                .hollow(true)
-                .withRadiusY(50.0),
-            center
+        ParticleEmitter(
+            center, 3000.0,
+            emitterShape = SphereShape(
+                xzRadius = 30.0f,
+                yRadius = 50.0f
+            ),
         ),
         TemperatureComponent(temperatureCoolingRate = 35.0)
-    ).emitRate(10)
+    ).addSpawnableParticle(
+        ExplosionDustParticle()
+            .scale(Vector3f(30.0f, 30.0f, 30.0f))
+            .velocity(Vector3f(0.0f, .5f, 0.0f))
+            .damping(
+                Vector3f(0.0f, 0.1f, 0.0f)
+            )
+        ,true
+    )
+
+
     private val secondaryCloud: ParticleComponent = ParticleComponent(
-        ParticleShape(
-            ExplosionDustParticle()
-                .scale(Vector3f(45.0f, 45.0f, 45.0f))
-                .velocity(Vector3f(0.0f, .3f, 0.0f))
-                .damping(Vector3f(0.0f, 0.1f, 0.0f)),
-            mushroomCloudEmitter,
-            SphereBuilder()
-                .skipRadiusXZ(30.0)
-                .hollow(true)
-                .withRadiusXZ(50.0)
-                .withRadiusY(50.0),
-            center
+        ParticleEmitter(
+            center, 3000.0,
+            emitterShape = SphereSurfaceShape(
+                xzRadius = 50.0f,
+                yRadius = 50.0f,
+            ),
         ),
         TemperatureComponent(temperatureCoolingRate = 105.0)
-    ).emitRate(13)
+    ).addSpawnableParticle(
+        ExplosionDustParticle()
+            .scale(Vector3f(45.0f, 45.0f, 45.0f))
+            .velocity(Vector3f(0.0f, .3f, 0.0f))
+            .damping(Vector3f(0.0f, 0.1f, 0.0f))
+        , true
+    )
+
     private val tertiaryCloud: ParticleComponent = ParticleComponent(
-        ParticleShape(
-            ExplosionDustParticle()
-                .scale(Vector3f(50.0f, 50.0f, 50.0f))
-                .velocity(Vector3f(0.0f, .2f, 0.0f))
-                .damping(Vector3f(0.0f, 0.1f, 0.0f)),
-            mushroomCloudEmitter,
-            SphereBuilder()
-                .skipRadiusXZ(50.0)
-                .hollow(true)
-                .withRadiusXZ(70.0)
-                .withRadiusY(70.0),
-            center
+        ParticleEmitter(
+            center, 3000.0,
+            emitterShape = SphereSurfaceShape(
+                xzRadius = 70.0f,
+                yRadius = 70.0f,
+            ),
         ),
         TemperatureComponent(temperatureCoolingRate = 200.0)
-    ).emitRate(15)
+    ).addSpawnableParticle(
+        ExplosionDustParticle()
+            .scale(Vector3f(50.0f, 50.0f, 50.0f))
+            .velocity(Vector3f(0.0f, .2f, 0.0f))
+            .damping(Vector3f(0.0f, 0.1f, 0.0f)),
+        true
+    )
+
     private val quaterniaryCloud: ParticleComponent = ParticleComponent(
-        ParticleShape(
-            ExplosionDustParticle()
-                .scale(Vector3f(55.0f, 55.0f, 55.0f))
-                .velocity(Vector3f(0.0f, -.8f, 0.0f))
-                .damping(Vector3f(0.0f, 0.1f, 0.0f)),
-            mushroomCloudEmitter,
-            SphereBuilder()
-                .hollow(true)
-                .skipRadiusXZ(70.0)
-                .withRadiusXZ(90.0)
-                .withRadiusY(60.0),
-            center
+        ParticleEmitter(
+            center, 3000.0,
+            emitterShape = SphereSurfaceShape(
+                xzRadius = 90.0f,
+                yRadius = 60.0f,
+            ),
         ),
         TemperatureComponent(temperatureCoolingRate = 300.0)
-    ).translate(Vector3f(0.0f, -5.0f, 0.0f)).emitRate(17)
+    ).addSpawnableParticle(
+        ExplosionDustParticle()
+            .scale(Vector3f(55.0f, 55.0f, 55.0f))
+            .velocity(Vector3f(0.0f, -.8f, 0.0f))
+            .damping(Vector3f(0.0f, 0.1f, 0.0f)),
+        true
+    )
+        .translate(Vector3f(0.0f, -5.0f, 0.0f))
 
-    private val coreNeck: ParticleComponent = ParticleComponent(
-        ParticleShape(
-            ExplosionDustParticle()
-                .velocity(Vector3f(0.0f, -1.0f, 0.0f)),
-            mushroomCloudEmitter,
-            CylinderBuilder()
-                .hollow(true)
-                .withHeight(60.0)
-                .withRadiusX(30.0)
-                .withRadiusZ(30.0)
-                .withRate(20.0)
-                .withHeightRate(1.0),
-            center
-        ),
-        TemperatureComponent(temperatureCoolingRate = 40.0)
-    ).translate(Vector3f(0.0f, -30.0f, 0.0f)).emitRate(12)
+//    private val coreNeck: ParticleComponent = ParticleComponent(
+//        ParticleEmitter(
+//            center, 3000.0,
+//            emitterShape = CylinderShape(
+//                radiusX = 30.0f,
+//                radiusZ = 30.0f,
+//                height = 60.0f,
+//                hollow = true,
+//                heightRate = 1.0
+//            ),
+//            spawnableParticles = listOf(
+//                ExplosionDustParticle()
+//                    .velocity(Vector3f(0.0f, -1.0f, 0.0f))
+//            )
+//        ),
+//        TemperatureComponent(temperatureCoolingRate = 40.0)
+//    ).translate(Vector3f(0.0f, -30.0f, 0.0f))
 
-
-    private val neckCone: ParticleComponent = ParticleComponent(
-        ParticleShape(
-            ExplosionDustParticle(),
-            mushroomCloudEmitter,
-            SphereBuilder()
-                .hollow(true)
-                .withYStart(-15.0)
-                .withRadiusXZ(40.0)
-                .withRadiusY(70.0),
-            center
-        ).apply { yPredicate = visibleAfterACertainHeight },
-        TemperatureComponent(temperatureCoolingRate = 100.0)
-    ).translate(Vector3f(0.0f, -90.0f, 0.0f)).emitRate(15).visible(false).setVisibilityAfterDelay(true, 20*15)
-        .applyRadialVelocityFromCenter(Vector3f(1.0f, -1.0f, 1.0f))
-
-
+//    private val neckCone: ParticleComponent = ParticleComponent(
+//        ParticleEmitter(
+//            center, 3000.0,
+//            emitterShape = SphereShape(
+//                xzRadius = 40.0f,
+//                yRadius = 70.0f,
+//                hollow = true,
+//                yStart = -15.0
+//            ),
+//            spawnableParticles = listOf(
+//                ExplosionDustParticle()
+//            )
+//        ).apply { yPredicate = visibleAfterACertainHeight },
+//        TemperatureComponent(temperatureCoolingRate = 100.0)
+//    ).translate(Vector3f(0.0f, -90.0f, 0.0f))
+//        .visible(false)
+//        .setVisibilityAfterDelay(true, 20 * 15)
+//        .applyRadialVelocityFromCenter(Vector3f(1.0f, -1.0f, 1.0f))
 
     private val stem: ParticleComponent = ParticleComponent(
-        ParticleShape(
-            ExplosionDustParticle()
-                .scale(Vector3f(40.0f, 40.0f, 40.0f))
-                .velocity(Vector3f(0.0f, 1.0f, 0.0f)),
-            mushroomCloudEmitter,
-            CylinderBuilder()
-                .withHeight(maxHeight)
-                .withRadiusX(15.0)
-                .withRadiusZ(15.0)
-                .withRate(30.0)
-                .hollow(false),
-            center
-        ).apply{
-            yPredicate = visibleWhenLessThanCurrentHeight
-        },
+        ParticleEmitter(
+            center, 3000.0,
+            emitterShape = CylinderShape(
+                radiusX = 15.0f,
+                radiusZ = 15.0f,
+                height = 1f,
+            ),
+        ),
         TemperatureComponent(temperatureCoolingRate = 190.0)
-    ).emitRate(14)
+    ).addSpawnableParticle(
+        ExplosionDustParticle()
+            .scale(Vector3f(40.0f, 40.0f, 40.0f))
+            .velocity(Vector3f(0.0f, 1.0f, 0.0f))
+    )
 
+    val stemShape = stem.shape as CylinderShape
 
 
     init {
         effectComponents.addAll(
             listOf(
                 coreCloud,
-                coreNeck,
+                //coreNeck,
                 secondaryCloud,
                 tertiaryCloud,
                 quaterniaryCloud,
-                neckCone,
+                //neckCone,
                 stem
             )
         )
@@ -185,12 +195,14 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         val movementVector = Vector3f(0.0f, deltaMovement, 0.0f)
         // Elevate the sphere using transform translation
         coreCloud.translate(movementVector)
-        coreNeck.translate(movementVector)
+        //coreNeck.translate(movementVector)
         secondaryCloud.translate(movementVector)
         tertiaryCloud.translate(movementVector)
         quaterniaryCloud.translate(movementVector)
-        neckCone.translate(movementVector)
+        //neckCone.translate(movementVector)
         currentHeight += deltaMovement
+
+        stemShape.height = (currentHeight - 10)
     }
 
 }

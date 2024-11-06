@@ -28,7 +28,7 @@ abstract class AnimatedEffect(maxAliveTick: Int = 200, protected var effectCompo
     override val observers: MutableList<(Unit) -> Unit> = mutableListOf()
     open fun draw() {
         if (!isLoaded) return
-        effectComponents.forEach { it.emit() }
+        //effectComponents.forEach { it.emit() }
     }
 
     abstract fun animate(delta: Float)

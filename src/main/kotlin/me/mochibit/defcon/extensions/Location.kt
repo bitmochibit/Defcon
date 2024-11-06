@@ -31,6 +31,13 @@ fun Location.toVector3(): Vector3 {
     return Vector3(x, y, z)
 }
 
+fun Location.distanceSquared(other: Vector3f) : Double {
+    val dx = x - other.x
+    val dy = y - other.y
+    val dz = z - other.z
+    return dx * dx + dy * dy + dz * dz
+}
+
 fun Location.toVector3f(): Vector3f {
     return Vector3f(x.toFloat(), y.toFloat(), z.toFloat())
 }

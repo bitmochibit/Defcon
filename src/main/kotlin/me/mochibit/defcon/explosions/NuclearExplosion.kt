@@ -21,9 +21,7 @@ package me.mochibit.defcon.explosions
 
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.Defcon.Companion.Logger.info
-import me.mochibit.defcon.effects.nuclear.CondensationCloudVFX
 import me.mochibit.defcon.effects.nuclear.NuclearExplosionVFX
-import me.mochibit.defcon.effects.nuclear.NuclearFogVFX
 import me.mochibit.defcon.radiation.RadiationAreaFactory
 import me.mochibit.defcon.threading.jobs.SimpleSchedulable
 import me.mochibit.defcon.threading.runnables.ScheduledRunnable
@@ -148,29 +146,10 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         thread(name = "Nuclear Explosion Thread") {
             val shockwave = Shockwave(center, 0, shockwaveRadius.toInt(), shockwaveHeight.toDouble())
             val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
-            val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
-            val nuclearFog = NuclearFogVFX(nuclearComponent, center)
+            // val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
+            //val nuclearFog = NuclearFogVFX(nuclearComponent, center)
+            nuclearExplosion.instantiate(true)
 
-            shockwave.loadPromise().thenCompose {
-                nuclearFog.loadPromise()
-            }
-                .thenCompose {
-                    condensationCloud.loadPromise()
-                }
-                .thenCompose {
-                    nuclearExplosion.loadPromise()
-                }
-                .thenAccept {
-                    nuclearFog
-                        .instantiate(true)
-                    condensationCloud.instantiate(true)
-                    nuclearExplosion.instantiate(true)
-                    shockwave.explode()
-                }
-                .exceptionally { ex ->
-                    println("Error loading effects: ${ex.message}")
-                    null
-                }
         }
 
 //        center.world.getNearbyPlayers(center, 300.0).forEach { player ->

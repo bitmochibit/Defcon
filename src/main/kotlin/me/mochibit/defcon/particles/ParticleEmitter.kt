@@ -1,33 +1,57 @@
 package me.mochibit.defcon.particles
 
-import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.extensions.distanceSquared
 import me.mochibit.defcon.lifecycle.Lifecycled
+import me.mochibit.defcon.particles.emitter.EmitterShape
+import me.mochibit.defcon.particles.emitter.PointShape
 import me.mochibit.defcon.particles.templates.AbstractParticle
-import me.mochibit.defcon.particles.templates.GenericParticleProperties
 import org.bukkit.Bukkit
 import org.bukkit.Location
+import org.bukkit.World
 import org.bukkit.entity.Player
-import org.joml.Vector3d
+import org.joml.Matrix4f
+import org.joml.Vector3f
 
-class ParticleEmitter(val origin: Location, val range: Double) : Lifecycled {
-    companion object {
-        private const val MAX_PARTICLES = 5000
-    }
+class ParticleEmitter(
+    position: Location,
+    private val range: Double,
+    private val maxParticles: Int = 5000,
+    var emitterShape: EmitterShape = PointShape,
+    val transform: Matrix4f = Matrix4f().identity(),
+    val spawnableParticles: HashSet<AbstractParticle> = hashSetOf()
+) : Lifecycled {
+
+    private val origin: Vector3f = Vector3f(position.x.toFloat(), position.y.toFloat(), position.z.toFloat())
+    private val oldOrigin = Vector3f(origin)
+    val world: World = position.world
+
 
     private val particles = mutableListOf<ParticleInstance>()
-    var dyingOut = false
+    private var dyingOut = false
 
-    fun spawnParticle(particle: AbstractParticle, location: Vector3d, world: String) {
-        if (dyingOut) return
-        if (particles.size >= MAX_PARTICLES) return
-        particles.add(ParticleInstance.fromTemplate(particle, location, world))
+    var visible = true
+
+    fun spawnParticle(particle: AbstractParticle) {
+        if (particles.size >= maxParticles) return
+        if (emitterShape != PointShape) {
+            oldOrigin.set(origin)
+            emitterShape.maskLoc(origin)
+            transform.transformPosition(origin, origin)
+            particles.add(ParticleInstance.fromTemplate(particle, origin, world.name))
+            origin.set(oldOrigin)
+        } else {
+            particles.add(ParticleInstance.fromTemplate(particle, transform.transformPosition(origin), world.name))
+        }
     }
 
-    override fun start() {
-        // No initialization required
-    }
+    override fun start() {}
 
     override fun update(delta: Float) {
+        // Add particles in random intervals until maxParticles is reached
+        if (particles.size < maxParticles && !dyingOut) {
+            spawnParticle(this.spawnableParticles.random())
+        }
+
         val players = getPlayersInRange()
 
         val iterator = particles.iterator()
@@ -52,7 +76,6 @@ class ParticleEmitter(val origin: Location, val range: Double) : Lifecycled {
     }
 
     private fun getPlayersInRange(): List<Player> {
-        val world = origin.world
         return Bukkit.getOnlinePlayers().filter {
             it.world == world && it.location.distanceSquared(origin) <= range * range
         }
