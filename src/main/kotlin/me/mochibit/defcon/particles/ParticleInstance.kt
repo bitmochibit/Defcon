@@ -26,10 +26,13 @@ class ParticleInstance(
     private val particleID = Random.nextInt(Int.MAX_VALUE)
     private val particleUUID = UUID.randomUUID()
     private var summoned = false
-    private var updatedLoc = false
 
     fun applyForce(force: Vector3f) {
         acceleration = acceleration.add(force)
+    }
+
+    fun applyVelocity(velocity: Vector3f) {
+        this.velocity = velocity
     }
 
     fun show(players: List<Player>) {

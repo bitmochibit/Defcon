@@ -39,8 +39,6 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     private var currentHeight = 0.0f
     private var riseSpeed = 5.0f
 
-    private val visibleAfterACertainHeight = { value: Double -> value >= 120 }
-
     private val coreCloud: ParticleComponent = ParticleComponent(
         ParticleEmitter(
             center, 3000.0,
@@ -56,8 +54,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             .velocity(Vector3f(0.0f, .5f, 0.0f))
             .damping(
                 Vector3f(0.0f, 0.1f, 0.0f)
-            )
-        ,true
+            ), true
     )
 
 
@@ -74,8 +71,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         ExplosionDustParticle()
             .scale(Vector3f(45.0f, 45.0f, 45.0f))
             .velocity(Vector3f(0.0f, .3f, 0.0f))
-            .damping(Vector3f(0.0f, 0.1f, 0.0f))
-        , true
+            .damping(Vector3f(0.0f, 0.1f, 0.0f)), true
     )
 
     private val tertiaryCloud: ParticleComponent = ParticleComponent(
@@ -113,42 +109,40 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     )
         .translate(Vector3f(0.0f, -5.0f, 0.0f))
 
-//    private val coreNeck: ParticleComponent = ParticleComponent(
-//        ParticleEmitter(
-//            center, 3000.0,
-//            emitterShape = CylinderShape(
-//                radiusX = 30.0f,
-//                radiusZ = 30.0f,
-//                height = 60.0f,
-//                hollow = true,
-//                heightRate = 1.0
-//            ),
-//            spawnableParticles = listOf(
-//                ExplosionDustParticle()
-//                    .velocity(Vector3f(0.0f, -1.0f, 0.0f))
-//            )
-//        ),
-//        TemperatureComponent(temperatureCoolingRate = 40.0)
-//    ).translate(Vector3f(0.0f, -30.0f, 0.0f))
+    private val coreNeck: ParticleComponent = ParticleComponent(
+        ParticleEmitter(
+            center, 3000.0,
+            emitterShape = CylinderShape(
+                radiusX = 30.0f,
+                radiusZ = 30.0f,
+                height = 60.0f,
+            ),
+        ),
+        TemperatureComponent(temperatureCoolingRate = 40.0)
+    ).addSpawnableParticle(
+        ExplosionDustParticle().velocity(Vector3f(0.0f, -1.0f, 0.0f))
+    )
+        .translate(Vector3f(0.0f, -30.0f, 0.0f))
 
-//    private val neckCone: ParticleComponent = ParticleComponent(
-//        ParticleEmitter(
-//            center, 3000.0,
-//            emitterShape = SphereShape(
-//                xzRadius = 40.0f,
-//                yRadius = 70.0f,
-//                hollow = true,
-//                yStart = -15.0
-//            ),
-//            spawnableParticles = listOf(
-//                ExplosionDustParticle()
-//            )
-//        ).apply { yPredicate = visibleAfterACertainHeight },
-//        TemperatureComponent(temperatureCoolingRate = 100.0)
-//    ).translate(Vector3f(0.0f, -90.0f, 0.0f))
-//        .visible(false)
-//        .setVisibilityAfterDelay(true, 20 * 15)
-//        .applyRadialVelocityFromCenter(Vector3f(1.0f, -1.0f, 1.0f))
+    private val neckCone: ParticleComponent = ParticleComponent(
+        ParticleEmitter(
+            center, 3000.0,
+            emitterShape = SphereShape(
+                xzRadius = 40.0f,
+                yRadius = 70.0f,
+                yMin = -15.0f
+            ),
+        ),
+        TemperatureComponent(temperatureCoolingRate = 100.0)
+    ).addSpawnableParticle(
+        ExplosionDustParticle()
+    )
+        .apply {
+            visible = false
+        }
+        .translate(Vector3f(0.0f, -90.0f, 0.0f))
+        .setVisibilityAfterDelay(true, 20 * 15)
+        .applyRadialVelocityFromCenter(Vector3f(1.0f, -1.0f, 1.0f))
 
     private val stem: ParticleComponent = ParticleComponent(
         ParticleEmitter(
@@ -166,18 +160,18 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             .velocity(Vector3f(0.0f, 1.0f, 0.0f))
     )
 
-    val stemShape = stem.shape as CylinderShape
+    private val stemShape = stem.shape as CylinderShape
 
 
     init {
         effectComponents.addAll(
             listOf(
                 coreCloud,
-                //coreNeck,
+                coreNeck,
                 secondaryCloud,
                 tertiaryCloud,
                 quaterniaryCloud,
-                //neckCone,
+                neckCone,
                 stem
             )
         )
@@ -195,11 +189,11 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         val movementVector = Vector3f(0.0f, deltaMovement, 0.0f)
         // Elevate the sphere using transform translation
         coreCloud.translate(movementVector)
-        //coreNeck.translate(movementVector)
+        coreNeck.translate(movementVector)
         secondaryCloud.translate(movementVector)
         tertiaryCloud.translate(movementVector)
         quaterniaryCloud.translate(movementVector)
-        //neckCone.translate(movementVector)
+        neckCone.translate(movementVector)
         currentHeight += deltaMovement
 
         stemShape.height = (currentHeight - 10)

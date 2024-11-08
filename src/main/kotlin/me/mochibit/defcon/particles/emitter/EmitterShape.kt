@@ -20,12 +20,9 @@
 package me.mochibit.defcon.particles.emitter
 
 
-
+import me.mochibit.defcon.utils.MathFunctions
 import org.joml.Vector3f
-import kotlin.math.acos
-import kotlin.math.cbrt
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.*
 
 abstract class EmitterShape {
     abstract fun maskLoc(location: Vector3f)
@@ -33,39 +30,39 @@ abstract class EmitterShape {
 
 class SphereShape(
     val xzRadius: Float,
-    val yRadius: Float
+    val yRadius: Float,
+    val yMin: Float = -yRadius, // Start of the ellipsoid (to allow for half-ellipsoid)
 ) : EmitterShape() {
     override fun maskLoc(location: Vector3f) {
+        val r = cbrt(Math.random()) // Cube root gives uniform distribution in volume
         // Generate a random point within the bounds of a sphere
-        val theta = Math.random() * 2 * Math.PI        // Azimuthal angle in [0, 2π]
-        val phi = acos(2 * Math.random() - 1)     // Polar angle in [0, π], ensures uniform distribution
-
-        // Generate a random radius factor for points inside the sphere
-        val r = cbrt(Math.random())               // Cube root of random for uniform distribution in volume
+        val theta = Math.random() * MathFunctions.TAU         // Azimuthal angle in [0, 2π]
+        val phi = acos(2 * Math.random() - 1)            // Polar angle in [0, π] for spherical symmetry
 
         location.add(
-            (r * xzRadius * sin(phi) * cos(theta)).toFloat(),
-            (r * yRadius * cos(phi)).toFloat(),
-            (r * xzRadius * sin(phi) * sin(theta)).toFloat()
+            (r * sin(phi) * cos(theta) * xzRadius).toFloat(),
+            (r * cos(phi) * yRadius).coerceAtLeast(yMin.toDouble()).toFloat(),
+            (r * sin(phi) * sin(theta) * xzRadius).toFloat()
         )
     }
 }
 
 class SphereSurfaceShape(
     val xzRadius: Float,
-    val yRadius: Float
+    val yRadius: Float,
+    val yMin: Float = -yRadius, // Start of the ellipsoid (to allow for half-ellipsoid)
 ) : EmitterShape() {
     override fun maskLoc(location: Vector3f) {
-        // Generate a random point on the surface of a sphere with the given radii
-        val theta = Math.random() * 2 * Math.PI        // Azimuthal angle in [0, 2π]
-        val phi = acos(2 * Math.random() - 1)     // Polar angle in [0, π], ensures uniform distribution
+        // Generate random spherical coordinates
+        val theta = Math.random() * MathFunctions.TAU         // Azimuthal angle in [0, 2π]
+        val phi = acos(2 * Math.random() - 1)            // Polar angle in [0, π]
 
-        // Fixed radius for surface points
         location.add(
-            (xzRadius * sin(phi) * cos(theta)).toFloat(),
-            (yRadius * cos(phi)).toFloat(),
-            (xzRadius * sin(phi) * sin(theta)).toFloat()
+            (sin(phi) * cos(theta) * xzRadius).toFloat(),
+            (cos(phi) * yRadius).coerceAtLeast(yMin.toDouble()).toFloat(),
+            (sin(phi) * sin(theta) * xzRadius).toFloat()
         )
+
     }
 }
 
@@ -76,7 +73,7 @@ class CylinderShape(
 ) : EmitterShape() {
     override fun maskLoc(location: Vector3f) {
         // Generate a random point within the bounds of a cylinder
-        val theta = Math.random() * 2 * Math.PI        // Azimuthal angle in [0, 2π]
+        val theta = Math.random() * MathFunctions.TAU        // Azimuthal angle in [0, 2π]
         val r = Math.random()                          // Random radius factor for points inside the cylinder
         val h = Math.random() * height                 // Random height factor for points inside the cylinder
 

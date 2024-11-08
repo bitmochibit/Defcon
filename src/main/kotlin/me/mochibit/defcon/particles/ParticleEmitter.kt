@@ -17,30 +17,46 @@ class ParticleEmitter(
     private val range: Double,
     private val maxParticles: Int = 5000,
     var emitterShape: EmitterShape = PointShape,
-    val transform: Matrix4f = Matrix4f().identity(),
+    val transform: Matrix4f = Matrix4f(),
     val spawnableParticles: HashSet<AbstractParticle> = hashSetOf()
 ) : Lifecycled {
 
     private val origin: Vector3f = Vector3f(position.x.toFloat(), position.y.toFloat(), position.z.toFloat())
-    private val oldOrigin = Vector3f(origin)
+    private val positionCursor: Vector3f = Vector3f(origin)
     val world: World = position.world
 
 
     private val particles = mutableListOf<ParticleInstance>()
     private var dyingOut = false
 
+    val radialVelocity = Vector3f(0f, 0f, 0f)
+
     var visible = true
+        set(value) {
+            field = value
+            particles.forEach { _ ->
+                if (!value) {
+                    val players = getPlayersInRange()
+                    particles.forEach { it.remove(players) }
+                }
+            }
+        }
 
     fun spawnParticle(particle: AbstractParticle) {
         if (particles.size >= maxParticles) return
+        positionCursor.set(origin)
         if (emitterShape != PointShape) {
-            oldOrigin.set(origin)
-            emitterShape.maskLoc(origin)
-            transform.transformPosition(origin, origin)
-            particles.add(ParticleInstance.fromTemplate(particle, origin, world.name))
-            origin.set(oldOrigin)
+            emitterShape.maskLoc(positionCursor)
+            transform.transformPosition(positionCursor)
+            particles.add(ParticleInstance.fromTemplate(particle, positionCursor, world.name).apply {
+                if (radialVelocity.lengthSquared() > 0) {
+                    // Calculate velocity from oldOrigin to origin and apply it to the particle
+                    val velocity = Vector3f(positionCursor).sub(origin).normalize().mul(radialVelocity)
+                    applyVelocity(velocity)
+                }
+            })
         } else {
-            particles.add(ParticleInstance.fromTemplate(particle, transform.transformPosition(origin), world.name))
+            particles.add(ParticleInstance.fromTemplate(particle, transform.transformPosition(positionCursor), world.name))
         }
     }
 
@@ -48,7 +64,7 @@ class ParticleEmitter(
 
     override fun update(delta: Float) {
         // Add particles in random intervals until maxParticles is reached
-        if (particles.size < maxParticles && !dyingOut) {
+        if (particles.size < maxParticles && !dyingOut && visible) {
             spawnParticle(this.spawnableParticles.random())
         }
 

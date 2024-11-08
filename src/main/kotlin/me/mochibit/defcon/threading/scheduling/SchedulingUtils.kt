@@ -17,8 +17,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.effects
+package me.mochibit.defcon.threading.scheduling
 
-import me.mochibit.defcon.lifecycle.Lifecycled
+import me.mochibit.defcon.Defcon
+import java.io.Closeable
 
-interface EffectComponent : Lifecycled
+private val plugin = Defcon.instance
+
+fun runLater(delay: Long, task: () -> Unit) : Closeable {
+    val handler = plugin.server.scheduler.runTaskLater(plugin, task, delay)
+    return Closeable { handler.cancel() }
+}
+
+fun interval(delay: Long, period: Long, task: () -> Unit) : Closeable {
+    val handler = plugin.server.scheduler.runTaskTimer(plugin, task, delay, period)
+    return Closeable { handler.cancel() }
+}

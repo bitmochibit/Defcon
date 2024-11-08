@@ -9,6 +9,7 @@ import me.mochibit.defcon.observer.Loadable
 import me.mochibit.defcon.particles.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.EmitterShape
 import me.mochibit.defcon.particles.templates.AbstractParticle
+import me.mochibit.defcon.threading.scheduling.runLater
 import me.mochibit.defcon.vertexgeometry.particle.ParticleShape
 import org.bukkit.Bukkit
 import org.joml.Matrix4d
@@ -61,9 +62,9 @@ open class ParticleComponent(
      * Set the visibility of the particle component after a specified delay.
      */
     fun setVisibilityAfterDelay(visible: Boolean, delay: Long) = apply {
-//        Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance) {
-//            particleEmitter.visible = visible
-//        }, delay)
+        runLater(delay) {
+            particleEmitter.visible = visible
+        }
     }
 
     /**
@@ -86,12 +87,7 @@ open class ParticleComponent(
      * Apply radial velocity to particles moving them from the center outward.
      */
     fun applyRadialVelocityFromCenter(velocity: Vector3f) = apply {
-        // Custom logic to apply radial velocity will go here when fully implemented.
-        // Example:
-        // particleEmitter.spawnableParticles.forEach {
-        //     val direction = calculateDirectionFromCenter(it.position)
-        //     it.velocity = direction.mul(velocity)
-        // }
+        particleEmitter.radialVelocity.set(velocity)
     }
 
     // Lifecycle management for starting, updating, and stopping the particle component.
