@@ -130,7 +130,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             emitterShape = SphereShape(
                 xzRadius = 40.0f,
                 yRadius = 70.0f,
-                yMin = -15.0f
+                yMin = -15.0
             ),
         ),
         TemperatureComponent(temperatureCoolingRate = 100.0)
@@ -141,8 +141,8 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             visible = false
         }
         .translate(Vector3f(0.0f, -90.0f, 0.0f))
-        .setVisibilityAfterDelay(true, 20 * 15)
-        .applyRadialVelocityFromCenter(Vector3f(1.0f, -1.0f, 1.0f))
+        .setVisibilityAfterDelay(true, 20 * 50)
+        .applyRadialVelocityFromCenter(Vector3f(5.0f, -2.0f, 5.0f))
 
     private val stem: ParticleComponent = ParticleComponent(
         ParticleEmitter(
@@ -161,6 +161,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
     )
 
     private val stemShape = stem.shape as CylinderShape
+    private val neckConeShape = neckCone.shape as SphereShape
 
 
     init {
@@ -196,7 +197,11 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         neckCone.translate(movementVector)
         currentHeight += deltaMovement
 
-        stemShape.height = (currentHeight - 10)
+        // Gradually increase the displayed height of the cone to simulate the nuke skirt
+        if (neckCone.visible)
+            neckConeShape.yMax += deltaMovement/5
+
+        stemShape.height = (currentHeight - 40)
     }
 
 }

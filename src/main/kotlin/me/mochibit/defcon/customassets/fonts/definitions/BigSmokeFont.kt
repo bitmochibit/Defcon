@@ -24,7 +24,7 @@ import me.mochibit.defcon.customassets.fonts.FontData
 class BigSmokeFont : AbstractCustomFont(
     FontData(
         type = "bitmap",
-        file = "minecraft:custom_particles/explosion_dust/frame-0.png",
+        file = "minecraft:particle/generic_7.png",
         ascent = 16,
         height = 16,
         chars = hashSetOf("\uE000")

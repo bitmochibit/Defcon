@@ -29,11 +29,17 @@ abstract class EmitterShape {
 }
 
 class SphereShape(
-    val xzRadius: Float,
-    val yRadius: Float,
-    val yMin: Float = -yRadius, // Start of the ellipsoid (to allow for half-ellipsoid)
+    var xzRadius: Float,
+    var yRadius: Float,
+    var yMin: Double = -yRadius.toDouble(), // Start of the ellipsoid (to allow for half-ellipsoid)
+    var yMax: Double = yRadius.toDouble()
 ) : EmitterShape() {
+
     override fun maskLoc(location: Vector3f) {
+        if (yMin > yMax) {
+          yMin = yMax.also { yMax = yMin }
+        }
+
         val r = cbrt(Math.random()) // Cube root gives uniform distribution in volume
         // Generate a random point within the bounds of a sphere
         val theta = Math.random() * MathFunctions.TAU         // Azimuthal angle in [0, 2π]
@@ -41,7 +47,7 @@ class SphereShape(
 
         location.add(
             (r * sin(phi) * cos(theta) * xzRadius).toFloat(),
-            (r * cos(phi) * yRadius).coerceAtLeast(yMin.toDouble()).toFloat(),
+            if (yMin == yMax) (r * cos(phi) * yRadius).coerceAtLeast(yMin).toFloat() else (r * cos(phi) * yRadius).coerceIn(yMin, yMax).toFloat(),
             (r * sin(phi) * sin(theta) * xzRadius).toFloat()
         )
     }
