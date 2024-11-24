@@ -20,16 +20,16 @@
 package me.mochibit.defcon.lifecycle
 
 import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.threading.jobs.SchedulableWorkload
-import me.mochibit.defcon.threading.runnables.ScheduledRunnable
 import org.bukkit.Bukkit
-import kotlin.concurrent.thread
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 abstract class CycledObject(private val maxAliveTicks: Int = 200) : Lifecycled {
     private var isDestroyed = false
     var tickAlive: Double = 0.0
-    private var lastTickTime = 0L
-    private val runnable = ScheduledRunnable(40000, this.javaClass.simpleName).maxMillisPerTick(2.5)
+    private var lastTickTime = System.currentTimeMillis()
+
+    private val executorService = Executors.newSingleThreadExecutor()
 
     private val tickFunction: () -> Unit = {
         val currentTime = System.currentTimeMillis()
@@ -44,45 +44,53 @@ abstract class CycledObject(private val maxAliveTicks: Int = 200) : Lifecycled {
         }
     }
 
-    private val workload = SchedulableWorkload(tickFunction) { !isDestroyed }
-
-    private fun startAsyncUpdater() {
-        thread(name = "Lifecycle: ${this.javaClass.simpleName}", priority = Thread.MAX_PRIORITY) {
-            while (!isDestroyed) {
-                tickFunction()
-                Thread.sleep(50)
+    fun instantiate(async: Boolean, useThreadPool: Boolean = false) {
+        initialize()
+        if (async) {
+            if (useThreadPool) {
+                // Use a thread from the thread pool for the loop
+                executorService.submit {
+                    while (!isDestroyed) {
+                        tickFunction()
+                        try {
+                            TimeUnit.MILLISECONDS.sleep(50) // Wait for 1 tick (50ms)
+                        } catch (e: InterruptedException) {
+                            Thread.currentThread().interrupt()
+                            return@submit
+                        }
+                    }
+                }
+            } else {
+                // Use Bukkit's async scheduler
+                Bukkit.getScheduler().runTaskTimerAsynchronously(
+                    Defcon.instance,
+                    Runnable { if (!isDestroyed) tickFunction() },
+                    0L,
+                    1L // Execute every 1 tick (50ms)
+                )
             }
+        } else {
+            // Run synchronously on the main thread
+            Bukkit.getScheduler().runTaskTimer(
+                Defcon.instance,
+                Runnable { if (!isDestroyed) tickFunction() },
+                0L,
+                1L // Execute every 1 tick (50ms)
+            )
         }
     }
 
-    private fun startSyncUpdater() {
-        runnable.addWorkload(workload)
-        runnable.start(false)
-    }
 
     private fun initialize() {
         start()
         lastTickTime = System.currentTimeMillis()
     }
 
-    fun instantiate(async: Boolean) {
-        if (async) {
-            thread(name = "Instantiation thread for ${this.javaClass.simpleName}") {
-                initialize()
-                startAsyncUpdater()
-            }
-        } else {
-            Bukkit.getScheduler().callSyncMethod(Defcon.instance) {
-                initialize()
-                startSyncUpdater()
-            }
-        }
-    }
-
     fun destroy() {
         if (!isDestroyed) {
             isDestroyed = true
             stop()
+            executorService.shutdown()
         }
     }
 }

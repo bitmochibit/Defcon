@@ -21,7 +21,9 @@ package me.mochibit.defcon.explosions
 
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.Defcon.Companion.Logger.info
+import me.mochibit.defcon.effects.nuclear.CondensationCloudVFX
 import me.mochibit.defcon.effects.nuclear.NuclearExplosionVFX
+import me.mochibit.defcon.effects.nuclear.NuclearFogVFX
 import me.mochibit.defcon.radiation.RadiationAreaFactory
 import me.mochibit.defcon.threading.jobs.SimpleSchedulable
 import me.mochibit.defcon.threading.runnables.ScheduledRunnable
@@ -146,9 +148,11 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         thread(name = "Nuclear Explosion Thread") {
             val shockwave = Shockwave(center, 0, shockwaveRadius.toInt(), shockwaveHeight.toDouble())
             val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
-            // val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
-            //val nuclearFog = NuclearFogVFX(nuclearComponent, center)
-            nuclearExplosion.instantiate(true)
+            val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
+            val nuclearFog = NuclearFogVFX(nuclearComponent, center)
+            nuclearExplosion.instantiate(async = true, useThreadPool = true)
+            nuclearFog.instantiate(async = true, useThreadPool = true)
+            condensationCloud.instantiate(async = true, useThreadPool = true)
 
         }
 

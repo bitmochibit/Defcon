@@ -28,9 +28,6 @@ import me.mochibit.defcon.particles.emitter.CylinderShape
 import me.mochibit.defcon.particles.emitter.SphereShape
 import me.mochibit.defcon.particles.emitter.SphereSurfaceShape
 import me.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
-import me.mochibit.defcon.vertexgeometry.particle.ParticleShape
-import me.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
-import me.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Location
 import org.joml.Vector3f
 
@@ -130,7 +127,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
             emitterShape = SphereShape(
                 xzRadius = 40.0f,
                 yRadius = 70.0f,
-                yMin = -15.0
+                minY = -15.0
             ),
         ),
         TemperatureComponent(temperatureCoolingRate = 100.0)
@@ -142,7 +139,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
         }
         .translate(Vector3f(0.0f, -90.0f, 0.0f))
         .setVisibilityAfterDelay(true, 20 * 50)
-        .applyRadialVelocityFromCenter(Vector3f(5.0f, -2.0f, 5.0f))
+        .applyRadialVelocityFromCenter(Vector3f(5.0f, -3.0f, 5.0f))
 
     private val stem: ParticleComponent = ParticleComponent(
         ParticleEmitter(
@@ -153,7 +150,7 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
                 height = 1f,
             ),
         ),
-        TemperatureComponent(temperatureCoolingRate = 190.0)
+        TemperatureComponent(temperatureCoolingRate = 140.0)
     ).addSpawnableParticle(
         ExplosionDustParticle()
             .scale(Vector3f(40.0f, 40.0f, 40.0f))
@@ -199,9 +196,9 @@ class NuclearExplosionVFX(private val nuclearComponent: NuclearComponent, val ce
 
         // Gradually increase the displayed height of the cone to simulate the nuke skirt
         if (neckCone.visible)
-            neckConeShape.yMax += deltaMovement/5
+            neckConeShape.maxY += deltaMovement/5
 
-        stemShape.height = (currentHeight - 40)
+        stemShape.height = (currentHeight - 70)
     }
 
 }
