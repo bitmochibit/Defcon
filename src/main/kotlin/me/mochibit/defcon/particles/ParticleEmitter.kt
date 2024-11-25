@@ -6,6 +6,8 @@ import me.mochibit.defcon.particles.emitter.EmitterShape
 import me.mochibit.defcon.particles.emitter.PointShape
 import me.mochibit.defcon.particles.mutators.AbstractShapeMutator
 import me.mochibit.defcon.particles.templates.AbstractParticle
+import me.mochibit.defcon.threading.scheduling.interval
+import me.mochibit.defcon.threading.scheduling.intervalAsync
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.World
@@ -13,6 +15,7 @@ import org.bukkit.entity.Player
 import org.joml.Matrix4f
 import org.joml.Vector3f
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CopyOnWriteArraySet
 
 class ParticleEmitter(
     position: Location,
@@ -28,8 +31,7 @@ class ParticleEmitter(
     private val positionCursor: Vector3f = Vector3f(origin)
     val world: World = position.world
 
-
-    private val particles = CopyOnWriteArrayList<ParticleInstance>()
+    private val particles = ArrayList<ParticleInstance>()
     private var dyingOut = false
 
     val radialVelocity = Vector3f(0f, 0f, 0f)
@@ -76,33 +78,33 @@ class ParticleEmitter(
         if (particles.size < maxParticles && !dyingOut && visible) {
             spawnParticle(this.spawnableParticles.random())
         }
-
         val players = getPlayersInRange()
-
-        val iterator = particles.listIterator()
-        particles.removeIf { particle ->
-            particle.update(delta, players)
-            particle.show(players)
-
-            if (particle.isDead()) {
-                particle.remove(players)
-                true // Remove dead particle
-            } else {
-                false
+        synchronized(particles) {
+            particles.removeIf { particle ->
+                particle.update(delta, players)
+                if (particle.isDead()) {
+                    particle.remove(players)
+                    true // Remove dead particle
+                } else {
+                    false
+                }
             }
         }
     }
 
     override fun stop() {
         dyingOut = true
-        while (particles.isNotEmpty()) {
-            update(0f)
+        intervalAsync(0L, 1L) { task ->
+            if (particles.isEmpty())
+                task.cancel()
+
+            update(0.05f)
         }
+
     }
 
     private fun getPlayersInRange(): List<Player> {
-        return Bukkit.getOnlinePlayers().filter {
-            it.world == world && it.location.distanceSquared(origin) <= range * range
-        }
+        val rangeSquared = range * range
+        return world.players.filter { it.location.distanceSquared(origin) < rangeSquared }
     }
 }

@@ -13,15 +13,14 @@ import java.util.*
 import kotlin.random.Random
 
 class ParticleInstance(
-    val location: Vector3f = Vector3f(0f, 0f, 0f),
+    val location: Vector3f = ZERO_VECTOR,
     val world: String = "",
     private val particleProperties: GenericParticleProperties,
     private val particleAdapter: ParticleAdapter,
-    private var velocity: Vector3f = Vector3f(0f, 0f, 0f), // Use a shared zero vector
-    private var damping: Vector3f = Vector3f(0f, 0f, 0f),  // Use a shared zero vector
-    private var acceleration: Vector3f = Vector3f(0f, 0f, 0f)  // Use a shared zero vector
+    private var velocity: Vector3f = ZERO_VECTOR, // Use a shared zero vector
+    private var damping: Vector3f = ZERO_VECTOR,  // Use a shared zero vector
+    private var acceleration: Vector3f = ZERO_VECTOR  // Use a shared zero vector
 ) {
-
     private var life: Int = 0
     private val particleID: Int by lazy { Random.nextInt(Int.MAX_VALUE) }
     private val particleUUID: UUID by lazy { UUID.randomUUID() }
@@ -36,10 +35,8 @@ class ParticleInstance(
     }
 
     fun show(players: List<Player>) {
-        if (!summoned) {
-            particleAdapter.summon(location, particleProperties, players, particleID, particleUUID)
-            summoned = true
-        }
+        particleAdapter.summon(location, particleProperties, players, particleID, particleUUID)
+        particleAdapter.setMotionTime(particleID, UPDATE_INTERVAL, players)
     }
 
     fun remove(players: List<Player>) {
@@ -47,27 +44,46 @@ class ParticleInstance(
     }
 
     fun update(delta: Float, players: List<Player>) {
+        if (!summoned) {
+            show(players)
+            summoned = true
+        }
+
         if (acceleration.lengthSquared() > 1e-6)
             velocity = velocity.add(acceleration)
 
+        location.add(
+            velocity.x * delta * VELOCITY_BOOST,
+            velocity.y * delta * VELOCITY_BOOST,
+            velocity.z * delta * VELOCITY_BOOST
+        )
 
-        location.add(velocity.x*delta, velocity.y*delta, velocity.z*delta)
-        if (life % 20 == 0 && summoned) {
-            particleAdapter.setMotionTime(particleID, 59, players)
+        // Update velocity every UPDATE_INTERVAL or on the first tick
+        if (life % UPDATE_INTERVAL == 0) {
+            // Calculate initial position on the first tick
+            if (life == 0) {
+                location.add(
+                    velocity.x * delta * (UPDATE_INTERVAL-1),
+                    velocity.y * delta * (UPDATE_INTERVAL-1),
+                    velocity.z * delta * (UPDATE_INTERVAL-1)
+                )
+            }
             particleAdapter.updatePosition(particleID, location, players)
         }
 
         life += 1
-
     }
 
     fun isDead() = life >= particleProperties.maxLife
 
     companion object {
+        val ZERO_VECTOR = Vector3f(0f, 0f, 0f)
+        const val UPDATE_INTERVAL = 20
+        const val VELOCITY_BOOST = UPDATE_INTERVAL / 15
         fun fromTemplate(particleTemplate: AbstractParticle, location: Vector3f, worldName: String): ParticleInstance {
             val particleAdapter = particleTemplate.particleAdapter
             val particleProperties = particleTemplate.particleProperties.clone().apply {
-                color = adjustColor(this.color?: Color.RED, particleTemplate)
+                color = adjustColor(this.color ?: Color.RED, particleTemplate)
             }
 
             if (particleTemplate.randomizeScale) {
@@ -87,6 +103,7 @@ class ParticleInstance(
                 particleTemplate.initialAcceleration
             )
         }
+
         private fun adjustColor(color: Color, template: AbstractParticle): Color {
             var adjustedColor = template.colorSupplier?.invoke() ?: color
             if (template.randomizeColorBrightness) {

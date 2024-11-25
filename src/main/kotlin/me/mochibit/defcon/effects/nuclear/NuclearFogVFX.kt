@@ -76,7 +76,7 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
         TemperatureComponent(temperatureCoolingRate = 300.0)
     ).addSpawnableParticle(
         ExplosionDustParticle()
-            .scale(Vector3f(30.0f, 30.0f, 30.0f))
+            .scale(Vector3f(60.0f, 60.0f, 60.0f))
             .displacement(Vector3f(.0f, .5f, .0f)),
         attachColorSupplier = true,
     ).applyRadialVelocityFromCenter(
@@ -95,7 +95,7 @@ class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val 
         TemperatureComponent(temperatureCoolingRate = 280.0)
     ).addSpawnableParticle(
         ExplosionDustParticle()
-            .scale(Vector3f(10.0f, 10.0f, 10.0f))
+            .scale(Vector3f(60.0f, 60.0f, 60.0f))
             .displacement(Vector3f(.0f, .5f, .0f)),
         attachColorSupplier = true,
     ).applyRadialVelocityFromCenter(

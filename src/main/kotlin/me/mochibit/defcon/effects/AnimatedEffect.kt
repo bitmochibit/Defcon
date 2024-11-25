@@ -26,10 +26,6 @@ abstract class AnimatedEffect(maxAliveTick: Int = 200, protected var effectCompo
 {
     override var isLoaded: Boolean = false
     override val observers: MutableList<(Unit) -> Unit> = mutableListOf()
-    open fun draw() {
-        if (!isLoaded) return
-        //effectComponents.forEach { it.emit() }
-    }
 
     abstract fun animate(delta: Float)
 
@@ -46,7 +42,6 @@ abstract class AnimatedEffect(maxAliveTick: Int = 200, protected var effectCompo
 
     override fun update(delta: Float) {
         if (!isLoaded) return
-        draw()
         animate(delta)
         effectComponents.forEach { it.update(delta) }
     }

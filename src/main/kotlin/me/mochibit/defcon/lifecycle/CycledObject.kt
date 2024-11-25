@@ -28,20 +28,20 @@ abstract class CycledObject(private val maxAliveTicks: Int = 200) : Lifecycled {
     private var isDestroyed = false
     var tickAlive: Double = 0.0
     private var lastTickTime = System.currentTimeMillis()
+    private var currentTickTime = System.currentTimeMillis()
 
     private val executorService = Executors.newSingleThreadExecutor()
 
     private val tickFunction: () -> Unit = {
-        val currentTime = System.currentTimeMillis()
-        val deltaTime = (currentTime - lastTickTime) / 1000.0f
-        lastTickTime = currentTime
+        currentTickTime = System.currentTimeMillis()
 
-        update(deltaTime)
+        update((currentTickTime - lastTickTime).coerceAtLeast(50)/1000.0f)
 
         tickAlive++
         if (maxAliveTicks > 0 && tickAlive > maxAliveTicks) {
             destroy()
         }
+        lastTickTime = currentTickTime
     }
 
     fun instantiate(async: Boolean, useThreadPool: Boolean = false) {
