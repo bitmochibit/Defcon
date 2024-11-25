@@ -44,9 +44,11 @@ class TextParticleAdapter(properties: TextDisplayParticleProperties) : DisplayEn
         packet.integers.write(0, displayID)
         packet.uuiDs.write(0, displayUUID)
         packet.entityTypeModifier.write(0, EntityType.TEXT_DISPLAY)
-        packet.doubles.write(0, location.x.toDouble())
-        packet.doubles.write(1, location.y.toDouble())
-        packet.doubles.write(2, location.z.toDouble())
+        with(packet.doubles) {
+            write(0, location.x.toDouble())
+            write(1, location.y.toDouble())
+            write(2, location.z.toDouble())
+        }
         return packet
     }
 

@@ -141,9 +141,11 @@ abstract class DisplayEntityParticleAdapter<T: DisplayParticleProperties>(privat
     override fun updatePosition(displayID: Int, newLocation: Vector3f, players: List<Player>) {
         val packet = PacketContainer(PacketType.Play.Server.ENTITY_TELEPORT)
         packet.integers.write(0, displayID)
-        packet.doubles.write(0, newLocation.x.toDouble())
-        packet.doubles.write(1, newLocation.y.toDouble())
-        packet.doubles.write(2, newLocation.z.toDouble())
+        with(packet.doubles) {
+            write(0, newLocation.x.toDouble())
+            write(1, newLocation.y.toDouble())
+            write(2, newLocation.z.toDouble())
+        }
         sendPacketToAll(packet, players)
     }
 
