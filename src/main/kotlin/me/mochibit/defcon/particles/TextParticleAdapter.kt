@@ -22,15 +22,12 @@ package me.mochibit.defcon.particles
 import com.comphenix.protocol.PacketType
 import com.comphenix.protocol.events.PacketContainer
 import com.comphenix.protocol.wrappers.AdventureComponentConverter
-import com.comphenix.protocol.wrappers.ComponentConverter
 import com.comphenix.protocol.wrappers.WrappedChatComponent
 import com.comphenix.protocol.wrappers.WrappedDataValue
-import com.comphenix.protocol.wrappers.nbt.NbtBase
 import me.mochibit.defcon.extensions.toInt
 import me.mochibit.defcon.particles.templates.TextDisplayParticleProperties
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.Component.text
-import net.kyori.adventure.text.TextComponent
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Color
 import org.bukkit.entity.EntityType
@@ -39,6 +36,9 @@ import org.joml.Vector3f
 import java.util.*
 
 class TextParticleAdapter(properties: TextDisplayParticleProperties) : DisplayEntityParticleAdapter<TextDisplayParticleProperties>(properties) {
+    private val wrappedChatComponentCache = mutableMapOf<Component, WrappedChatComponent>()
+    private val textComponentCache = mutableMapOf<TextColor, Component>()
+
     override fun getSpawnPacket(displayID: Int, displayUUID: UUID, location: Vector3f): PacketContainer {
         val packet = PacketContainer(PacketType.Play.Server.SPAWN_ENTITY)
         packet.integers.write(0, displayID)
@@ -53,8 +53,14 @@ class TextParticleAdapter(properties: TextDisplayParticleProperties) : DisplayEn
 
     override fun getSubMeta(displayID: Int, particleProperties: TextDisplayParticleProperties, players: List<Player>): List<WrappedDataValue> {
         val color = TextColor.color((particleProperties.color ?: Color.BLACK).asRGB())
-        val textComponent : Component = text().content(particleProperties.text).color(color).build()
-        val effectiveText = AdventureComponentConverter.fromComponent(textComponent)
+
+        val textComponent : Component = textComponentCache.computeIfAbsent(color) {
+            text().content(particleProperties.text).color(color).build()
+        }
+
+        val effectiveText = wrappedChatComponentCache.computeIfAbsent(textComponent) {
+            AdventureComponentConverter.fromComponent(it)
+        }
 
         // 0x01 (Has shadow), 0x02 (Is see through), 0x04 (Use default background color), 0x08 (Alignment, 0 CENTER, 1 or 3 LEFT, 2 RIGHT)
         val textPropertiesByteMask = particleProperties.hasShadow.toInt() or (particleProperties.isSeeThrough.toInt() shl 1) or (particleProperties.useDefaultBackground.toInt() shl 2) or (particleProperties.alignment.ordinal shl 3)

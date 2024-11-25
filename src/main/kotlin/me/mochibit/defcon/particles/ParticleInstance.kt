@@ -63,9 +63,9 @@ class ParticleInstance(
             // Calculate initial position on the first tick
             if (life == 0) {
                 location.add(
-                    velocity.x * delta * (UPDATE_INTERVAL-1),
-                    velocity.y * delta * (UPDATE_INTERVAL-1),
-                    velocity.z * delta * (UPDATE_INTERVAL-1)
+                    velocity.x * delta * (UPDATE_INTERVAL),
+                    velocity.y * delta * (UPDATE_INTERVAL),
+                    velocity.z * delta * (UPDATE_INTERVAL)
                 )
             }
             particleAdapter.updatePosition(particleID, location, players)
