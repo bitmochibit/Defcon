@@ -22,28 +22,23 @@ package me.mochibit.defcon.effects.nuclear
 import me.mochibit.defcon.effects.AnimatedEffect
 import me.mochibit.defcon.effects.ParticleComponent
 import me.mochibit.defcon.explosions.NuclearComponent
-import me.mochibit.defcon.math.Vector3
 import me.mochibit.defcon.particles.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.RingSurfaceShape
 import me.mochibit.defcon.particles.emitter.SphereSurfaceShape
 import me.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
-import me.mochibit.defcon.vertexgeometry.particle.ParticleShape
-import me.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
 import org.bukkit.Color
 import org.bukkit.Location
-import org.bukkit.Particle
 import org.joml.Vector3f
 
 
 class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, private val position: Location) :
-    AnimatedEffect(20 * 60) {
+    AnimatedEffect(20 * 120) {
     private var riseSpeed = 6.0f
+    private var ringRiseSpeed = 3.0f
     private var expandSpeed = 3.0f
 
-    private var currentRingRadius = 110.0f
 
-
-    val condensationCloud = ParticleComponent(
+    private val condensationRing = ParticleComponent(
         particleEmitter = ParticleEmitter(
             position = position,
             3000.0,
@@ -61,62 +56,68 @@ class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, priva
         .apply {
             visible = false
         }
-        .translate(Vector3f(0.0f, 150.0f, 0.0f))
+        .translate(Vector3f(0.0f, 110.0f, 0.0f))
 
-    private val condensationCloudShape = condensationCloud.shape as RingSurfaceShape
+    private val condensationRingShape = condensationRing.shape as RingSurfaceShape
 
-//    private val secondaryCondensationCloud = ParticleComponent(
-//        ParticleShape(
-//            ExplosionDustParticle().apply {
-//                scale(Vector3f(70.0f, 70.0f, 70.0f))
-//                color(Color.WHITE)
-//                colorDarkenFactor(0.9, 1.0)
-//                colorLightenFactor(0.0, 0.0)
-//            },
-//            condensationCloudEmitter,
-//            SphereBuilder()
-//                .withRadiusXZ(400.0)
-//                .withRadiusY(1.0),
-//            position
-//        ).apply {
-//            xzPredicate = showOnlyRadiusPredicate
-//        }
-//    )
-//        .visible(false)
-//        .translate(Vector3f(0.0f, 140.0f, 0.0f))
-//        .apply {
-//            applyRadialVelocityFromCenter(Vector3f(2.0f, 0.0f, 2.0f))
-//        }.emitRate(50)
+    private val condensationDome = ParticleComponent(
+        particleEmitter = ParticleEmitter(
+            position = position,
+            3000.0,
+            emitterShape = SphereSurfaceShape(
+                xzRadius = 110.0f,
+                yRadius = 110.0f,
+                skipBottomFace = true,
+                minY = 0.0
+            )
+        )
+    ).addSpawnableParticle(
+        ExplosionDustParticle()
+            .scale(Vector3f(80.0f, 80.0f, 80.0f))
+            .color(Color.WHITE)
+    )
+        .applyRadialVelocityFromCenter(Vector3f(6.0f, 0.0f, 6.0f))
+        .apply {
+            visible = false
+        }
+        .translate(Vector3f(0.0f, 150.0f, 0.0f)
+    )
 
-
+    private val condensationDomeShape = condensationDome.shape as SphereSurfaceShape
 
     init {
         effectComponents = mutableListOf(
-            condensationCloud,
-            //secondaryCondensationCloud,
+            condensationRing,
+            condensationDome
         )
     }
 
     override fun animate(delta: Float) {
         if (tickAlive > 20 * 20) {
             val deltaMovement = riseSpeed * delta
+
+            val deltaRingMovement = ringRiseSpeed * delta
             val deltaExpansion = expandSpeed * delta
-            condensationCloud.translate(Vector3f(0.0f, deltaMovement, 0.0f))
-
-            currentRingRadius += deltaExpansion
-            condensationCloudShape.ringRadius = currentRingRadius
 
 
+            condensationRing.translate(Vector3f(0.0f, deltaRingMovement, 0.0f))
 
+            condensationRingShape.ringRadius += deltaExpansion
 
-            //secondaryCondensationCloud.translate(Vector3f(0.0f, deltaMovement * 1.5f, 0.0f))
+            condensationDome.translate(Vector3f(0.0f, deltaMovement, 0.0f))
+
+            condensationDomeShape.apply {
+                xzRadius += deltaExpansion
+                yRadius = (yRadius + deltaExpansion).coerceIn(0.0f, 160.0f)
+            }
+
         }
     }
 
     override fun start() {
         super.start()
-        condensationCloud.setVisibilityAfterDelay(true, 20 * 10)
-        //secondaryCondensationCloud.setVisibilityAfterDelay(true, 20 * 35)
+        condensationRing.setVisibilityAfterDelay(true, 20 * 5)
+        condensationDome.setVisibilityAfterDelay(true, 20 * 10)
 
     }
 

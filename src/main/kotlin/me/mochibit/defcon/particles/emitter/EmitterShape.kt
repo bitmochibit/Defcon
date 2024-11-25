@@ -82,8 +82,8 @@ class SphereShape(
 }
 
 class SphereSurfaceShape(
-    var xzRadius: Float,
-    var yRadius: Float,
+    xzRadius: Float,
+    yRadius: Float,
     var minY: Double = -yRadius.toDouble(), // Start of the ellipsoid (to allow for half-ellipsoid)
     var maxY: Double = yRadius.toDouble(),
     var minXZ: Double = -xzRadius.toDouble(),
@@ -92,6 +92,28 @@ class SphereSurfaceShape(
     var excludedXZRadius: Double? = null, // Radius to exclude in the XZ plane
     var excludedYRadius: Double? = null,  // Radius to exclude in the Y axis
 ) : EmitterShape() {
+
+    var xzRadius = xzRadius
+        set(value) {
+            if (minXZ == -field.toDouble())
+                minXZ = -value.toDouble()
+
+            if (maxXZ == field.toDouble())
+                maxXZ = value.toDouble()
+            field = value
+        }
+
+    var yRadius = yRadius
+        set(value) {
+            if (minY == -field.toDouble())
+                minY = -value.toDouble()
+
+            if (maxY == field.toDouble())
+                maxY = value.toDouble()
+
+            field = value
+        }
+
     override fun maskLoc(location: Vector3f) {
         // Generate random spherical coordinates within the adjusted ranges
         val theta = Math.random() * MathFunctions.TAU // Azimuthal angle in [0, 2π]

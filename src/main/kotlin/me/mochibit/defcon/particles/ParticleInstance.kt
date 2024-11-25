@@ -94,7 +94,7 @@ class ParticleInstance(
             }
 
             return ParticleInstance(
-                Vector3f(location.x.toFloat(), location.y.toFloat(), location.z.toFloat()),
+                Vector3f(location.x, location.y, location.z),
                 worldName,
                 particleProperties,
                 particleAdapter,
