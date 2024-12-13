@@ -25,15 +25,21 @@ import java.io.Closeable
 
 private val plugin = Defcon.instance
 
-fun runLater(delay: Long, task: () -> Unit) : Closeable {
+fun runLater(delay: Long, task: () -> Unit): Closeable {
     val handler = plugin.server.scheduler.runTaskLater(plugin, task, delay)
     return Closeable { handler.cancel() }
 }
 
-fun interval(delay: Long, period: Long, task: (task: BukkitTask) -> Unit) {
-    plugin.server.scheduler.runTaskTimer(plugin, task, delay, period)
+fun interval(delay: Long, period: Long, task: () -> Unit): Closeable {
+    val handler = plugin.server.scheduler.runTaskTimer(plugin, task, delay, period)
+    return Closeable { handler.cancel() }
 }
 
-fun intervalAsync(delay: Long, period: Long, task: (task: BukkitTask) -> Unit) {
+fun intervalAsync(delay: Long, period: Long, task: () -> Unit): Closeable {
+    val handler = plugin.server.scheduler.runTaskTimerAsynchronously(plugin, task, delay, period)
+    return Closeable { handler.cancel() }
+}
+
+fun intervalAsync(delay: Long, period: Long, task: (BukkitTask) -> Unit) {
     plugin.server.scheduler.runTaskTimerAsynchronously(plugin, task, delay, period)
 }
