@@ -14,6 +14,7 @@ import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
 import org.joml.Vector3i
+import java.util.concurrent.Callable
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ForkJoinPool
@@ -42,24 +43,75 @@ class Shockwave(
             Material.END_PORTAL
         )
         private val LIQUID_MATERIALS = hashSetOf(Material.WATER, Material.LAVA)
-        val transformationMap = mapOf(
-            Material.GRASS_BLOCK to { listOf(Material.COARSE_DIRT, Material.DIRT).random() },
-            Material.DIRT to { listOf(Material.COARSE_DIRT, Material.COBBLED_DEEPSLATE).random() },
-            Material.STONE to { Material.COBBLED_DEEPSLATE },
-            Material.COBBLESTONE to { Material.COBBLED_DEEPSLATE }
+        private val DEAD_PLANTS = hashSetOf(
+            Material.DEAD_BUSH,
+            Material.WITHER_ROSE
         )
+        private val PLANTS = hashSetOf(
+            Material.GRASS,
+            Material.TALL_GRASS,
 
-        // Custom rules for materials based on name suffix
-        val customTransformation: (Material) -> Material? = { blockType ->
-            when {
-                blockType.name.endsWith("_SLAB") -> Material.COBBLED_DEEPSLATE_SLAB
-                blockType.name.endsWith("_WALL") -> Material.COBBLED_DEEPSLATE_WALL
-                blockType.name.endsWith("_STAIRS") -> Material.COBBLED_DEEPSLATE_STAIRS
-                else -> null
-            }
-        }
+            Material.FERN,
+            Material.LARGE_FERN,
+
+            Material.OAK_SAPLING,
+            Material.BIRCH_SAPLING,
+            Material.JUNGLE_SAPLING,
+            Material.ACACIA_SAPLING,
+            Material.DARK_OAK_SAPLING,
+            Material.SPRUCE_SAPLING,
+            Material.CHERRY_SAPLING,
+            Material.BAMBOO_SAPLING,
+
+            Material.POPPY,
+            Material.DANDELION,
+            Material.BLUE_ORCHID,
+            Material.ALLIUM,
+            Material.AZURE_BLUET,
+            Material.OXEYE_DAISY,
+            Material.CORNFLOWER,
+            Material.LILY_OF_THE_VALLEY,
+            Material.PINK_PETALS,
+            Material.LILAC,
+            Material.PEONY,
+            Material.SUNFLOWER,
+            Material.RED_TULIP,
+            Material.ORANGE_TULIP,
+            Material.WHITE_TULIP,
+            Material.PINK_TULIP,
+        )
     }
 
+    private val transformationMap = mapOf(
+        Material.GRASS_BLOCK to { listOf(Material.COARSE_DIRT, Material.DIRT).random() },
+        Material.DIRT to { listOf(Material.COARSE_DIRT, Material.COBBLED_DEEPSLATE).random() },
+        Material.STONE to { Material.COBBLED_DEEPSLATE },
+        Material.COBBLESTONE to { Material.COBBLED_DEEPSLATE },
+    )
+
+    private val regexTransformationMap: Map<Regex, (Material, Double) -> Material> = mapOf(
+        Regex(".*_SLAB") to {_, _ -> Material.COBBLED_DEEPSLATE_SLAB},
+        Regex(".*_WALL") to {_, _ -> Material.COBBLED_DEEPSLATE_WALL},
+        Regex(".*_STAIRS") to {_, _ ->Material.COBBLED_DEEPSLATE_STAIRS},
+        Regex(".*sapling.*", RegexOption.IGNORE_CASE) to {_, explosionPower ->
+            transformToDeadPlantOrAir(explosionPower)
+        },
+
+    )
+
+    private fun transformToDeadPlantOrAir(explosionPower: Double): Material {
+        return if (explosionPower > maxDestructionPower * 0.6) Material.AIR else DEAD_PLANTS.random()
+    }
+
+    // Custom rules for materials based on name suffix
+    private val customTransformation: (Material, Double) -> Material? = { blockType, explosionPower ->
+        when (blockType) {
+            in transformationMap -> transformationMap[blockType]?.invoke() ?: Material.AIR
+            in PLANTS -> transformToDeadPlantOrAir(explosionPower)
+            // Check if the block type matches any of the regex patterns
+            else -> regexTransformationMap.entries.firstOrNull { (regex, _) -> regex.matches(blockType.name) }?.value?.let { it(blockType, explosionPower) } ?: Material.AIR
+        }
+    }
 
     private val maximumDistanceForAction = 4.0
     private val maxTreeBlocks = 1000
@@ -86,8 +138,8 @@ class Shockwave(
         executorService.submit {
             (shockwaveRadiusStart..shockwaveRadius).forEach { currentRadius ->
                 val explosionPower = MathFunctions.lerp(
-                    minDestructionPower,
                     maxDestructionPower,
+                    minDestructionPower,
                     currentRadius / shockwaveRadius.toDouble()
                 )
                 val columns = generateShockwaveColumns(currentRadius)
@@ -134,6 +186,7 @@ class Shockwave(
     }
 
     private fun processTreeBurn(location: Vector3i, explosionPower: Double) {
+
         val treeBlocks = getFloodFillBlock(world.getBlockAt(location.x, location.y, location.z), maxTreeBlocks, ignoreEmpty = true) {
             it.type.name.endsWith("_LOG") || it.type.name.endsWith("_LEAVES")
         }
@@ -142,6 +195,10 @@ class Shockwave(
         fun processLeaves(leafBlock: Block) {
             val chance = explosionPower / maxDestructionPower
             runLater(1L) {
+                if (explosionPower > maxDestructionPower * 0.7) {
+                    leafBlock.type = Material.AIR
+                    return@runLater
+                }
                 // Destroy leaves and very rarely set them to MANGROOVE_ROOTS, otherwise set them to AIR
                 leafBlock.type = if (Random.nextDouble() < chance * 0.1) Material.MANGROVE_ROOTS else Material.AIR
             }
@@ -161,7 +218,11 @@ class Shockwave(
 
             for (block in blocks) {
                 runLater(1L) {
-                    // Destroy logs and very rarely set them to STRIPPED_MANGROVE_LOG, otherwise set them to AIR
+                    // Set the logs to polished basalt, but if the explosion power is high remove them (at least the 80% the maximum power)
+                    if (explosionPower > maxDestructionPower * 0.8) {
+                        block.block.type = Material.AIR
+                        return@runLater
+                    }
                     block.block.type = Material.POLISHED_BASALT
                 }
             }
@@ -174,7 +235,7 @@ class Shockwave(
                 terrainBlockMap.forEach { (material, terrainBlocks) ->
                     for (block in terrainBlocks) {
                         runLater(0L) {
-                            block.block.type = transformationMap[material]?.invoke() ?: Material.AIR
+                            block.block.type = customTransformation(material, explosionPower) ?: Material.AIR
                         }
                     }
                 }
@@ -219,7 +280,7 @@ class Shockwave(
                         continue
                     }
 
-                    val newMaterial = customTransformation(blockType) ?: transformationMap[blockType]?.invoke()
+                    val newMaterial = customTransformation(blockType, explosionPower)
                     if (newMaterial != null) {
                         blockChanges.add(block to newMaterial)
                     } else {
