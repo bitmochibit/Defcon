@@ -1,11 +1,14 @@
 package me.mochibit.defcon.explosions
 
 import me.mochibit.defcon.threading.scheduling.runLater
+import me.mochibit.defcon.utils.FloodFill3D.getFloodFillBlock
 import me.mochibit.defcon.utils.MathFunctions
+import org.bukkit.ChunkSnapshot
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.Particle
 import org.bukkit.block.Block
+import org.bukkit.block.BlockFace
 import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
@@ -40,8 +43,8 @@ class Shockwave(
         )
         private val LIQUID_MATERIALS = hashSetOf(Material.WATER, Material.LAVA)
         val transformationMap = mapOf(
-            Material.GRASS_BLOCK to { listOf(Material.COARSE_DIRT, Material.DIRT, Material.GRAVEL).random() },
-            Material.DIRT to { listOf(Material.COARSE_DIRT, Material.GRAVEL).random() },
+            Material.GRASS_BLOCK to { listOf(Material.COARSE_DIRT, Material.DIRT).random() },
+            Material.DIRT to { listOf(Material.COARSE_DIRT, Material.COBBLED_DEEPSLATE).random() },
             Material.STONE to { Material.COBBLED_DEEPSLATE },
             Material.COBBLESTONE to { Material.COBBLED_DEEPSLATE }
         )
@@ -59,11 +62,9 @@ class Shockwave(
 
 
     private val maximumDistanceForAction = 4.0
-    private val maxTreeBlocks = 400
+    private val maxTreeBlocks = 1000
     private val maxDestructionPower = 5.0
     private val minDestructionPower = 2.0
-
-    private val navigatedTreeBlocks = ConcurrentHashMap.newKeySet<Vector3i>()
 
     private val world = center.world
     private val explosionColumns: ConcurrentLinkedQueue<Pair<Double, Set<Vector3i>>> = ConcurrentLinkedQueue()
@@ -81,6 +82,7 @@ class Shockwave(
             shockwaveRadius.toDouble()
         )
         val visitedEntities: MutableSet<Entity> = ConcurrentHashMap.newKeySet()
+        startExplosionProcessor()
         executorService.submit {
             (shockwaveRadiusStart..shockwaveRadius).forEach { currentRadius ->
                 val explosionPower = MathFunctions.lerp(
@@ -113,8 +115,8 @@ class Shockwave(
                 }
                 // Wait for shockwaveSpeed (blocks per second) and convert it to a MILLIS wait time (how much it waits for the next radius)
                 TimeUnit.MILLISECONDS.sleep((1000 / shockwaveSpeed))
+
             }
-            startExplosionProcessor()
             completedExplosion.set(true)
         }
     }
@@ -131,59 +133,53 @@ class Shockwave(
         }
     }
 
-    private val directions = listOf(
-        Triple(1, 0, 0), Triple(-1, 0, 0),
-        Triple(0, 1, 0), Triple(0, -1, 0),
-        Triple(0, 0, 1), Triple(0, 0, -1)
-    )
-
     private fun processTreeBurn(location: Vector3i, explosionPower: Double) {
-        var navigatedBlocks = 0
-        if (navigatedTreeBlocks.size >= maxTreeBlocks*2)
-            navigatedTreeBlocks.clear()
+        val treeBlocks = getFloodFillBlock(world.getBlockAt(location.x, location.y, location.z), maxTreeBlocks, ignoreEmpty = true) {
+            it.type.name.endsWith("_LOG") || it.type.name.endsWith("_LEAVES")
+        }
 
         // Helper function to process leaves
         fun processLeaves(leafBlock: Block) {
             val chance = explosionPower / maxDestructionPower
             runLater(1L) {
                 // Destroy leaves and very rarely set them to MANGROOVE_ROOTS, otherwise set them to AIR
-                leafBlock.type =  if (Random.nextDouble() < chance * 0.1) Material.MANGROVE_ROOTS else Material.AIR
+                leafBlock.type = if (Random.nextDouble() < chance * 0.1) Material.MANGROVE_ROOTS else Material.AIR
             }
         }
 
-        // Helper function to recursively process the tree
-        fun burnTree(x: Int, y: Int, z: Int) {
-            if (navigatedBlocks >= maxTreeBlocks || !navigatedTreeBlocks.add(Vector3i(x,y,z))) return
-            navigatedBlocks++
+        // Match the treeBlocks keys which ends with LEAVES, and process them
+        treeBlocks.filter { it.key.name.endsWith("_LEAVES") }.forEach { (_, blocks) ->
+            for (block in blocks) {
+                processLeaves(block.block)
+            }
+        }
 
-            val currentBlock = world.getBlockAt(x, y, z)
-            val blockType = currentBlock.type
+        // Match the treeBlocks keys which ends with LOG, and process them
+        treeBlocks.filter { it.key.name.endsWith("_LOG") }.forEach { (_, blocks) ->
+            // Get the block with the lowest Y value
+            val lowestBlock = blocks.minByOrNull { it.y }
 
-            runLater(1L) {
-                when {
-                    blockType.name.endsWith("_LOG") -> currentBlock.type = Material.POLISHED_BASALT
-                    blockType.name.endsWith("_LEAVES") -> processLeaves(currentBlock)
-                    else -> return@runLater // Exit recursion if block is neither log nor leaves
+            for (block in blocks) {
+                runLater(1L) {
+                    // Destroy logs and very rarely set them to STRIPPED_MANGROVE_LOG, otherwise set them to AIR
+                    block.block.type = Material.POLISHED_BASALT
                 }
             }
-            // Explore neighbors (6 directions: up, down, north, south, east, west)
+            lowestBlock?.let {location ->
+                // Get the blocks of grass near the lowest block and set them to dirt/coarse dirt
+                val terrainBlockMap = getFloodFillBlock(location.block.getRelative(BlockFace.DOWN), 40, ignoreEmpty = true) {
+                    it.type == Material.GRASS_BLOCK || it.type == Material.DIRT || it.type == Material.PODZOL
+                }
 
-            for ((dx, dy, dz) in directions) {
-                val neighborX = x + dx
-                val neighborY = y + dy
-                val neighborZ = z + dz
-
-                if (neighborY in world.minHeight..world.maxHeight) {
-                    val neighborBlock = world.getBlockAt(neighborX, neighborY, neighborZ)
-                    if (neighborBlock.type.name.endsWith("_LOG") || neighborBlock.type.name.endsWith("_LEAVES")) {
-                        burnTree(neighborX, neighborY, neighborZ)
+                terrainBlockMap.forEach { (material, terrainBlocks) ->
+                    for (block in terrainBlocks) {
+                        runLater(0L) {
+                            block.block.type = transformationMap[material]?.invoke() ?: Material.AIR
+                        }
                     }
                 }
             }
         }
-
-        // Start processing the tree from the initial location
-        burnTree(location.x, location.y, location.z)
     }
 
 
@@ -236,7 +232,7 @@ class Shockwave(
         // Apply block changes in bulk
         blockChanges.parallelStream().forEach { (block, material) ->
             runLater(1L) {
-                block.setType(material, false)
+                block.setType(material, true)
             }
         }
     }
@@ -264,6 +260,7 @@ class Shockwave(
     }
 
 
+
     private fun generateShockwaveColumns(radius: Int): Set<Vector3i> {
         val ringElements = mutableSetOf<Vector3i>()
         val steps = radius * 6
@@ -276,6 +273,9 @@ class Shockwave(
         var previousHeight: Int? = null
         var previousPosition = Vector3i(centerX, centerY, centerZ)
 
+        // Cache for chunk snapshots
+        val chunkSnapshots = mutableMapOf<Pair<Int, Int>, ChunkSnapshot>()
+
         for (i in 0 until steps) {
             val angleRad = i * angleIncrement
             val cosAngle = cos(angleRad)
@@ -283,7 +283,18 @@ class Shockwave(
 
             val x = (centerX + cosAngle * radius).toInt()
             val z = (centerZ + sinAngle * radius).toInt()
-            val highestY = world.getHighestBlockYAt(x, z)
+
+            // Calculate the chunk coordinates
+            val chunkX = x shr 4 // Divide by 16
+            val chunkZ = z shr 4 // Divide by 16
+
+            // Retrieve or load the chunk snapshot
+            val chunkSnapshot = chunkSnapshots.getOrPut(chunkX to chunkZ) {
+                world.getChunkAt(chunkX, chunkZ).chunkSnapshot
+            }
+
+            // Get the highest Y using the chunk snapshot
+            val highestY = chunkSnapshot.getHighestBlockYAt(x and 15, z and 15)
 
             if (previousHeight != null) {
                 val heightDiff = abs(previousHeight - highestY)
@@ -293,12 +304,13 @@ class Shockwave(
                     val dz = z - previousPosition.z
                     val dy = highestY - previousHeight
 
-                    for (step in 1..heightDiff) {
-                        val interpX = previousPosition.x + (dx * step) / heightDiff
-                        val interpY = previousHeight + (dy * step) / heightDiff
-                        val interpZ = previousPosition.z + (dz * step) / heightDiff
+                    val maxSteps = maxOf(abs(dx), abs(dy), abs(dz))
+                    for (step in 1..maxSteps) {
+                        val interpX = previousPosition.x + dx * step / maxSteps
+                        val interpY = previousHeight + dy * step / maxSteps
+                        val interpZ = previousPosition.z + dz * step / maxSteps
 
-                        ringElements.add(Vector3i(interpX, interpY, interpZ))
+                        ringElements.add(Vector3i(interpX, interpY - 1, interpZ))
                     }
                 }
             }
@@ -310,5 +322,6 @@ class Shockwave(
 
         return ringElements
     }
+
 
 }

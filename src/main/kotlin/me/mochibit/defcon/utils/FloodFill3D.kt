@@ -22,9 +22,10 @@ package me.mochibit.defcon.utils
 import me.mochibit.defcon.math.Vector3
 import me.mochibit.defcon.registers.BlockRegister
 import org.bukkit.Location
+import org.bukkit.Material
+import org.bukkit.block.Block
 import java.util.*
 import java.util.concurrent.CompletableFuture
-import kotlin.collections.HashSet
 
 
 object FloodFill3D {
@@ -38,11 +39,47 @@ object FloodFill3D {
         WEST(Vector3(-1.0, 0.0, 0.0))
     }
 
+
+    fun getFloodFillBlock(
+        startBlock: Block,
+        maxRange: Int,
+        nonSolidOnly: Boolean = false,
+        customBlockOnly: Boolean = false,
+        ignoreEmpty: Boolean = false,
+        blockFilter: ((Block) -> Boolean)? = null
+    ): EnumMap<Material, HashSet<Location>> {
+        val positions: EnumMap<Material, HashSet<Location>> = EnumMap(Material::class.java)
+        val queue: Queue<Block> = LinkedList()
+        val visited = HashSet<Location>()
+
+        queue.add(startBlock)
+        var blockCount = 0
+
+        while (queue.isNotEmpty() && blockCount < maxRange) {
+            val currentBlock = queue.poll()
+            if (visited.contains(currentBlock.location) || !isValidBlock(currentBlock, nonSolidOnly, customBlockOnly, ignoreEmpty, blockFilter)) continue
+            visited.add(currentBlock.location)
+
+            positions.getOrPut(currentBlock.type) { HashSet() }.add(currentBlock.location)
+            blockCount++
+
+            for (direction in Direction.entries) {
+                val nextBlock = currentBlock.getRelative(
+                    direction.vec.x.toInt(),
+                    direction.vec.y.toInt(),
+                    direction.vec.z.toInt()
+                )
+                queue.add(nextBlock)
+            }
+        }
+        return positions
+    }
+
     fun getFloodFill(
         startLoc: Location,
         maxRange: Int,
         nonSolidOnly: Boolean = false,
-        customBlockOnly: Boolean = false
+        customBlockOnly: Boolean = false,
     ): List<Location> {
         val positions = HashSet<Location>()
         val queue: Queue<Location> = LinkedList()
@@ -82,6 +119,18 @@ object FloodFill3D {
         }
     }
 
+    private fun isValidBlock(
+        block: Block,
+        nonSolidOnly: Boolean,
+        customBlockOnly: Boolean,
+        ignoreEmpty: Boolean,
+        blockFilter: ((Block) -> Boolean)?
+    ): Boolean {
+        return (!nonSolidOnly || !block.type.isSolid) &&
+                (!customBlockOnly || isCustomBlock(block.location)) &&
+                (!ignoreEmpty || !block.type.isAir) &&
+                (blockFilter == null || blockFilter(block))
+    }
 
     //TODO: To optimize
     private fun isCustomBlock(loc: Location): Boolean {
