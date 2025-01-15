@@ -1,7 +1,6 @@
 package me.mochibit.defcon.explosions
 
 import me.mochibit.defcon.threading.scheduling.runLater
-import me.mochibit.defcon.threading.scheduling.runSyncMethod
 import me.mochibit.defcon.utils.FloodFill3D.getFloodFillBlock
 import me.mochibit.defcon.utils.MathFunctions
 import me.mochibit.defcon.utils.MathFunctions.remap
@@ -10,11 +9,11 @@ import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
+import org.joml.Vector3f
 import org.joml.Vector3i
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ForkJoinPool
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.math.cos
@@ -48,6 +47,15 @@ class Shockwave(
             Material.COBBLED_DEEPSLATE,
             Material.BLACK_CONCRETE_POWDER,
             Material.OBSIDIAN,
+        )
+        private val LIGHT_WEIGHT_BLOCKS = hashSetOf(
+            Material.ICE,
+            Material.PACKED_ICE,
+            Material.BLUE_ICE,
+            Material.FROSTED_ICE,
+            Material.SNOW,
+            Material.SNOW_BLOCK,
+            Material.POWDER_SNOW,
         )
         private val PLANTS = hashSetOf(
             Material.GRASS,
@@ -89,13 +97,6 @@ class Shockwave(
         Material.DIRT to ::transformDirt,
         Material.STONE to { Material.COBBLED_DEEPSLATE },
         Material.COBBLESTONE to { Material.COBBLED_DEEPSLATE },
-        Material.ICE to { Material.AIR },
-        Material.PACKED_ICE to { Material.AIR },
-        Material.BLUE_ICE to { Material.AIR },
-        Material.FROSTED_ICE to { Material.AIR },
-        Material.SNOW to { Material.AIR },
-        Material.SNOW_BLOCK to { Material.AIR },
-        Material.POWDER_SNOW to { Material.AIR },
     )
 
     private val regexTransformationMap: Map<Regex, (Material, Double) -> Material> = mapOf(
@@ -121,10 +122,11 @@ class Shockwave(
 
     // Custom rules for materials based on name suffix
     private fun customTransformation(currentMaterial: Material, normalizedExplosionPower: Double): Material {
-        if (normalizedExplosionPower > 0.8)
+        if (normalizedExplosionPower > 0.8 && currentMaterial !in LIGHT_WEIGHT_BLOCKS)
             return BURNT_BLOCK.random()
 
         return when (currentMaterial) {
+            in LIGHT_WEIGHT_BLOCKS -> Material.AIR
             in transformationMap -> transformationMap[currentMaterial]?.invoke() ?: Material.AIR
             in PLANTS -> transformToDeadPlantOrAir(normalizedExplosionPower)
             // Check if the block type matches any of the regex patterns
@@ -219,8 +221,6 @@ class Shockwave(
         }
     }
 
-
-
     private fun startExplosionProcessor() {
         blockChanger.start()
         executorService.submit {
@@ -234,46 +234,92 @@ class Shockwave(
         }
     }
 
-    private fun processTreeBurn(location: Vector3i, normalizedExplosionPower: Double) {
+
+    private fun processTreeBurn(location: Vector3i, normalizedExplosionPower: Double, shockwaveDirection: Vector3f) {
         val treeBlocks =
             getFloodFillBlock(world.getBlockAt(location.x, location.y, location.z), maxTreeBlocks, ignoreEmpty = true) {
-                it.type.name.endsWith("_LOG") || it.type.name.endsWith("_LEAVES") || it.type == Material.GRASS_BLOCK || it.type == Material.DIRT || it.type == Material.PODZOL
+                it.type.name.endsWith("_LOG") ||
+                        it.type.name.endsWith("_LEAVES") ||
+                        it.type == Material.GRASS_BLOCK ||
+                        it.type == Material.DIRT ||
+                        it.type == Material.PODZOL
             }
 
-        // Match the treeBlocks keys which ends with LEAVES, and process them
-        treeBlocks.filter { it.key.name.endsWith("_LEAVES") }.forEach { (_, blocks) ->
+        val tiltMultiplier = normalizedExplosionPower * 2.0
+
+
+        // Classify blocks into categories in one pass
+        val categorizedBlocks = treeBlocks.entries.groupBy { entry ->
+            when {
+                entry.key.name.endsWith("_LEAVES") -> "LEAVES"
+                entry.key.name.endsWith("_LOG") -> "LOG"
+                entry.key in listOf(Material.GRASS_BLOCK, Material.DIRT, Material.PODZOL) -> "TERRAIN"
+                else -> "OTHER"
+            }
+        }
+
+        // Process leaves
+        categorizedBlocks["LEAVES"]?.forEach { (_, blocks) ->
             for (leafBlockLocation in blocks) {
                 val leafBlock = leafBlockLocation.block
                 if (normalizedExplosionPower > 0.7) {
                     blockChanger.addBlockChange(leafBlock, Material.AIR)
                     continue
                 }
+
+                val newPosition = leafBlockLocation.add(
+                    shockwaveDirection.x * tiltMultiplier,
+                    0.0,
+                    shockwaveDirection.z * tiltMultiplier
+                )
+
                 blockChanger.addBlockChange(
-                    leafBlock,
+                    newPosition.block,
                     if (Random.nextDouble() > normalizedExplosionPower * 0.4) Material.MANGROVE_ROOTS else Material.AIR
                 )
+                blockChanger.addBlockChange(leafBlock, Material.AIR)
             }
         }
 
-        // Match the treeBlocks keys which ends with LOG, and process them
-        treeBlocks.filter { it.key.name.endsWith("_LOG") }.forEach { (_, blocks) ->
+        // Process logs with consistent tilt from base to top
+        categorizedBlocks["LOG"]?.forEach { (_, blocks) ->
+            val treeMinHeight = blocks.minOf { it.y }
+            val treeMaxHeight = blocks.maxOf { it.y }
+            val heightRange = treeMaxHeight - treeMinHeight
+
             for (logBlockLocation in blocks) {
                 val logBlock = logBlockLocation.block
                 if (normalizedExplosionPower > 0.8) {
                     blockChanger.addBlockChange(logBlock, Material.AIR)
                     continue
                 }
-                blockChanger.addBlockChange(logBlock, Material.POLISHED_BASALT)
+
+                val blockHeight = logBlockLocation.y - treeMinHeight
+                val heightFactor = blockHeight / heightRange
+                var tiltFactor = heightFactor * normalizedExplosionPower * 6 // Smooth gradient tilt
+
+                if (logBlockLocation.y == treeMinHeight) {
+                    tiltFactor = 0.0
+                }
+
+                val newPosition = logBlockLocation.add(
+                    shockwaveDirection.x * tiltFactor,
+                    0.0,
+                    shockwaveDirection.z * tiltFactor
+                )
+
+                blockChanger.addBlockChange(newPosition.block, Material.POLISHED_BASALT)
+                blockChanger.addBlockChange(logBlock, Material.AIR)
             }
         }
 
-        treeBlocks.filter { it.key == Material.GRASS_BLOCK || it.key == Material.DIRT || it.key == Material.PODZOL }
-            .forEach { (_, terrainBlocks) ->
-                for (blockLocation in terrainBlocks) {
-                    val block = blockLocation.block
-                    blockChanger.addBlockChange(block, customTransformation(block.type, normalizedExplosionPower))
-                }
+        // Process terrain blocks
+        categorizedBlocks["TERRAIN"]?.forEach { (_, terrainBlocks) ->
+            terrainBlocks.forEach { blockLocation ->
+                val block = blockLocation.block
+                blockChanger.addBlockChange(block, customTransformation(block.type, normalizedExplosionPower))
             }
+        }
     }
 
 
@@ -281,24 +327,74 @@ class Shockwave(
         val baseX = location.x
         val baseY = location.y
         val baseZ = location.z
+
+        val direction = Vector3f(
+            (baseX - center.x).toFloat(),
+            (baseY - center.y).toFloat(),
+            (baseZ - center.z).toFloat()
+        ).normalize()
+
         val normalizedExplosionPower = remap(explosionPower, minDestructionPower, maxDestructionPower, 0.0, 1.0)
-//        val skipChance = 1.0 - normalizedExplosionPower
-//        if (Random.nextDouble() < skipChance) return
 
-        val block = world.getBlockAt(baseX, baseY, baseZ)
-        val blockType = block.type
-
-        if (blockType == Material.AIR || blockType in BLOCK_TRANSFORMATION_BLACKLIST || blockType in LIQUID_MATERIALS)
-            return
-
-        if (blockType.name.endsWith("_LOG") || blockType.name.endsWith("_LEAVES")) {
-            processTreeBurn(location, normalizedExplosionPower)
-            return
+        fun rayTraceHeight(loc: Location): Int {
+            return world.rayTraceBlocks(loc, Vector(0.0, -1.0, 0.0), 100.0)?.hitPosition?.blockY
+                ?: (location.y - 100.0).toInt()
         }
 
+        fun processHeightDifference(blockY: Int, targetY: Int) {
+            val minY = minOf(blockY, targetY)
+            val maxY = maxOf(blockY, targetY)
+            for (y in minY..maxY) {
+                processBlock(Vector3i(location.x, y, location.z), normalizedExplosionPower, direction)
+            }
+        }
+
+        val nextLocation =
+            Location(world, (baseX + direction.x).toDouble(), baseY.toDouble(), (baseZ + direction.z).toDouble())
+        val prevLocation =
+            Location(world, (baseX - direction.x).toDouble(), baseY.toDouble(), (baseZ - direction.z).toDouble())
+
+        val previousBlockMaxY = rayTraceHeight(prevLocation)
+        val nextBlockMaxY = rayTraceHeight(nextLocation)
+
+        processBlock(location, normalizedExplosionPower, direction)
+
+        val heightDiffBefore = abs(baseY - previousBlockMaxY)
+        if (heightDiffBefore > 0) {
+            processHeightDifference(baseY, previousBlockMaxY)
+        }
+
+        val heightDiffAfter = abs(baseY - nextBlockMaxY)
+        if (heightDiffAfter > 0) {
+            processHeightDifference(baseY, nextBlockMaxY)
+        }
+    }
+
+
+    private fun processBlock(
+        blockLocation: Vector3i,
+        normalizedExplosionPower: Double,
+        shockwaveDirection: Vector3f
+    ): Boolean {
+        val block = world.getBlockAt(blockLocation.x, blockLocation.y, blockLocation.z)
+        val blockType = block.type
+
+        if (blockType == Material.POLISHED_BASALT) return false
+
+        // Skip processing for AIR, blacklisted, or liquid materials
+        if (blockType == Material.AIR || blockType in BLOCK_TRANSFORMATION_BLACKLIST || blockType in LIQUID_MATERIALS) return false
+
+        // If the block is part of a tree, process burning
+        if (blockType.name.endsWith("_LOG") || blockType.name.endsWith("_LEAVES")) {
+            processTreeBurn(blockLocation, normalizedExplosionPower, shockwaveDirection)
+            return false
+        }
+
+        // Apply custom transformation
         val newMaterial = customTransformation(blockType, normalizedExplosionPower)
         blockChanger.addBlockChange(block, newMaterial, true)
 
+        return true
     }
 
     private fun applyExplosionEffects(entity: Entity, explosionPower: Float) {
@@ -336,7 +432,7 @@ class Shockwave(
         // Process each point and interpolate walls
         for (pos in ringElements) {
             val highestY = chunkCache.highestBlockYAt(pos.x, pos.z)
-            pos.y = highestY
+            pos.y = highestY + 1
 
             if (previousHeight == null) {
                 previousHeight = highestY
