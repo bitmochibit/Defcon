@@ -8,6 +8,7 @@ import me.mochibit.defcon.particles.mutators.AbstractShapeMutator
 import me.mochibit.defcon.particles.templates.AbstractParticle
 import me.mochibit.defcon.threading.scheduling.interval
 import me.mochibit.defcon.threading.scheduling.intervalAsync
+import me.mochibit.defcon.threading.scheduling.intervalAsyncWithTask
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.World
@@ -94,7 +95,7 @@ class ParticleEmitter(
 
     override fun stop() {
         dyingOut = true
-        intervalAsync(0L, 1L) { task ->
+        intervalAsyncWithTask(0L, 1L) { task ->
             if (particles.isEmpty())
                 task.cancel()
 

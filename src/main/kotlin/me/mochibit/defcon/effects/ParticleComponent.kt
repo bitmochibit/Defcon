@@ -1,20 +1,11 @@
 package me.mochibit.defcon.effects
 
-import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.extensions.toVector3f
 import me.mochibit.defcon.lifecycle.Lifecycled
-import me.mochibit.defcon.math.Transform3D
-import me.mochibit.defcon.math.Vector3
-import me.mochibit.defcon.observer.Loadable
 import me.mochibit.defcon.particles.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.EmitterShape
 import me.mochibit.defcon.particles.templates.AbstractParticle
 import me.mochibit.defcon.threading.scheduling.runLater
-import me.mochibit.defcon.vertexgeometry.particle.ParticleShape
-import org.bukkit.Bukkit
-import org.joml.Matrix4d
 import org.joml.Matrix4f
-import org.joml.Vector3d
 import org.joml.Vector3f
 
 /**
@@ -33,11 +24,15 @@ open class ParticleComponent(
 
     var visible: Boolean
         get() = particleEmitter.visible
-        set(value) { particleEmitter.visible = value }
+        set(value) {
+            particleEmitter.visible = value
+        }
 
-    var shape : EmitterShape
+    var shape: EmitterShape
         get() = particleEmitter.emitterShape
-        set(value) { particleEmitter.emitterShape = value }
+        set(value) {
+            particleEmitter.emitterShape = value
+        }
 
     /**
      * Adds a spawnable particle with optional color supplier attachment.
@@ -50,7 +45,10 @@ open class ParticleComponent(
         return this
     }
 
-    fun addSpawnableParticles(particles: List<AbstractParticle>, attachColorSupplier: Boolean = false): ParticleComponent {
+    fun addSpawnableParticles(
+        particles: List<AbstractParticle>,
+        attachColorSupplier: Boolean = false
+    ): ParticleComponent {
         particleEmitter.spawnableParticles.addAll(particles)
         if (attachColorSupplier) {
             colorSupplier?.let { particles.forEach { it.colorSupplier(colorSupplier.colorSupplier) } }

@@ -22,6 +22,7 @@ package me.mochibit.defcon.explosions
 import io.papermc.paper.entity.TeleportFlag
 import me.mochibit.defcon.threading.scheduling.interval
 import org.bukkit.entity.Player
+import org.bukkit.scheduler.BukkitTask
 import java.io.Closeable
 import kotlin.math.cos
 import kotlin.math.sin
@@ -40,7 +41,7 @@ class CameraShake(player: Player, options: CameraShakeOptions) : Closeable {
 
     private var magnitude = options.magnitude
 
-    private val repeat = interval(1, 1) {
+    private val repeat: Closeable = interval(1, 1) {
         time += 1
 
         magnitude -= options.decay

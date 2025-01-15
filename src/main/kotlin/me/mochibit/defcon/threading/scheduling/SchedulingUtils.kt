@@ -22,8 +22,13 @@ package me.mochibit.defcon.threading.scheduling
 import me.mochibit.defcon.Defcon
 import org.bukkit.scheduler.BukkitTask
 import java.io.Closeable
+import java.util.concurrent.Future
 
 private val plugin = Defcon.instance
+
+fun <T> runSyncMethod(task: () -> T): Future<T> {
+   return plugin.server.scheduler.callSyncMethod(plugin, task)
+}
 
 fun runLater(delay: Long, task: () -> Unit): Closeable {
     val handler = plugin.server.scheduler.runTaskLater(plugin, task, delay)
@@ -35,11 +40,15 @@ fun interval(delay: Long, period: Long, task: () -> Unit): Closeable {
     return Closeable { handler.cancel() }
 }
 
+fun intervalWithTask(delay: Long, period: Long, task: (BukkitTask) -> Unit) {
+    plugin.server.scheduler.runTaskTimer(plugin, task, delay, period)
+}
+
 fun intervalAsync(delay: Long, period: Long, task: () -> Unit): Closeable {
     val handler = plugin.server.scheduler.runTaskTimerAsynchronously(plugin, task, delay, period)
     return Closeable { handler.cancel() }
 }
 
-fun intervalAsync(delay: Long, period: Long, task: (BukkitTask) -> Unit) {
+fun intervalAsyncWithTask(delay: Long, period: Long, task: (BukkitTask) -> Unit) {
     plugin.server.scheduler.runTaskTimerAsynchronously(plugin, task, delay, period)
 }
