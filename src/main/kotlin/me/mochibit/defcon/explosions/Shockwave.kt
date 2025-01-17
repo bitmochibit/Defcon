@@ -234,6 +234,7 @@ class Shockwave(
         }
     }
 
+    private val processedTreeLocations = hashSetOf<Vector3i>()
 
     private fun processTreeBurn(location: Vector3i, normalizedExplosionPower: Double, shockwaveDirection: Vector3f) {
         val treeBlocks =
@@ -244,9 +245,7 @@ class Shockwave(
                         it.type == Material.DIRT ||
                         it.type == Material.PODZOL
             }
-
         val tiltMultiplier = normalizedExplosionPower * 2.0
-
 
         // Classify blocks into categories in one pass
         val categorizedBlocks = treeBlocks.entries.groupBy { entry ->
@@ -262,7 +261,7 @@ class Shockwave(
         categorizedBlocks["LEAVES"]?.forEach { (_, blocks) ->
             for (leafBlockLocation in blocks) {
                 val leafBlock = leafBlockLocation.block
-                if (normalizedExplosionPower > 0.7) {
+                if (normalizedExplosionPower > 0.4) {
                     blockChanger.addBlockChange(leafBlock, Material.AIR)
                     continue
                 }
@@ -277,7 +276,10 @@ class Shockwave(
                     newPosition.block,
                     if (Random.nextDouble() > normalizedExplosionPower * 0.4) Material.MANGROVE_ROOTS else Material.AIR
                 )
+                processedTreeLocations.add(Vector3i(newPosition.x.toInt(), newPosition.y.toInt(), newPosition.z.toInt()))
+                if (newPosition.block.location == leafBlock.location) continue
                 blockChanger.addBlockChange(leafBlock, Material.AIR)
+                processedTreeLocations.add(Vector3i(leafBlock.x, leafBlock.y, leafBlock.z))
             }
         }
 
@@ -289,7 +291,7 @@ class Shockwave(
 
             for (logBlockLocation in blocks) {
                 val logBlock = logBlockLocation.block
-                if (normalizedExplosionPower > 0.8) {
+                if (normalizedExplosionPower > 0.5) {
                     blockChanger.addBlockChange(logBlock, Material.AIR)
                     continue
                 }
@@ -309,7 +311,10 @@ class Shockwave(
                 )
 
                 blockChanger.addBlockChange(newPosition.block, Material.POLISHED_BASALT)
+                processedTreeLocations.add(Vector3i(newPosition.x.toInt(), newPosition.y.toInt(), newPosition.z.toInt()))
+                if (newPosition.block.location == logBlock.location) continue
                 blockChanger.addBlockChange(logBlock, Material.AIR)
+                processedTreeLocations.add(Vector3i(logBlock.x, logBlock.y, logBlock.z))
             }
         }
 
@@ -376,10 +381,10 @@ class Shockwave(
         normalizedExplosionPower: Double,
         shockwaveDirection: Vector3f
     ): Boolean {
+        if (processedTreeLocations.size > maxTreeBlocks * 10) processedTreeLocations.clear()
+        if (processedTreeLocations.contains(blockLocation)) return false
         val block = world.getBlockAt(blockLocation.x, blockLocation.y, blockLocation.z)
         val blockType = block.type
-
-        if (blockType == Material.POLISHED_BASALT) return false
 
         // Skip processing for AIR, blacklisted, or liquid materials
         if (blockType == Material.AIR || blockType in BLOCK_TRANSFORMATION_BLACKLIST || blockType in LIQUID_MATERIALS) return false
