@@ -1,6 +1,8 @@
 package me.mochibit.defcon.explosions
 
+import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.threading.scheduling.runLater
+import me.mochibit.defcon.threading.scheduling.runSyncMethod
 import me.mochibit.defcon.utils.FloodFill3D.getFloodFillBlock
 import me.mochibit.defcon.utils.MathFunctions
 import me.mochibit.defcon.utils.MathFunctions.remap
@@ -8,6 +10,7 @@ import org.bukkit.*
 import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
+import org.bukkit.metadata.FixedMetadataValue
 import org.bukkit.util.Vector
 import org.joml.Vector3f
 import org.joml.Vector3i
@@ -26,7 +29,7 @@ class Shockwave(
     private val shockwaveRadiusStart: Int,
     private val shockwaveRadius: Int,
     private val shockwaveHeight: Int,
-    private val shockwaveSpeed: Long = 200L
+    private val shockwaveSpeed: Long = 300L
 ) {
 
     companion object {
@@ -112,7 +115,6 @@ class Shockwave(
                 else -> Material.AIR // Fallback
             }
         }
-
     )
 
     private fun transformToDeadPlantOrAir(normalizedExplosionPower: Double): Material {
@@ -140,12 +142,11 @@ class Shockwave(
         if (Random.nextBoolean()) Material.COARSE_DIRT else Material.COBBLED_DEEPSLATE
 
     private val maximumDistanceForAction = 4.0
-    private val maxTreeBlocks = 500
+    private val maxTreeBlocks = 100
     private val maxDestructionPower = 5.0
     private val minDestructionPower = 2.0
 
     private val world = center.world
-    private val centerVector = Vector3i(center.blockX, center.blockY, center.blockZ)
     private val explosionColumns: ConcurrentLinkedQueue<Pair<Double, List<Vector3i>>> = ConcurrentLinkedQueue()
 
     private val executorService = ForkJoinPool.commonPool()
@@ -154,22 +155,17 @@ class Shockwave(
 
     private val blockChanger = BlockChanger()
 
-    private val chunkCache = ChunkCache(world)
+    private val chunkCache = ChunkCache.getInstance(world)
 
     fun explode() {
-        val locationCursor = Location(center.world, -1.0, 0.0, 0.0)
-        val entities = world.getNearbyEntities(
-            center,
-            shockwaveRadius.toDouble(),
-            shockwaveRadius.toDouble(),
-            shockwaveRadius.toDouble()
-        )
-        val visitedEntities: MutableSet<Entity> = ConcurrentHashMap.newKeySet()
         startExplosionProcessor()
 
         val startTime = System.nanoTime()
         executorService.submit {
             var lastProcessedRadius = shockwaveRadiusStart
+
+            val locationCursor = Location(center.world, 0.0, 0.0, 0.0)
+            val visitedEntities: MutableSet<Entity> = mutableSetOf()
 
             while (lastProcessedRadius <= shockwaveRadius) {
                 // Calculate elapsed time in seconds
@@ -180,7 +176,7 @@ class Shockwave(
 
                 // Skip if the radius hasn't advanced yet
                 if (currentRadius <= lastProcessedRadius) {
-                    Thread.yield() // Let other tasks proceed
+                    Thread.yield()
                     continue
                 }
 
@@ -193,21 +189,25 @@ class Shockwave(
                     )
                     val columns = generateShockwaveColumns(radius)
                     explosionColumns.add(explosionPower to columns)
-                    columns.parallelStream().forEach { location ->
-                        locationCursor.set(location.x.toDouble(), location.y.toDouble(), location.z.toDouble())
-                        world.spawnParticle(Particle.EXPLOSION_HUGE, locationCursor, 0)
-                        entities.parallelStream().forEach entityLoop@{ entity ->
-                            if (visitedEntities.contains(entity)) return@entityLoop
-                            val entityLocation = entity.location
-                            val dx = entityLocation.x - locationCursor.x
-                            val dz = entityLocation.z - locationCursor.z
+                    for (location in columns) {
+                        world.spawnParticle(Particle.EXPLOSION_LARGE,
+                            location.x.toDouble(),
+                            location.y.toDouble(),
+                            location.z.toDouble(), 0)
+                        runLater(1L) {
+                            locationCursor.set(location.x.toDouble(), location.y.toDouble(), location.z.toDouble())
+                            val entities = world.getNearbyEntities(locationCursor, 5.0, 50.0, 5.0)
+                                {
+                                    it !in visitedEntities &&
+                                    it.y in locationCursor.y - maximumDistanceForAction..(locationCursor.y + shockwaveHeight + maximumDistanceForAction)
+                                }
 
-                            val hDistanceSquared = dx * dx + dz * dz
-
+                            if (entities.isEmpty()) return@runLater
                             // Check if the entity is within range and height bounds
-                            if (hDistanceSquared <= maximumDistanceForAction * maximumDistanceForAction &&
-                                entityLocation.y in locationCursor.y - maximumDistanceForAction..(locationCursor.y + shockwaveHeight + maximumDistanceForAction)
-                            ) {
+                            for (entity in entities) {
+                                //entity.getLocation(entityLocationCursor)
+                                //if (entityLocation.y !in locationCursor.y - maximumDistanceForAction..(locationCursor.y + shockwaveHeight + maximumDistanceForAction)) continue
+                                //if (visitedEntities.contains(entity)) continue
                                 applyExplosionEffects(entity, explosionPower.toFloat())
                                 visitedEntities.add(entity)
                             }
@@ -227,184 +227,18 @@ class Shockwave(
             while (explosionColumns.isNotEmpty() || !completedExplosion.get()) {
                 val rColumns = explosionColumns.poll() ?: continue
                 val (explosionPower, locations) = rColumns
-                locations.parallelStream().forEach { location ->
+                for (location in locations) {
                     simulateExplosion(location, explosionPower)
                 }
+                Thread.yield()
             }
+            blockChanger.stop()
         }
-    }
-
-    private val processedTreeLocations = hashSetOf<Vector3i>()
-
-    private fun processTreeBurn(location: Vector3i, normalizedExplosionPower: Double, shockwaveDirection: Vector3f) {
-        val treeBlocks =
-            getFloodFillBlock(world.getBlockAt(location.x, location.y, location.z), maxTreeBlocks, ignoreEmpty = true) {
-                it.type.name.endsWith("_LOG") ||
-                        it.type.name.endsWith("_LEAVES") ||
-                        it.type == Material.GRASS_BLOCK ||
-                        it.type == Material.DIRT ||
-                        it.type == Material.PODZOL
-            }
-        val tiltMultiplier = normalizedExplosionPower * 2.0
-
-        // Classify blocks into categories in one pass
-        val categorizedBlocks = treeBlocks.entries.groupBy { entry ->
-            when {
-                entry.key.name.endsWith("_LEAVES") -> "LEAVES"
-                entry.key.name.endsWith("_LOG") -> "LOG"
-                entry.key in listOf(Material.GRASS_BLOCK, Material.DIRT, Material.PODZOL) -> "TERRAIN"
-                else -> "OTHER"
-            }
-        }
-
-        // Process leaves
-        categorizedBlocks["LEAVES"]?.forEach { (_, blocks) ->
-            for (leafBlockLocation in blocks) {
-                val leafBlock = leafBlockLocation.block
-                if (normalizedExplosionPower > 0.4) {
-                    blockChanger.addBlockChange(leafBlock, Material.AIR)
-                    continue
-                }
-
-                val newPosition = leafBlockLocation.add(
-                    shockwaveDirection.x * tiltMultiplier,
-                    0.0,
-                    shockwaveDirection.z * tiltMultiplier
-                )
-
-                blockChanger.addBlockChange(
-                    newPosition.block,
-                    if (Random.nextDouble() > normalizedExplosionPower * 0.4) Material.MANGROVE_ROOTS else Material.AIR
-                )
-                processedTreeLocations.add(Vector3i(newPosition.x.toInt(), newPosition.y.toInt(), newPosition.z.toInt()))
-                if (newPosition.block.location == leafBlock.location) continue
-                blockChanger.addBlockChange(leafBlock, Material.AIR)
-                processedTreeLocations.add(Vector3i(leafBlock.x, leafBlock.y, leafBlock.z))
-            }
-        }
-
-        // Process logs with consistent tilt from base to top
-        categorizedBlocks["LOG"]?.forEach { (_, blocks) ->
-            val treeMinHeight = blocks.minOf { it.y }
-            val treeMaxHeight = blocks.maxOf { it.y }
-            val heightRange = treeMaxHeight - treeMinHeight
-
-            for (logBlockLocation in blocks) {
-                val logBlock = logBlockLocation.block
-                if (normalizedExplosionPower > 0.5) {
-                    blockChanger.addBlockChange(logBlock, Material.AIR)
-                    continue
-                }
-
-                val blockHeight = logBlockLocation.y - treeMinHeight
-                val heightFactor = blockHeight / heightRange
-                var tiltFactor = heightFactor * normalizedExplosionPower * 6 // Smooth gradient tilt
-
-                if (logBlockLocation.y == treeMinHeight) {
-                    tiltFactor = 0.0
-                }
-
-                val newPosition = logBlockLocation.add(
-                    shockwaveDirection.x * tiltFactor,
-                    0.0,
-                    shockwaveDirection.z * tiltFactor
-                )
-
-                blockChanger.addBlockChange(newPosition.block, Material.POLISHED_BASALT)
-                processedTreeLocations.add(Vector3i(newPosition.x.toInt(), newPosition.y.toInt(), newPosition.z.toInt()))
-                if (newPosition.block.location == logBlock.location) continue
-                blockChanger.addBlockChange(logBlock, Material.AIR)
-                processedTreeLocations.add(Vector3i(logBlock.x, logBlock.y, logBlock.z))
-            }
-        }
-
-        // Process terrain blocks
-        categorizedBlocks["TERRAIN"]?.forEach { (_, terrainBlocks) ->
-            terrainBlocks.forEach { blockLocation ->
-                val block = blockLocation.block
-                blockChanger.addBlockChange(block, customTransformation(block.type, normalizedExplosionPower))
-            }
-        }
-    }
-
-
-    private fun simulateExplosion(location: Vector3i, explosionPower: Double) {
-        val baseX = location.x
-        val baseY = location.y
-        val baseZ = location.z
-
-        val direction = Vector3f(
-            (baseX - center.x).toFloat(),
-            (baseY - center.y).toFloat(),
-            (baseZ - center.z).toFloat()
-        ).normalize()
-
-        val normalizedExplosionPower = remap(explosionPower, minDestructionPower, maxDestructionPower, 0.0, 1.0)
-
-        fun rayTraceHeight(loc: Location): Int {
-            return world.rayTraceBlocks(loc, Vector(0.0, -1.0, 0.0), 100.0)?.hitPosition?.blockY
-                ?: (location.y - 100.0).toInt()
-        }
-
-        fun processHeightDifference(blockY: Int, targetY: Int) {
-            val minY = minOf(blockY, targetY)
-            val maxY = maxOf(blockY, targetY)
-            for (y in minY..maxY) {
-                processBlock(Vector3i(location.x, y, location.z), normalizedExplosionPower, direction)
-            }
-        }
-
-        val nextLocation =
-            Location(world, (baseX + direction.x).toDouble(), baseY.toDouble(), (baseZ + direction.z).toDouble())
-        val prevLocation =
-            Location(world, (baseX - direction.x).toDouble(), baseY.toDouble(), (baseZ - direction.z).toDouble())
-
-        val previousBlockMaxY = rayTraceHeight(prevLocation)
-        val nextBlockMaxY = rayTraceHeight(nextLocation)
-
-        processBlock(location, normalizedExplosionPower, direction)
-
-        val heightDiffBefore = abs(baseY - previousBlockMaxY)
-        if (heightDiffBefore > 0) {
-            processHeightDifference(baseY, previousBlockMaxY)
-        }
-
-        val heightDiffAfter = abs(baseY - nextBlockMaxY)
-        if (heightDiffAfter > 0) {
-            processHeightDifference(baseY, nextBlockMaxY)
-        }
-    }
-
-
-    private fun processBlock(
-        blockLocation: Vector3i,
-        normalizedExplosionPower: Double,
-        shockwaveDirection: Vector3f
-    ): Boolean {
-        if (processedTreeLocations.size > maxTreeBlocks * 10) processedTreeLocations.clear()
-        if (processedTreeLocations.contains(blockLocation)) return false
-        val block = world.getBlockAt(blockLocation.x, blockLocation.y, blockLocation.z)
-        val blockType = block.type
-
-        // Skip processing for AIR, blacklisted, or liquid materials
-        if (blockType == Material.AIR || blockType in BLOCK_TRANSFORMATION_BLACKLIST || blockType in LIQUID_MATERIALS) return false
-
-        // If the block is part of a tree, process burning
-        if (blockType.name.endsWith("_LOG") || blockType.name.endsWith("_LEAVES")) {
-            processTreeBurn(blockLocation, normalizedExplosionPower, shockwaveDirection)
-            return false
-        }
-
-        // Apply custom transformation
-        val newMaterial = customTransformation(blockType, normalizedExplosionPower)
-        blockChanger.addBlockChange(block, newMaterial, true)
-
-        return true
     }
 
     private fun applyExplosionEffects(entity: Entity, explosionPower: Float) {
         val knockback =
-            Vector(entity.location.x - center.x, entity.location.y - center.y, entity.location.z - center.z)
+            Vector(entity.x - center.x, entity.y - center.y, entity.z - center.z)
                 .normalize().multiply(explosionPower * 2.0)
         runLater(1L) {
             entity.velocity = knockback
@@ -426,92 +260,266 @@ class Shockwave(
 
     }
 
+    private fun processTreeBurn(location: Vector3i, normalizedExplosionPower: Double, shockwaveDirection: Vector3f) {
+        val initialBlock = world.getBlockAt(location.x, location.y, location.z)
+        val tiltMultiplier = normalizedExplosionPower * 2.0
+
+        val leafSuffix = "_LEAVES"
+        val logSuffix = "_LOG"
+        val terrainTypes = setOf(Material.GRASS_BLOCK, Material.DIRT, Material.PODZOL)
+
+        val treeBlocks = getFloodFillBlock(initialBlock, maxTreeBlocks, ignoreEmpty = true) { block ->
+            block.type.name.endsWith(logSuffix) ||
+            block.type.name.endsWith(leafSuffix) ||
+            block.type in terrainTypes
+        }
+
+        // Classify blocks into categories in one pass
+        val categorizedBlocks = mutableMapOf<String, MutableList<Location>>()
+        for ((block, locations) in treeBlocks.entries) {
+            when {
+                block.name.endsWith(leafSuffix) -> categorizedBlocks.computeIfAbsent("LEAVES") { mutableListOf() }
+                    .addAll(locations)
+
+                block.name.endsWith(logSuffix) -> categorizedBlocks.computeIfAbsent("LOG") { mutableListOf() }
+                    .addAll(locations)
+
+                block in terrainTypes -> categorizedBlocks.computeIfAbsent("TERRAIN") { mutableListOf() }
+                    .addAll(locations)
+            }
+        }
+        treeBlocks.clear()
+
+        // Process leaves
+        categorizedBlocks["LEAVES"]?.let { leafBlocks ->
+            for (leafBlockLocation in leafBlocks) {
+                val leafBlock = leafBlockLocation.block
+                if (normalizedExplosionPower > 0.4) {
+                    blockChanger.addBlockChange(leafBlock, Material.AIR)
+                    continue
+                }
+
+                val newPosition = leafBlockLocation.add(
+                    shockwaveDirection.x * tiltMultiplier,
+                    0.0,
+                    shockwaveDirection.z * tiltMultiplier
+                )
+
+                blockChanger.addBlockChange(
+                    newPosition.block,
+                    if (Random.nextDouble() > normalizedExplosionPower * 0.4) Material.MANGROVE_ROOTS else Material.AIR,
+                    metadataKey = "processedByTreeBurn",
+                    metadataValue = FixedMetadataValue(Defcon.instance, true)
+                )
+                if (newPosition.block.location != leafBlock.location) {
+                    blockChanger.addBlockChange(leafBlock, Material.AIR)
+                }
+            }
+        }
+
+        // Process logs with consistent tilt from base to top
+        categorizedBlocks["LOG"]?.let { logBlocks ->
+            val treeMinHeight = logBlocks.minOf { it.y }
+            val treeMaxHeight = logBlocks.maxOf { it.y }
+            val heightRange = treeMaxHeight - treeMinHeight
+
+            for (logBlockLocation in logBlocks) {
+                val logBlock = logBlockLocation.block
+                if (normalizedExplosionPower > 0.5) {
+                    blockChanger.addBlockChange(logBlock, Material.AIR)
+                    continue
+                }
+
+                val blockHeight = logBlockLocation.y - treeMinHeight
+                val heightFactor = blockHeight / heightRange
+                var tiltFactor = heightFactor * normalizedExplosionPower * 6 // Smooth gradient tilt
+
+                if (logBlockLocation.y == treeMinHeight) {
+                    tiltFactor = 0.0
+                }
+
+                val newPosition = logBlockLocation.add(
+                    shockwaveDirection.x * tiltFactor,
+                    0.0,
+                    shockwaveDirection.z * tiltFactor
+                )
+
+                blockChanger.addBlockChange(
+                    newPosition.block,
+                    Material.POLISHED_BASALT,
+                    metadataKey = "processedByTreeBurn",
+                    metadataValue = FixedMetadataValue(Defcon.instance, true)
+                )
+                if (newPosition.block.location != logBlock.location) {
+                    blockChanger.addBlockChange(logBlock, Material.AIR)
+                }
+            }
+        }
+
+        // Process terrain blocks
+        categorizedBlocks["TERRAIN"]?.let { terrainBlocks ->
+            for (terrainBlockLocation in terrainBlocks) {
+                val block = terrainBlockLocation.block
+                blockChanger.addBlockChange(
+                    block,
+                    customTransformation(block.type, normalizedExplosionPower),
+                    metadataKey = "processedByTreeBurn",
+                    metadataValue = FixedMetadataValue(Defcon.instance, true)
+                )
+            }
+        }
+    }
+
+
+    private fun simulateExplosion(location: Vector3i, explosionPower: Double) {
+        val baseX = location.x
+        val baseY = location.y
+        val baseZ = location.z
+
+        val direction = Vector3f(
+            (baseX - center.x).toFloat(),
+            (baseY - center.y).toFloat(),
+            (baseZ - center.z).toFloat()
+        ).normalize()
+
+        val normalizedExplosionPower = remap(explosionPower, minDestructionPower, maxDestructionPower, 0.0, 1.0)
+
+        fun rayTraceHeight(loc: Location): Int {
+            return world.rayTraceBlocks(
+                loc,
+                Vector(0.0, -1.0, 0.0),
+                30.0,
+                FluidCollisionMode.ALWAYS
+            )?.hitPosition?.blockY
+                ?: (location.y - 30.0).toInt()
+        }
+
+        fun processHeightDifference(blockY: Int, targetY: Int) {
+            val minY = minOf(blockY, targetY)
+            val maxY = maxOf(blockY, targetY)
+            for (y in minY..maxY) {
+                processBlock(Vector3i(location.x, y, location.z), normalizedExplosionPower, direction)
+            }
+        }
+
+        val nextLocation =
+            Location(world, (baseX + direction.x).toDouble(), baseY.toDouble(), (baseZ + direction.z).toDouble())
+        val prevLocation =
+            Location(world, (baseX - direction.x).toDouble(), baseY.toDouble(), (baseZ - direction.z).toDouble())
+        val leftLocation =
+            Location(world, (baseX - direction.z).toDouble(), baseY.toDouble(), (baseZ + direction.x).toDouble())
+        val rightLocation =
+            Location(world, (baseX + direction.z).toDouble(), baseY.toDouble(), (baseZ - direction.x).toDouble())
+
+        val previousBlockMaxY = rayTraceHeight(prevLocation)
+        val nextBlockMaxY = rayTraceHeight(nextLocation)
+        val leftBlockMaxY = rayTraceHeight(leftLocation)
+        val rightBlockMaxY = rayTraceHeight(rightLocation)
+
+        processBlock(location, normalizedExplosionPower, direction)
+
+        val heightDiffBefore = abs(baseY - previousBlockMaxY)
+        if (heightDiffBefore > 0) {
+            processHeightDifference(baseY, previousBlockMaxY)
+        }
+
+        val heightDiffAfter = abs(baseY - nextBlockMaxY)
+        if (heightDiffAfter > 0) {
+            processHeightDifference(baseY, nextBlockMaxY)
+        }
+
+        val heightDiffLeft = abs(baseY - leftBlockMaxY)
+        if (heightDiffLeft > 0) {
+            processHeightDifference(baseY, leftBlockMaxY)
+        }
+
+        val heightDiffRight = abs(baseY - rightBlockMaxY)
+        if (heightDiffRight > 0) {
+            processHeightDifference(baseY, rightBlockMaxY)
+        }
+    }
+
+
+    private fun processBlock(
+        blockLocation: Vector3i,
+        normalizedExplosionPower: Double,
+        shockwaveDirection: Vector3f
+    ): Boolean {
+        val block = world.getBlockAt(blockLocation.x, blockLocation.y, blockLocation.z)
+        val blockType = block.type
+
+        // Skip processing for AIR, blacklisted, or liquid materials
+        if (blockType == Material.AIR || blockType in BLOCK_TRANSFORMATION_BLACKLIST || blockType in LIQUID_MATERIALS) return false
+
+        // If the block is part of a tree, process burning
+        if (blockType.name.endsWith("_LOG") || blockType.name.endsWith("_LEAVES")) {
+            processTreeBurn(blockLocation, normalizedExplosionPower, shockwaveDirection)
+            return false
+        }
+        if (block.getMetadata("processedByTreeBurn").isNotEmpty())
+            return false
+        // Apply custom transformation
+        val newMaterial = customTransformation(blockType, normalizedExplosionPower)
+        blockChanger.addBlockChange(block, newMaterial, true)
+
+        return true
+    }
+
     private fun generateShockwaveColumns(radius: Int): List<Vector3i> {
         val ringElements = calculateCircle(radius)
-
-        var previousHeight: Int? = null
-        val previousPosition = Vector3i(0, 0, 0)
-
-        val wallPoints = mutableListOf<Vector3i>()
-
         // Process each point and interpolate walls
         for (pos in ringElements) {
             val highestY = chunkCache.highestBlockYAt(pos.x, pos.z)
             pos.y = highestY + 1
-
-            if (previousHeight == null) {
-                previousHeight = highestY
-                previousPosition.set(pos.x, highestY, pos.z)
-                continue
-            }
-
-            val heightDiff = abs(previousHeight - highestY)
-
-            if (heightDiff > 0) {
-                // Include all wall points between previousHeight and highestY
-                val minY = minOf(previousHeight, highestY)
-                val maxY = maxOf(previousHeight, highestY)
-
-                for (y in minY..maxY) {
-                    wallPoints.add(Vector3i(pos.x, y, pos.z))
-                }
-            }
-
-            previousHeight = highestY
-            previousPosition.set(pos.x, highestY, pos.z)
         }
-
         return ringElements
     }
 
     private fun calculateCircle(radius: Int): MutableList<Vector3i> {
-        val offsets = mutableListOf<Vector3i>()
-        val centerX = center.blockX
-        val centerZ = center.blockZ
+        val density = 4
+        val steps = (2 * Math.PI * radius).toInt() * density
+        val angleIncrement = 2 * Math.PI / steps
 
-        val steps = (2 * Math.PI * radius).toInt() * 4 // Adjust multiplier for smoothness
-
-        for (i in 0 until steps) {
-            val angle = 2 * Math.PI * i / steps
-            val x = round(centerX + radius * cos(angle)).toInt()
-            val z = round(centerZ + radius * sin(angle)).toInt()
-
-            val point = Vector3i(x, 0, z)
-            if (!offsets.contains(point)) {
-                offsets.add(point)
-            }
+        return MutableList(steps) { i ->
+            val angle = angleIncrement * i
+            val x = round(center.blockX + radius * cos(angle)).toInt()
+            val z = round(center.blockZ + radius * sin(angle)).toInt()
+            Vector3i(x, 0, z)
         }
-
-        return offsets
     }
 }
 
+class ChunkCache private constructor(
+    private val world: World,
+    private val maxAccessCount: Int = 20
+) {
+    companion object {
+        private val sharedChunkCache = ConcurrentHashMap<Pair<Int, Int>, ChunkSnapshot>()
 
-class ChunkCache(private val world: World) {
-    private val chunkSnapshots = mutableMapOf<Pair<Int, Int>, ChunkSnapshot>()
-    private val accessCounts = mutableMapOf<Pair<Int, Int>, Int>()
-    private val maxAccessCount = 20 // Define the access limit before cleanup
+        fun getInstance(world: World, maxAccessCount: Int = 20): ChunkCache {
+            return ChunkCache(world, maxAccessCount)
+        }
+    }
+
+    private val localCache = object : LinkedHashMap<Pair<Int, Int>, ChunkSnapshot>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<Int, Int>, ChunkSnapshot>): Boolean {
+            if (size > maxAccessCount) {
+                sharedChunkCache[eldest.key] = eldest.value // Push evicted entries to the shared cache
+                return true
+            }
+            return false
+        }
+    }
 
     private fun getChunkSnapshot(x: Int, z: Int): ChunkSnapshot {
         val chunkX = x shr 4
         val chunkZ = z shr 4
         val key = chunkX to chunkZ
 
-        accessCounts[key] = accessCounts.getOrDefault(key, 0) + 1
-        cleanupUnusedChunks()
-
-        return chunkSnapshots.getOrPut(key) {
-            world.getChunkAt(chunkX, chunkZ).chunkSnapshot
-        }
-    }
-
-    private fun cleanupUnusedChunks() {
-        val iterator = accessCounts.iterator()
-        while (iterator.hasNext()) {
-            val (key, count) = iterator.next()
-            if (count > maxAccessCount) {
-                chunkSnapshots.remove(key)
-                iterator.remove()
+        // Check shared cache first
+        return localCache.getOrPut(key) {
+            sharedChunkCache[key] ?: world.getChunkAt(chunkX, chunkZ).chunkSnapshot.also {
+                sharedChunkCache[key] = it
             }
         }
     }
@@ -523,5 +531,19 @@ class ChunkCache(private val world: World) {
     fun getBlockMaterial(x: Int, y: Int, z: Int): Material {
         return getChunkSnapshot(x, z).getBlockType(x and 15, y, z and 15)
     }
-}
 
+    // Optionally preload nearby chunks for synchronization
+    fun preloadChunks(centerX: Int, centerZ: Int, radius: Int) {
+        val range = -radius..radius
+        for (dx in range) {
+            for (dz in range) {
+                val chunkX = (centerX + dx) shr 4
+                val chunkZ = (centerZ + dz) shr 4
+                val key = chunkX to chunkZ
+                sharedChunkCache.computeIfAbsent(key) {
+                    world.getChunkAt(chunkX, chunkZ).chunkSnapshot
+                }
+            }
+        }
+    }
+}

@@ -23,19 +23,20 @@ import me.mochibit.defcon.threading.scheduling.intervalWithTask
 import org.bukkit.Material
 import org.bukkit.block.Block
 import org.bukkit.block.data.*
+import org.bukkit.metadata.MetadataValue
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
 class BlockChanger {
-    data class BlockChange(val block: Block, val newMaterial: Material, val copyBlockData: Boolean)
+    data class BlockChange(val block: Block, val newMaterial: Material, val copyBlockData: Boolean, val metadataKey: String? = null, val metadataValue: MetadataValue? = null)
 
     // Concurrent non-blocking queue
     private val queue: Queue<BlockChange> = ConcurrentLinkedQueue()
 
     private var running = false
 
-    fun addBlockChange(block: Block, newMaterial: Material, copyBlockData: Boolean = false) {
-        queue.add(BlockChange(block, newMaterial, copyBlockData))
+    fun addBlockChange(block: Block, newMaterial: Material, copyBlockData: Boolean = false, metadataKey: String? = null, metadataValue: MetadataValue? = null) {
+        queue.add(BlockChange(block, newMaterial, copyBlockData, metadataKey, metadataValue))
     }
 
     fun start() {
@@ -102,6 +103,10 @@ class BlockChanger {
             block.blockData = newBlockData
         } else {
             block.type = blockChange.newMaterial
+        }
+
+        if (blockChange.metadataKey != null && blockChange.metadataValue != null) {
+            block.setMetadata(blockChange.metadataKey, blockChange.metadataValue)
         }
     }
 
