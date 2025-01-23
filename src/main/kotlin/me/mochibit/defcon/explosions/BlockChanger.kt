@@ -27,21 +27,33 @@ import org.bukkit.metadata.MetadataValue
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
-class BlockChanger {
-    data class BlockChange(val block: Block, val newMaterial: Material, val copyBlockData: Boolean, val metadataKey: String? = null, val metadataValue: MetadataValue? = null)
+object BlockChanger {
+    data class BlockChange(
+        val block: Block,
+        val newMaterial: Material,
+        val copyBlockData: Boolean,
+        val metadataKey: String? = null,
+        val metadataValue: MetadataValue? = null
+    )
 
-    // Concurrent non-blocking queue
     private val queue: Queue<BlockChange> = ConcurrentLinkedQueue()
-
     private var running = false
 
-    fun addBlockChange(block: Block, newMaterial: Material, copyBlockData: Boolean = false, metadataKey: String? = null, metadataValue: MetadataValue? = null) {
+    fun addBlockChange(
+        block: Block,
+        newMaterial: Material,
+        copyBlockData: Boolean = false,
+        metadataKey: String? = null,
+        metadataValue: MetadataValue? = null
+    ) {
+        if (!running) start()
         queue.add(BlockChange(block, newMaterial, copyBlockData, metadataKey, metadataValue))
     }
 
     fun start() {
         if (running) return
         running = true
+
         intervalWithTask(1L, 0) { task ->
             var processedCount = 0
 
@@ -53,13 +65,9 @@ class BlockChanger {
                 }
             }
 
-            if (!running)
-                task.cancel()
+            task.cancel()
+            running = false
         }
-    }
-
-    fun stop() {
-        running = false
     }
 
     private fun applyBlockChange(blockChange: BlockChange) {
