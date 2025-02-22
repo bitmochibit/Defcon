@@ -1,18 +1,19 @@
 package me.mochibit.defcon.explosions
 
+import me.mochibit.defcon.extensions.toVector3i
 import me.mochibit.defcon.threading.scheduling.runLater
 import me.mochibit.defcon.utils.MathFunctions
 import me.mochibit.defcon.utils.MathFunctions.remap
 import org.bukkit.*
+import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
 import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
-import org.joml.Vector3f
 import org.joml.Vector3i
 import java.lang.ref.SoftReference
-import java.lang.ref.WeakReference
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.atomic.AtomicBoolean
@@ -29,29 +30,27 @@ class Shockwave(
     private val shockwaveSpeed: Long = 300L,
     private val transformationRule: TransformationRule = TransformationRule()
 ) {
-
     private val maximumDistanceForAction = 4.0
     private val maxDestructionPower = 5.0
     private val minDestructionPower = 2.0
 
     private val world = center.world
-    private val explosionColumns: ConcurrentLinkedQueue<Pair<Double, List<Vector3i>>> = ConcurrentLinkedQueue()
 
     private val executorService = ForkJoinPool.commonPool()
 
     private val completedExplosion = AtomicBoolean(false)
+    private val destructionQueue = ConcurrentLinkedQueue<Pair<List<Vector3i>, Double>>()
 
-    private val treeBurner = TreeBurner(world, 100, transformationRule)
+
+    private val treeBurner = TreeBurner(world, center.toVector3i(), 200, transformationRule)
     private val chunkCache = ChunkCache.getInstance(world)
 
     fun explode() {
-        startExplosionProcessor()
-
         val startTime = System.nanoTime()
         executorService.submit {
             var lastProcessedRadius = shockwaveRadiusStart
 
-            val visitedEntities: MutableSet<Entity> = mutableSetOf()
+            val visitedEntities: MutableSet<Entity> = ConcurrentHashMap.newKeySet()
 
             while (lastProcessedRadius <= shockwaveRadius) {
                 // Calculate elapsed time in seconds
@@ -67,69 +66,90 @@ class Shockwave(
                 }
 
                 // Process new radii
-                (lastProcessedRadius + 1..currentRadius).forEach { radius ->
+                for (radius in lastProcessedRadius + 1..currentRadius) {
                     val explosionPower = MathFunctions.lerp(
                         maxDestructionPower,
                         minDestructionPower,
                         radius / shockwaveRadius.toDouble()
                     )
-                    val columns = generateShockwaveColumns(radius)
-                    explosionColumns.add(explosionPower to columns)
-                    for (location in columns) {
-                        world.spawnParticle(
-                            Particle.EXPLOSION_LARGE,
-                            location.x.toDouble(),
-                            location.y.toDouble(),
-                            location.z.toDouble(), 0
-                        )
-                        runLater(1L) {
-                            val locRef = WeakReference(
-                                Location(
-                                    world,
-                                    location.x.toDouble(),
-                                    location.y.toDouble(),
-                                    location.z.toDouble()
-                                )
-                            )
-                            val locationCursor = locRef.get() ?: return@runLater
-                            val entities = world.getNearbyEntities(
-                                locationCursor, 5.0,
-                                (shockwaveHeight / 2).toDouble(), 5.0
-                            )
-                            {
-                                it !in visitedEntities &&
-                                        it.y in locationCursor.y - maximumDistanceForAction..(locationCursor.y + shockwaveHeight + maximumDistanceForAction)
-                            }
+                    val normalizedExplosionPower =
+                        remap(explosionPower, minDestructionPower, maxDestructionPower, 0.0, 1.0)
 
-                            if (entities.isEmpty()) return@runLater
-                            // Check if the entity is within range and height bounds
-                            for (entity in entities) {
-                                applyExplosionEffects(entity, explosionPower.toFloat())
-                                visitedEntities.add(entity)
-                            }
-                        }
-                    }
+                    val columns = generateShockwaveColumns(radius)
+                    destructionQueue.add(columns to normalizedExplosionPower)
+                    processEntityDamage(columns, normalizedExplosionPower, visitedEntities)
+                }
+
+                if (visitedEntities.size > 100) {
+                    visitedEntities.clear()
                 }
 
                 lastProcessedRadius = currentRadius
             }
             completedExplosion.set(true)
+            executorService.shutdown()
+        }
+        executorService.submit {
+            while (!completedExplosion.get() || destructionQueue.isNotEmpty()) {
+                val explosionData = destructionQueue.poll() ?: continue
+                processDestruction(explosionData.first, explosionData.second)
+            }
+        }
+    }
+
+    private fun processEntityDamage(
+        columns: List<Vector3i>,
+        explosionPower: Double,
+        visitedEntities: MutableSet<Entity>
+    ) {
+        if (columns.isEmpty()) return
+
+        for (column in columns) {
+            world.spawnParticle(
+                Particle.EXPLOSION_LARGE,
+                column.x.toDouble(),
+                (column.y + 1).toDouble(),
+                column.z.toDouble(), 0
+            )
+        }
+
+        val locationCursor = Location(world, 0.0, 0.0, 0.0)
+        runLater(1L) {
+            for (column in columns) {
+                locationCursor.set(
+                    column.x.toDouble(),
+                    column.y.toDouble(),
+                    column.z.toDouble()
+                )
+
+                val entities = world.getNearbyEntities(
+                    locationCursor, 1.0,
+                    (shockwaveHeight / 2).toDouble(), 1.0
+                )
+                {
+                    it !in visitedEntities &&
+                            it.y in locationCursor.y - maximumDistanceForAction..(locationCursor.y + shockwaveHeight + maximumDistanceForAction)
+                }
+
+                if (entities.isEmpty()) continue
+                // Check if the entity is within range and height bounds
+                for (entity in entities) {
+                    applyExplosionEffects(entity, explosionPower.toFloat())
+                    visitedEntities.add(entity)
+                }
+            }
         }
     }
 
     private fun applyExplosionEffects(entity: Entity, explosionPower: Float) {
         val knockback =
             Vector(entity.x - center.x, entity.y - center.y, entity.z - center.z)
-                .normalize().multiply(explosionPower * 2.0)
-        runLater(1L) {
-            entity.velocity = knockback
-        }
+                .normalize().multiply(explosionPower * 30.0)
+        entity.velocity = knockback
 
         if (entity !is LivingEntity) return
 
-        runLater(1L) {
-            entity.damage(explosionPower * 4.0)
-        }
+        entity.damage(explosionPower * 15.0)
         if (entity !is Player) return
 
         val inv = 2 / explosionPower
@@ -141,107 +161,86 @@ class Shockwave(
 
     }
 
-    private fun startExplosionProcessor() {
-        executorService.submit {
-            while (explosionColumns.isNotEmpty() || !completedExplosion.get()) {
-                val rColumns = explosionColumns.poll() ?: continue
-                val (explosionPower, locations) = rColumns
+    private fun processDestruction(locations: List<Vector3i>, explosionPower: Double) {
+        val treeBlocks = ConcurrentLinkedQueue<Block>()
+        val nonTreeBlocks = ConcurrentLinkedQueue<Block>()
 
-                locations.parallelStream().forEach { location ->
-                    simulateExplosion(location, explosionPower)
-                }
-
+        locations.parallelStream().forEach { location ->
+            val block = world.getBlockAt(location.x, location.y, location.z)
+            val blockType = block.type
+            if (blockType.name.endsWith("_LOG") || blockType.name.endsWith("_LEAVES")) {
+                treeBlocks.add(block)
+            } else {
+                nonTreeBlocks.add(block)
             }
+        }
+
+        for (treeBlock in treeBlocks) {
+            treeBurner.processTreeBurn(treeBlock, explosionPower)
+        }
+
+        nonTreeBlocks.parallelStream().forEach { block ->
+            simulateExplosion(block.location.toVector3i(), explosionPower)
         }
     }
 
-    private fun simulateExplosion(location: Vector3i, explosionPower: Double) {
+    private val directionsToInterp = arrayOf(
+        Vector3i(1, 0, 0), Vector3i(-1, 0, 0),
+        Vector3i(0, 0, 1), Vector3i(0, 0, -1)
+    )
+
+    fun rayTrace(location: Vector3i, maxDistance: Double): Int {
+        val loc = Location(world, location.x.toDouble(), location.y.toDouble(), location.z.toDouble())
+        return world.rayTraceBlocks(
+            loc,
+            Vector(0.0, -1.0, 0.0),
+            maxDistance,
+            FluidCollisionMode.ALWAYS
+        )?.hitPosition?.blockY
+            ?: (location.y - maxDistance).toInt()
+    }
+
+    private fun simulateExplosion(location: Vector3i, normalizedExplosionPower: Double) {
         val baseX = location.x
         val baseY = location.y
         val baseZ = location.z
 
-        val direction = Vector3f(
-            (baseX - center.x).toFloat(),
-            (baseY - center.y).toFloat(),
-            (baseZ - center.z).toFloat()
-        ).normalize()
+        if (!processBlock(location, normalizedExplosionPower)) return
 
-        val normalizedExplosionPower = remap(explosionPower, minDestructionPower, maxDestructionPower, 0.0, 1.0)
+        // Define the four cardinal directions for checking walls
+        val directionsToCheck = listOf(
+            Vector3i(1, 0, 0),  // East
+            Vector3i(-1, 0, 0), // West
+            Vector3i(0, 0, 1),  // South
+            Vector3i(0, 0, -1)  // North
+        )
 
-        fun rayTraceHeight(loc: Location): Int {
-            return world.rayTraceBlocks(
-                loc,
-                Vector(0.0, -1.0, 0.0),
-                30.0,
-                FluidCollisionMode.ALWAYS
-            )?.hitPosition?.blockY
-                ?: (location.y - 30.0).toInt()
-        }
+        for (dir in directionsToCheck) {
+            val adjacentLocation = location.add(dir)
+            val wallTopY = rayTrace(adjacentLocation, 30.0)
 
-        fun processHeightDifference(blockY: Int, targetY: Int) {
-            val minY = minOf(blockY, targetY)
-            val maxY = maxOf(blockY, targetY)
-            for (y in minY..maxY) {
-                processBlock(Vector3i(location.x, y, location.z), normalizedExplosionPower, direction)
+            if (abs(wallTopY - baseY) > 1) {
+                // There's a wall, process blocks from wall down to base
+                for (y in baseY downTo wallTopY) {
+                    val blockToProcess = Vector3i(baseX, y, baseZ)
+                    processBlock(blockToProcess, normalizedExplosionPower)
+                }
             }
-        }
-
-        val nextLocation =
-            Location(world, (baseX + direction.x).toDouble(), baseY.toDouble(), (baseZ + direction.z).toDouble())
-        val prevLocation =
-            Location(world, (baseX - direction.x).toDouble(), baseY.toDouble(), (baseZ - direction.z).toDouble())
-        val leftLocation =
-            Location(world, (baseX - direction.z).toDouble(), baseY.toDouble(), (baseZ + direction.x).toDouble())
-        val rightLocation =
-            Location(world, (baseX + direction.z).toDouble(), baseY.toDouble(), (baseZ - direction.x).toDouble())
-
-        if (!processBlock(location, normalizedExplosionPower, direction)) return
-
-        val previousBlockMaxY = rayTraceHeight(prevLocation)
-        val nextBlockMaxY = rayTraceHeight(nextLocation)
-        val leftBlockMaxY = rayTraceHeight(leftLocation)
-        val rightBlockMaxY = rayTraceHeight(rightLocation)
-
-
-        val heightDiffBefore = abs(baseY - previousBlockMaxY)
-        if (heightDiffBefore > 0) {
-            processHeightDifference(baseY, previousBlockMaxY)
-        }
-
-        val heightDiffAfter = abs(baseY - nextBlockMaxY)
-        if (heightDiffAfter > 0) {
-            processHeightDifference(baseY, nextBlockMaxY)
-        }
-
-        val heightDiffLeft = abs(baseY - leftBlockMaxY)
-        if (heightDiffLeft > 0) {
-            processHeightDifference(baseY, leftBlockMaxY)
-        }
-
-        val heightDiffRight = abs(baseY - rightBlockMaxY)
-        if (heightDiffRight > 0) {
-            processHeightDifference(baseY, rightBlockMaxY)
+            location.sub(dir)
         }
     }
+
+
 
     private fun processBlock(
         blockLocation: Vector3i,
         normalizedExplosionPower: Double,
-        shockwaveDirection: Vector3f
     ): Boolean {
         val block = world.getBlockAt(blockLocation.x, blockLocation.y, blockLocation.z)
         val blockType = block.type
 
         // Skip processing for AIR, blacklisted, or liquid materials
         if (blockType == Material.AIR || blockType in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST || blockType in TransformationRule.LIQUID_MATERIALS) return false
-
-        if (block.getMetadata("processedByTreeBurn").isNotEmpty())
-            return false
-
-        if (blockType.name.endsWith("_LOG") || blockType.name.endsWith("_LEAVES")) {
-            treeBurner.processTreeBurn(block, normalizedExplosionPower, shockwaveDirection)
-            return false
-        }
 
         // Apply custom transformation
         val newMaterial = transformationRule.customTransformation(blockType, normalizedExplosionPower)

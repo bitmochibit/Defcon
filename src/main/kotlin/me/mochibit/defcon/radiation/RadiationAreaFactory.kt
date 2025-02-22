@@ -22,77 +22,58 @@ package me.mochibit.defcon.radiation
 import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.enums.BlockDataKey
 import me.mochibit.defcon.extensions.toChunkCoordinate
-import me.mochibit.defcon.extensions.toVector3
-import me.mochibit.defcon.math.Vector3
 import me.mochibit.defcon.save.savedata.RadiationAreaSave
 import me.mochibit.defcon.utils.FloodFill3D
 import me.mochibit.defcon.utils.MetaManager
-import org.bukkit.Bukkit
 import org.bukkit.Location
+import org.bukkit.World
+import org.joml.Vector3i
 import java.util.concurrent.CompletableFuture
 
 object RadiationAreaFactory {
     fun fromCenter(
-        center: Location,
+        center: Vector3i,
+        world: World,
         radLevel: Double = 1.0,
         maxFloodBlocks: Int = 20000,
-        maxUpperVertexRadius: Vector3 = Vector3(20000.0, 150.0, 20000.0),
-        maxLowerVertexRadius: Vector3 = Vector3(-20000.0, -10.0, -20000.0)
+        maxUpperVertexRadius: Vector3i = Vector3i(20000, 150, 20000),
+        maxLowerVertexRadius: Vector3i = Vector3i(-20000, -10, -20000)
     ): CompletableFuture<RadiationArea> {
-        return generate(center, radLevel, maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius)
-    }
-
-    fun fromCenter(
-        center: Vector3,
-        worldName: String,
-        radLevel: Double = 1.0,
-        maxFloodBlocks: Int = 20000,
-        maxUpperVertexRadius: Vector3 = Vector3(20000.0, 150.0, 20000.0),
-        maxLowerVertexRadius: Vector3 = Vector3(-20000.0, -10.0, -20000.0)
-    ): CompletableFuture<RadiationArea> {
-        val world = Bukkit.getWorld(worldName)
-        if (world == null) {
-            info("World $worldName not found")
-            return CompletableFuture.completedFuture(null)
-        }
-        return fromCenter(
-            center.toLocation(world),
-            radLevel,
-            maxFloodBlocks,
-            maxUpperVertexRadius,
-            maxLowerVertexRadius
-        )
+        return generate(center, world, radLevel, maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius)
     }
 
     private fun generate(
-        center: Location,
+        center: Vector3i,
+        world: World,
         radLevel: Double = 1.0,
         maxFloodBlocks: Int,
-        maxVertexRadius: Vector3,
-        minVertexRadius: Vector3
+        maxVertexRadius: Vector3i,
+        minVertexRadius: Vector3i
     ): CompletableFuture<RadiationArea> {
         return CompletableFuture.supplyAsync result@{
             var radiationArea: RadiationArea? = null
-            var minVertex: Vector3? = null;
-            var maxVertex: Vector3? = null;
+            var minVertex: Vector3i? = null;
+            var maxVertex: Vector3i? = null;
 
-            val locations = FloodFill3D.getFloodFillAsync(center, maxFloodBlocks + 1, true).join();
-            val affectedChunkCoordinates = HashSet<Vector3>()
+            val centerLocation = Location(world, center.x.toDouble(), center.y.toDouble(), center.z.toDouble())
+
+            val locations = FloodFill3D.getFloodFillAsync(centerLocation, maxFloodBlocks + 1, true).join();
+            val affectedChunkCoordinates = HashSet<Vector3i>()
 
             if (locations.size > maxFloodBlocks) {
-                minVertex = Vector3(
+                minVertex = Vector3i(
                     (center.x + minVertexRadius.x),
                     (center.y + minVertexRadius.y),
                     (center.z + minVertexRadius.z)
                 )
-                maxVertex = Vector3(
+                maxVertex = Vector3i(
                     (center.x + maxVertexRadius.x),
                     (center.y + maxVertexRadius.y),
                     (center.z + maxVertexRadius.z)
                 )
 
-                affectedChunkCoordinates.add(minVertex.toLocation(center.world).toChunkCoordinate())
-                affectedChunkCoordinates.add(maxVertex.toLocation(center.world).toChunkCoordinate())
+                affectedChunkCoordinates.add(minVertex.toChunkCoordinate())
+                affectedChunkCoordinates.add(maxVertex.toChunkCoordinate())
             } else {
                 for (location in locations) {
                     affectedChunkCoordinates.add(location.toChunkCoordinate())
@@ -100,14 +81,14 @@ object RadiationAreaFactory {
             }
             //TODO: Probably needs a refactor
             radiationArea = RadiationArea(
-                center = center.toVector3(),
-                worldName = center.world.name,
+                center = center,
+                world = world,
                 minVertex = minVertex,
                 maxVertex = maxVertex,
                 affectedChunkCoordinates = affectedChunkCoordinates,
                 radiationLevel = radLevel
             )
-            val indexedRA = RadiationAreaSave.getSave(center.world).addRadiationArea(radiationArea)
+            val indexedRA = RadiationAreaSave.getSave(world).addRadiationArea(radiationArea)
 
             if (locations.size < maxFloodBlocks) {
                 for (location in locations) {
@@ -122,10 +103,12 @@ object RadiationAreaFactory {
 
     fun expand(radiationArea: RadiationArea, maxFloodBlocks: Int = 20000): CompletableFuture<RadiationArea?> {
         return CompletableFuture.supplyAsync result@{
-            val world = Bukkit.getWorld(radiationArea.worldName) ?: return@result null
+            val world = radiationArea.world
 
-            val locations = FloodFill3D.getFloodFillAsync(radiationArea.center.toLocation(world), maxFloodBlocks, true).join();
-            val affectedChunkCoordinates = HashSet<Vector3>()
+            val centerLoc = Location(world, radiationArea.center.x.toDouble(), radiationArea.center.y.toDouble(), radiationArea.center.z.toDouble())
+
+            val locations = FloodFill3D.getFloodFillAsync(centerLoc, maxFloodBlocks, true).join();
+            val affectedChunkCoordinates = HashSet<Vector3i>()
 
             for (location in locations) {
                 affectedChunkCoordinates.add(location.toChunkCoordinate())

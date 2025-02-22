@@ -127,7 +127,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 //
 //        }, 0, 20)
 //
-        val shockwaveRadius = nuclearComponent.blastPower * 600
+        val shockwaveRadius = nuclearComponent.blastPower * 300
         val shockwaveHeight = nuclearComponent.blastPower * 100 * 2
 
         val falloutRadius = shockwaveRadius / 16

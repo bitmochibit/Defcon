@@ -19,24 +19,24 @@
 
 package me.mochibit.defcon.utils
 
-import me.mochibit.defcon.math.Vector3
 import me.mochibit.defcon.registers.BlockRegister
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.block.Block
+import org.joml.Vector3i
 import java.util.*
 import java.util.concurrent.CompletableFuture
 
 
 object FloodFill3D {
 
-    private enum class Direction(val vec: Vector3) {
-        UP(Vector3(0.0, 1.0, 0.0)),
-        DOWN(Vector3(0.0, -1.0, 0.0)),
-        NORTH(Vector3(0.0, 0.0, -1.0)),
-        SOUTH(Vector3(0.0, 0.0, 1.0)),
-        EAST(Vector3(1.0, 0.0, 0.0)),
-        WEST(Vector3(-1.0, 0.0, 0.0))
+    private enum class Direction(val vec: Vector3i) {
+        UP(Vector3i(0, 1, 0)),
+        DOWN(Vector3i(0, -1, 0)),
+        NORTH(Vector3i(0, 0, -1)),
+        SOUTH(Vector3i(0, 0, 1)),
+        EAST(Vector3i(1, 0, 0)),
+        WEST(Vector3i(-1, 0, 0))
     }
 
 
@@ -94,9 +94,8 @@ object FloodFill3D {
             if (customBlockOnly && !isCustomBlock(currentPos)) continue
             positions.add(currentPos)
 
-            val pos = Vector3(currentPos.x, currentPos.y, currentPos.z)
             for (direction in Direction.entries) {
-                val nextPos = (pos + direction.vec).toLocation(currentPos.world)
+                val nextPos = Location(currentPos.world, currentPos.x + direction.vec.x, currentPos.y + direction.vec.y, currentPos.z + direction.vec.z)
 
                 if (nonSolidOnly && nextPos.block.type.isSolid) continue
                 if (customBlockOnly && !isCustomBlock(nextPos)) continue

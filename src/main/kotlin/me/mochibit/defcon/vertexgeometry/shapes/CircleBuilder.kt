@@ -19,7 +19,6 @@
 
 package me.mochibit.defcon.vertexgeometry.shapes
 
-import me.mochibit.defcon.math.Vector3
 import me.mochibit.defcon.utils.MathFunctions
 import me.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import me.mochibit.defcon.vertexgeometry.VertexShapeBuilder

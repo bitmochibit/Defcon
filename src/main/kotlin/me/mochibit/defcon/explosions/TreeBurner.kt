@@ -20,19 +20,19 @@
 package me.mochibit.defcon.explosions
 
 import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.extensions.toVector3f
+import me.mochibit.defcon.extensions.toVector3i
 import me.mochibit.defcon.utils.FloodFill3D.getFloodFillBlock
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.block.Block
 import org.bukkit.metadata.FixedMetadataValue
-import org.joml.Vector3f
 import org.joml.Vector3i
-import kotlin.random.Random
 
-class TreeBurner(val world: World, private val maxTreeBlocks: Int = 500, private val transformationRule: TransformationRule) {
+class TreeBurner(val world: World, private val center: Vector3i,  private val maxTreeBlocks: Int = 500, private val transformationRule: TransformationRule) {
 
-    fun processTreeBurn(initialBlock: Block, normalizedExplosionPower: Double, shockwaveDirection: Vector3f) {
+    fun processTreeBurn(initialBlock: Block, normalizedExplosionPower: Double) {
         val leafSuffix = "_LEAVES"
         val logSuffix = "_LOG"
         val terrainTypes = setOf(Material.GRASS_BLOCK, Material.DIRT, Material.PODZOL)
@@ -72,6 +72,9 @@ class TreeBurner(val world: World, private val maxTreeBlocks: Int = 500, private
 
         // Process logs with consistent tilt from base to top
         categorizedBlocks["LOG"]?.let { logBlocks ->
+            val shockwaveDirection = initialBlock.location.subtract(center.x.toDouble(), center.y.toDouble(), center.z.toDouble()).toVector3f().normalize()
+
+
             val treeMinHeight = logBlocks.minOf { it.y }
             val treeMaxHeight = logBlocks.maxOf { it.y }
             val heightRange = treeMaxHeight - treeMinHeight

@@ -25,6 +25,7 @@ import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.Location
 import org.bukkit.entity.Player
+import org.joml.Vector3i
 
 @CommandInfo(name = "ncirradiatezone", permission = "defcon.admin", requiresPlayer = true)
 class IrradiateZone : GenericCommand() {
@@ -57,7 +58,8 @@ class IrradiateZone : GenericCommand() {
 
         Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
             RadiationAreaFactory.fromCenter(
-                Location(player.world, x.toDouble(), y.toDouble(), z.toDouble()),
+                Vector3i(x, y, z),
+                player.world,
                 radLevel = radLevel,
                 radius
             ).join();

@@ -20,8 +20,7 @@
 package me.mochibit.defcon.listeners.world
 
 import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.Defcon.Companion.Logger.info
-import me.mochibit.defcon.math.Vector3
+import me.mochibit.defcon.extensions.toChunkCoordinate
 import me.mochibit.defcon.radiation.RadiationArea
 import me.mochibit.defcon.save.savedata.RadiationAreaSave
 import org.bukkit.Bukkit
@@ -41,17 +40,12 @@ class RadiationAreaLoad: Listener {
                 if (radiationArea.affectedChunkCoordinates.isEmpty()) continue
                 if (radiationArea.minVertex == null || radiationArea.maxVertex == null) continue
 
-                val minVertexLocation = Location(getServer().getWorld(radiationArea.worldName),
-                    radiationArea.minVertex.x, radiationArea.minVertex.y, radiationArea.minVertex.z
-                )
-                val maxVertexLocation = Location(getServer().getWorld(radiationArea.worldName),
-                    radiationArea.maxVertex.x, radiationArea.maxVertex.y, radiationArea.maxVertex.z
-                )
-
+                val minVertexChunk = radiationArea.minVertex.toChunkCoordinate()
+                val maxVertexChunk = radiationArea.maxVertex.toChunkCoordinate()
 
                 // Check if chunk is in between the min and max vertex chunk
-                if (minVertexLocation.chunk.x <= event.chunk.x && event.chunk.x <= maxVertexLocation.chunk.x &&
-                    minVertexLocation.chunk.z <= event.chunk.z && event.chunk.z <= maxVertexLocation.chunk.z) {
+                if (minVertexChunk.x <= event.chunk.x && event.chunk.x <= maxVertexChunk.x &&
+                    minVertexChunk.z <= event.chunk.z && event.chunk.z <= maxVertexChunk.z) {
                     RadiationArea.loadedRadiationAreas[radiationArea.id] = radiationArea
                 }
             }

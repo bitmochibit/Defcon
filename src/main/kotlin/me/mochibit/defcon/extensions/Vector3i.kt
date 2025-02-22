@@ -1,7 +1,7 @@
 /*
  *
  * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
+ * Copyright (c) 2025 mochibit.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -17,8 +17,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.math
+package me.mochibit.defcon.extensions
 
-class Quaternion {
+import org.joml.Vector3i
 
+fun Vector3i.toChunkCoordinate(): Vector3i {
+    // Convert world coordinates to chunk coordinates
+    return Vector3i((x shr 4), 0, (z shr 4))
+}
+
+fun Vector3i.toLocalChunkCoordinate(): Vector3i {
+    // Convert world coordinates to local chunk coordinates (0-15 range)
+    return Vector3i((x and 15), y, (z and 15))
 }

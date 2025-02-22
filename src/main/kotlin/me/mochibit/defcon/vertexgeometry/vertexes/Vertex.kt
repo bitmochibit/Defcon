@@ -19,9 +19,6 @@
 
 package me.mochibit.defcon.vertexgeometry.vertexes
 
-import me.mochibit.defcon.math.Vector3
-import org.bukkit.Location
 import org.joml.Vector3d
-import org.joml.Vector3f
 
 open class Vertex(var point: Vector3d, var transformedPoint: Vector3d = Vector3d(point), var globalPosition : Vector3d = Vector3d(point))

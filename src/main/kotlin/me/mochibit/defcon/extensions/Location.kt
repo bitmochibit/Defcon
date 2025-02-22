@@ -20,15 +20,16 @@
 package me.mochibit.defcon.extensions
 
 import me.mochibit.defcon.enums.BlockDataKey
-import me.mochibit.defcon.math.Vector3
 import me.mochibit.defcon.utils.MathFunctions
 import me.mochibit.defcon.utils.MetaManager
 import org.bukkit.Location
 import org.joml.Vector3d
 import org.joml.Vector3f
+import org.joml.Vector3i
+import kotlin.math.roundToInt
 
-fun Location.toVector3(): Vector3 {
-    return Vector3(x, y, z)
+fun Location.toVector3i(): Vector3i {
+    return Vector3i(x.roundToInt(), y.roundToInt(), z.roundToInt())
 }
 
 fun Location.distanceSquared(other: Vector3f) : Double {
@@ -57,14 +58,14 @@ fun Location.lerp(other: Location, t: Double): Location {
     )
 }
 
-fun Location.toChunkCoordinate(): Vector3 {
+fun Location.toChunkCoordinate(): Vector3i {
     // Convert world coordinates to chunk coordinates
-    return Vector3((blockX shr 4).toDouble(), .0, (blockZ shr 4).toDouble())
+    return Vector3i((blockX shr 4), 0, (blockZ shr 4))
 }
 
-fun Location.toLocalChunkCoordinate(): Vector3 {
+fun Location.toLocalChunkCoordinate(): Vector3i{
     // Convert world coordinates to local chunk coordinates (0-15 range)
-    return Vector3((blockX and 15).toDouble(), blockY.toDouble(), (blockZ and 15).toDouble())
+    return Vector3i((blockX and 15), blockY, (blockZ and 15))
 }
 
 

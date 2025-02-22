@@ -32,22 +32,7 @@ class RadiationAreaExpand: Listener {
 
     @EventHandler
     fun onBlockBreak(event: BlockBreakEvent) {
-        // Check if the neighbor block has a radiation level
-        // If it has, expand the radiation area
-        return;
 
-        // Loop every direction and get the adjacent block
-        for (direction in BlockFace.entries) {
-            val adjacentBlock = event.block.getRelative(direction)
-            // Check if the block is a radioactive block
-
-            val areas = RadiationArea.getAtLocation(adjacentBlock.location);
-            if (areas.isEmpty()) continue
-
-            val firstArea = areas.first()
-            // Expand the radiation area
-            RadiationAreaFactory.fromCenter(adjacentBlock.location, )
-        }
     }
 
 }

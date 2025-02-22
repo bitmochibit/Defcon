@@ -21,17 +21,18 @@ package me.mochibit.defcon.radiation
 
 import com.google.gson.annotations.Expose
 import me.mochibit.defcon.extensions.getRadiationAreaId
-import me.mochibit.defcon.math.Vector3
 import me.mochibit.defcon.save.savedata.RadiationAreaSave
 import org.bukkit.Location
+import org.bukkit.World
+import org.joml.Vector3i
 import java.util.concurrent.ConcurrentHashMap
 
 data class RadiationArea(
-    val center : Vector3,
-    val worldName: String,
-    val minVertex: Vector3? = null,
-    val maxVertex: Vector3? = null,
-    val affectedChunkCoordinates: HashSet<Vector3> = HashSet(),
+    val center : Vector3i,
+    val world: World,
+    val minVertex: Vector3i? = null,
+    val maxVertex: Vector3i? = null,
+    val affectedChunkCoordinates: HashSet<Vector3i> = HashSet(),
     val radiationLevel: Double = 0.0,
     val id: Int = 0
 ) {
