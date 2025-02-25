@@ -15,10 +15,6 @@
     <properties>
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <kotlin.version>1.9.22</kotlin.version>
-        <kotlin.jvm.target>17</kotlin.jvm.target>
-        <kotlin.language.version>1.9</kotlin.language.version>
-        <kotlin.api.version>1.9</kotlin.api.version>
         <project.scm.id>github</project.scm.id>
     </properties>
     <url>http://rynotechblog.altervista.org/</url>
@@ -71,7 +67,7 @@
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
-                <version>${kotlin.version}</version>
+                <version>2.0.21</version>
                 <executions>
                     <execution>
                         <id>compile</id>
@@ -89,9 +85,9 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <jvmTarget>${kotlin.jvm.target}</jvmTarget>
-                    <apiVersion>${kotlin.api.version}</apiVersion>
-                    <languageVersion>${kotlin.language.version}</languageVersion>
+                    <jvmTarget>17</jvmTarget>
+                    <apiVersion>2.1</apiVersion>
+                    <languageVersion>2.1</languageVersion>
                 </configuration>
             </plugin>
             <plugin>
@@ -238,12 +234,12 @@
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-stdlib-jdk8</artifactId>
-            <version>${kotlin.version}</version>
+            <version>2.0.21</version>
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-test</artifactId>
-            <version>${kotlin.version}</version>
+            <version>2.0.21</version>
             <scope>test</scope>
         </dependency>
         <dependency>

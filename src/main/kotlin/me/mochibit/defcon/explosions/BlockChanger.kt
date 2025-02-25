@@ -33,7 +33,8 @@ object BlockChanger {
         val newMaterial: Material,
         val copyBlockData: Boolean,
         val metadataKey: String? = null,
-        val metadataValue: MetadataValue? = null
+        val metadataValue: MetadataValue? = null,
+        val blockData: BlockData? = null
     )
 
     private val queue: Queue<BlockChange> = ConcurrentLinkedQueue()
@@ -44,10 +45,11 @@ object BlockChanger {
         newMaterial: Material,
         copyBlockData: Boolean = false,
         metadataKey: String? = null,
-        metadataValue: MetadataValue? = null
+        metadataValue: MetadataValue? = null,
+        blockData: BlockData? = null
     ) {
         if (!running) start()
-        queue.add(BlockChange(block, newMaterial, copyBlockData, metadataKey, metadataValue))
+        queue.add(BlockChange(block, newMaterial, copyBlockData, metadataKey, metadataValue, blockData))
     }
 
     fun start() {
@@ -74,7 +76,7 @@ object BlockChanger {
         val block = blockChange.block
 
         if (blockChange.copyBlockData) {
-            val oldBlockData = block.blockData.clone()
+            val oldBlockData = blockChange.blockData ?: block.blockData.clone()
             block.type = blockChange.newMaterial
             val newBlockData = block.blockData
 

@@ -6,7 +6,7 @@ import me.mochibit.defcon.utils.MathFunctions
 import me.mochibit.defcon.utils.MathFunctions.remap
 import org.bukkit.*
 import org.bukkit.block.Block
-import org.bukkit.block.BlockFace
+import org.bukkit.block.data.BlockData
 import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
@@ -17,10 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.round
-import kotlin.math.sin
+import kotlin.math.*
 
 class Shockwave(
     private val center: Location,
@@ -36,63 +33,96 @@ class Shockwave(
 
     private val world = center.world
 
-    private val executorService = ForkJoinPool.commonPool()
+    // Use a dedicated thread pool with a fixed size to avoid overloading the system
+    private val executorService = ForkJoinPool(
+        Runtime.getRuntime().availableProcessors(),
+        ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+        null, true
+    )
 
     private val completedExplosion = AtomicBoolean(false)
     private val destructionQueue = ConcurrentLinkedQueue<Pair<List<Vector3i>, Double>>()
-
-
     private val treeBurner = TreeBurner(world, center.toVector3i(), 200, transformationRule)
     private val chunkCache = ChunkCache.getInstance(world)
 
+    // Cache common calculations
+    private val directionsToCheck = arrayOf(
+        Vector3i(1, 0, 0),  // East
+        Vector3i(-1, 0, 0), // West
+        Vector3i(0, 0, 1),  // South
+        Vector3i(0, 0, -1)  // North
+    )
+
     fun explode() {
         val startTime = System.nanoTime()
+
+        // First task: Calculate shockwave progression and queue destruction
         executorService.submit {
-            var lastProcessedRadius = shockwaveRadiusStart
+            try {
+                var lastProcessedRadius = shockwaveRadiusStart
+                val visitedEntities: MutableSet<Entity> = ConcurrentHashMap.newKeySet()
 
-            val visitedEntities: MutableSet<Entity> = ConcurrentHashMap.newKeySet()
+                while (lastProcessedRadius <= shockwaveRadius) {
+                    // Calculate elapsed time in seconds
+                    val elapsedSeconds = (System.nanoTime() - startTime) / 1_000_000_000.0
 
-            while (lastProcessedRadius <= shockwaveRadius) {
-                // Calculate elapsed time in seconds
-                val elapsedSeconds = (System.nanoTime() - startTime) / 1_000_000_000.0
+                    // Determine the current radius based on shockwaveSpeed (blocks per second)
+                    val currentRadius = (shockwaveRadiusStart + elapsedSeconds * shockwaveSpeed).toInt()
 
-                // Determine the current radius based on shockwaveSpeed (blocks per second)
-                val currentRadius = (shockwaveRadiusStart + elapsedSeconds * shockwaveSpeed).toInt()
+                    // Skip if the radius hasn't advanced yet
+                    if (currentRadius <= lastProcessedRadius) {
+                        Thread.sleep(5) // Small sleep to reduce CPU usage
+                        continue
+                    }
 
-                // Skip if the radius hasn't advanced yet
-                if (currentRadius <= lastProcessedRadius) {
-                    Thread.yield()
-                    continue
+                    // Process new radii
+                    for (radius in lastProcessedRadius + 1..currentRadius.coerceAtMost(shockwaveRadius)) {
+                        val explosionPower = MathFunctions.lerp(
+                            maxDestructionPower,
+                            minDestructionPower,
+                            radius / shockwaveRadius.toDouble()
+                        )
+                        val normalizedExplosionPower =
+                            remap(explosionPower, minDestructionPower, maxDestructionPower, 0.0, 1.0)
+
+                        val columns = generateShockwaveColumns(radius)
+                        if (columns.isNotEmpty()) {
+                            destructionQueue.add(columns to normalizedExplosionPower)
+                            processEntityDamage(columns, normalizedExplosionPower, visitedEntities)
+                        }
+                    }
+
+                    // Clear entity cache periodically to prevent memory bloat
+                    if (visitedEntities.size > 100) {
+                        visitedEntities.clear()
+                    }
+
+                    lastProcessedRadius = currentRadius
                 }
-
-                // Process new radii
-                for (radius in lastProcessedRadius + 1..currentRadius) {
-                    val explosionPower = MathFunctions.lerp(
-                        maxDestructionPower,
-                        minDestructionPower,
-                        radius / shockwaveRadius.toDouble()
-                    )
-                    val normalizedExplosionPower =
-                        remap(explosionPower, minDestructionPower, maxDestructionPower, 0.0, 1.0)
-
-                    val columns = generateShockwaveColumns(radius)
-                    destructionQueue.add(columns to normalizedExplosionPower)
-                    processEntityDamage(columns, normalizedExplosionPower, visitedEntities)
-                }
-
-                if (visitedEntities.size > 100) {
-                    visitedEntities.clear()
-                }
-
-                lastProcessedRadius = currentRadius
+            } finally {
+                completedExplosion.set(true)
             }
-            completedExplosion.set(true)
-            executorService.shutdown()
         }
+
+        // Second task: Process the destruction queue
         executorService.submit {
-            while (!completedExplosion.get() || destructionQueue.isNotEmpty()) {
-                val explosionData = destructionQueue.poll() ?: continue
-                processDestruction(explosionData.first, explosionData.second)
+            try {
+                while (!completedExplosion.get() || destructionQueue.isNotEmpty()) {
+                    val explosionData = destructionQueue.poll()
+
+                    if (explosionData == null)
+                        run {
+                            // If queue is empty but explosion isn't complete, wait a bit
+                            if (!completedExplosion.get()) {
+                                Thread.sleep(10)
+                            }
+                            return@run
+                        }
+                    else
+                        processDestruction(explosionData.first, explosionData.second)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
@@ -104,47 +134,58 @@ class Shockwave(
     ) {
         if (columns.isEmpty()) return
 
-        for (column in columns) {
-            world.spawnParticle(
-                Particle.EXPLOSION_LARGE,
-                column.x.toDouble(),
-                (column.y + 1).toDouble(),
-                column.z.toDouble(), 0
-            )
+        // Batch particle spawning for better performance
+        val particleLocations = columns.map {
+            Location(world, it.x.toDouble(), (it.y + 1).toDouble(), it.z.toDouble())
         }
 
-        val locationCursor = Location(world, 0.0, 0.0, 0.0)
         runLater(1L) {
-            for (column in columns) {
-                locationCursor.set(
-                    column.x.toDouble(),
-                    column.y.toDouble(),
-                    column.z.toDouble()
-                )
+            // Spawn particles in batches
+            particleLocations.forEach { loc ->
+                world.spawnParticle(Particle.EXPLOSION_LARGE, loc, 0)
+            }
 
-                val entities = world.getNearbyEntities(
-                    locationCursor, 1.0,
-                    (shockwaveHeight / 2).toDouble(), 1.0
-                )
-                {
-                    it !in visitedEntities &&
-                            it.y in locationCursor.y - maximumDistanceForAction..(locationCursor.y + shockwaveHeight + maximumDistanceForAction)
-                }
+            val locationCursor = Location(world, 0.0, 0.0, 0.0)
+            val halfShockwaveHeight = (shockwaveHeight / 2).toDouble()
 
-                if (entities.isEmpty()) continue
-                // Check if the entity is within range and height bounds
-                for (entity in entities) {
-                    applyExplosionEffects(entity, explosionPower.toFloat())
-                    visitedEntities.add(entity)
+            // Process entity damage in batches to reduce server load
+            columns.chunked(10).forEach { columnChunk ->
+                columnChunk.forEach { column ->
+                    locationCursor.set(
+                        column.x.toDouble(),
+                        column.y.toDouble(),
+                        column.z.toDouble()
+                    )
+
+                    val entities = world.getNearbyEntities(
+                        locationCursor, 1.0,
+                        halfShockwaveHeight, 1.0
+                    ) {
+                        it !in visitedEntities &&
+                                it.y in locationCursor.y - maximumDistanceForAction..(locationCursor.y + shockwaveHeight + maximumDistanceForAction)
+                    }
+
+                    entities.forEach { entity ->
+                        applyExplosionEffects(entity, explosionPower.toFloat())
+                        visitedEntities.add(entity)
+                    }
                 }
             }
         }
     }
 
     private fun applyExplosionEffects(entity: Entity, explosionPower: Float) {
-        val knockback =
-            Vector(entity.x - center.x, entity.y - center.y, entity.z - center.z)
-                .normalize().multiply(explosionPower * 30.0)
+        // Calculate knockback more efficiently
+        val dx = entity.x - center.x
+        val dy = entity.y - center.y
+        val dz = entity.z - center.z
+        val distance = sqrt(dx * dx + dy * dy + dz * dz)
+
+        // Avoid division by zero
+        if (distance < 0.1) return
+
+        val multiplier = explosionPower * 30.0 / distance
+        val knockback = Vector(dx * multiplier, dy * multiplier, dz * multiplier)
         entity.velocity = knockback
 
         if (entity !is LivingEntity) return
@@ -158,38 +199,40 @@ class Shockwave(
         } catch (e: Exception) {
             println("Error applying CameraShake: ${e.message}")
         }
-
     }
 
     private fun processDestruction(locations: List<Vector3i>, explosionPower: Double) {
-        val treeBlocks = ConcurrentLinkedQueue<Block>()
-        val nonTreeBlocks = ConcurrentLinkedQueue<Block>()
+        // Pre-allocate collections with estimated size
+        val treeBlocks = ArrayList<Vector3i>(locations.size / 10)
+        val nonTreeBlocks = ArrayList<Vector3i>(locations.size)
 
-        locations.parallelStream().forEach { location ->
-            val block = world.getBlockAt(location.x, location.y, location.z)
-            val blockType = block.type
-            if (blockType.name.endsWith("_LOG") || blockType.name.endsWith("_LEAVES")) {
-                treeBlocks.add(block)
-            } else {
-                nonTreeBlocks.add(block)
+        // Process in smaller batches to avoid overwhelming the server
+        locations.chunked(500).forEach { batch ->
+            batch.forEach { location ->
+                val blockType = chunkCache.getBlockMaterial(location.x, location.y, location.z)
+                if (blockType.name.endsWith("_LOG") || blockType.name.endsWith("_LEAVES")) {
+                    treeBlocks.add(location)
+                } else {
+                    nonTreeBlocks.add(location)
+                }
             }
         }
 
-        for (treeBlock in treeBlocks) {
-            treeBurner.processTreeBurn(treeBlock, explosionPower)
+        // Process trees first as they might be more complex
+        treeBlocks.forEach { treeBlock ->
+            val block = world.getBlockAt(treeBlock.x, treeBlock.y, treeBlock.z)
+            treeBurner.processTreeBurn(block, explosionPower)
         }
 
-        nonTreeBlocks.parallelStream().forEach { block ->
-            simulateExplosion(block.location.toVector3i(), explosionPower)
+        // Process normal blocks in chunks to avoid overwhelming the server
+        nonTreeBlocks.chunked(200).forEach { chunk ->
+            chunk.parallelStream().forEach { location ->
+                simulateExplosion(location, explosionPower)
+            }
         }
     }
 
-    private val directionsToInterp = arrayOf(
-        Vector3i(1, 0, 0), Vector3i(-1, 0, 0),
-        Vector3i(0, 0, 1), Vector3i(0, 0, -1)
-    )
-
-    fun rayTrace(location: Vector3i, maxDistance: Double): Int {
+    private fun rayTrace(location: Vector3i, maxDistance: Double = 200.0): Int {
         val loc = Location(world, location.x.toDouble(), location.y.toDouble(), location.z.toDouble())
         return world.rayTraceBlocks(
             loc,
@@ -200,75 +243,126 @@ class Shockwave(
             ?: (location.y - maxDistance).toInt()
     }
 
+    // Improved block penetration system
     private fun simulateExplosion(location: Vector3i, normalizedExplosionPower: Double) {
-        val baseX = location.x
+        // Process the main block first
+        processBlock(location, normalizedExplosionPower)
+
         val baseY = location.y
-        val baseZ = location.z
-
-        if (!processBlock(location, normalizedExplosionPower)) return
-
-        // Define the four cardinal directions for checking walls
-        val directionsToCheck = listOf(
-            Vector3i(1, 0, 0),  // East
-            Vector3i(-1, 0, 0), // West
-            Vector3i(0, 0, 1),  // South
-            Vector3i(0, 0, -1)  // North
-        )
 
         for (dir in directionsToCheck) {
-            val adjacentLocation = location.add(dir)
-            val wallTopY = rayTrace(adjacentLocation, 30.0)
+            val adjacentLoc = Vector3i(location.x + dir.x, location.y, location.z + dir.z)
+            val wallTopY = rayTrace(adjacentLoc)
 
-            if (abs(wallTopY - baseY) > 1) {
-                // There's a wall, process blocks from wall down to base
-                for (y in baseY downTo wallTopY) {
-                    val blockToProcess = Vector3i(baseX, y, baseZ)
-                    processBlock(blockToProcess, normalizedExplosionPower)
+            // Only process columns with significant height differences
+            val heightDiff = baseY - wallTopY
+            if (heightDiff > 2) {
+                // Calculate how many blocks to process based on explosion power
+                val blocksToProcess = heightDiff.coerceIn(1, heightDiff)
+
+                // Process from top to bottom with decreasing power
+                for (i in 0 until blocksToProcess) {
+                    val y = baseY - i
+
+                    processBlock(
+                        Vector3i(location.x, y, location.z),
+                        normalizedExplosionPower,
+                        processPenetration = false
+                    )
                 }
             }
-            location.sub(dir)
         }
     }
 
-
-
+    // Completely rewritten block penetration system
     private fun processBlock(
         blockLocation: Vector3i,
         normalizedExplosionPower: Double,
-    ): Boolean {
-        val block = world.getBlockAt(blockLocation.x, blockLocation.y, blockLocation.z)
-        val blockType = block.type
+        processPenetration: Boolean = true
+    ) {
+        // Skip if power is too low
+        if (normalizedExplosionPower < 0.05) return
 
-        // Skip processing for AIR, blacklisted, or liquid materials
-        if (blockType == Material.AIR || blockType in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST || blockType in TransformationRule.LIQUID_MATERIALS) return false
-
-        // Apply custom transformation
-        val newMaterial = transformationRule.customTransformation(blockType, normalizedExplosionPower)
-        BlockChanger.addBlockChange(block, newMaterial, true)
-
-        // If there's a block above (like grass or flowers, get the transformation) and apply it
-        val blockAbove = block.getRelative(BlockFace.UP)
-        val blockAboveType = blockAbove.type
-        if (blockAboveType != Material.AIR) {
-            val newMaterialAbove = transformationRule.customTransformation(blockAboveType, normalizedExplosionPower)
-            BlockChanger.addBlockChange(blockAbove, newMaterialAbove, true)
+        // Calculate penetration parameters based on explosion power
+        val maxPenetration = (normalizedExplosionPower * 8).roundToInt().coerceIn(1, 12)
+        val powerDecay = when {
+            normalizedExplosionPower > 0.8 -> 0.85 // Slow decay for high power
+            normalizedExplosionPower > 0.5 -> 0.75 // Medium decay
+            else -> 0.6 // Fast decay for low power
         }
 
-        return true
+        var currentY = blockLocation.y
+        var currentPower = normalizedExplosionPower
+        var penetrationCount = 0
+
+        // Store encountered positions to avoid infinite loops
+        val processedPositions = HashSet<Vector3i>()
+
+        do {
+            val currentPos = Vector3i(blockLocation.x, currentY, blockLocation.z)
+
+            // Skip if we've already processed this position
+            if (!processedPositions.add(currentPos)) break
+
+            // Get block type efficiently
+            val blockType = chunkCache.getBlockMaterial(currentPos.x, currentY, currentPos.z)
+
+            // Skip if block is in blacklist or is liquid
+            if (blockType in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST ||
+                blockType in TransformationRule.LIQUID_MATERIALS
+            ) {
+                break
+            }
+
+            // Handle air blocks by looking for the next solid block below
+            if (blockType == Material.AIR) {
+                val nextSolidY = rayTrace(currentPos, 30.0)
+                if (nextSolidY < currentY - 30) break // Too far down, skip
+
+                // Jump to the next solid block
+                currentY = nextSolidY
+                currentPower *= 0.9 // Reduce power slightly for the jump
+                continue
+            }
+
+            // Get the actual block and its data
+            val block = world.getBlockAt(currentPos.x, currentY, currentPos.z)
+            val blockData = chunkCache.getBlockData(currentPos.x, currentY, currentPos.z)
+
+            // Determine final block state
+            val finalMaterial = if (currentPower > 0.3 && penetrationCount < maxPenetration - 1) {
+                Material.AIR // Destroy if power is high enough
+            } else {
+                // Transform if it's the last block or power is low
+                transformationRule.customTransformation(blockType, currentPower)
+            }
+
+            // Queue the block change
+            BlockChanger.addBlockChange(
+                block,
+                finalMaterial,
+                (penetrationCount >= maxPenetration - 1 || currentPower <= 0.3),
+                blockData = blockData
+            )
+
+            // Stop if we're not processing penetration
+            if (!processPenetration) break
+
+            // Move down and update state
+            currentY--
+            currentPower *= powerDecay
+            penetrationCount++
+
+        } while (processPenetration &&
+            penetrationCount < maxPenetration &&
+            currentPower > 0.1 &&
+            currentY > 0
+        )
     }
 
     private fun generateShockwaveColumns(radius: Int): List<Vector3i> {
-        val ringElements = calculateCircle(radius)
-        // Process each point and interpolate walls
-        for (pos in ringElements) {
-            val highestY = chunkCache.highestBlockYAt(pos.x, pos.z)
-            pos.y = highestY
-        }
-        return ringElements
-    }
-
-    private fun calculateCircle(radius: Int): MutableList<Vector3i> {
-        val density = 4
+        // More efficient circle generation with adaptive density
+        val density = max(2, min(4, (radius / 20) + 2)) // Adaptive density based on radius
         val steps = (2 * Math.PI * radius).toInt() * density
         val angleIncrement = 2 * Math.PI / steps
 
@@ -276,11 +370,14 @@ class Shockwave(
             val angle = angleIncrement * i
             val x = round(center.blockX + radius * cos(angle)).toInt()
             val z = round(center.blockZ + radius * sin(angle)).toInt()
-            Vector3i(x, 0, z)
+            val highestY = chunkCache.highestBlockYAt(x, z)
+            Vector3i(x, highestY, z)
         }
     }
 }
 
+// ChunkCache implementation remains mostly the same
+// It's already well-optimized with the soft reference caching system
 class ChunkCache private constructor(
     private val world: World,
     private val maxAccessCount: Int = 20
@@ -295,15 +392,17 @@ class ChunkCache private constructor(
                 }
             }
 
+        private val instanceCache = ConcurrentHashMap<World, ChunkCache>()
+
         fun getInstance(world: World, maxAccessCount: Int = 20): ChunkCache {
-            return ChunkCache(world, maxAccessCount)
+            return instanceCache.computeIfAbsent(world) { ChunkCache(world, maxAccessCount) }
         }
     }
 
     private val localCache = object : LinkedHashMap<Pair<Int, Int>, ChunkSnapshot>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<Int, Int>, ChunkSnapshot>): Boolean {
             if (size > maxAccessCount) {
-                sharedChunkCache[eldest.key] = SoftReference(eldest.value) // Push evicted entries to the shared cache
+                sharedChunkCache[eldest.key] = SoftReference(eldest.value)
                 return true
             }
             return false
@@ -315,7 +414,6 @@ class ChunkCache private constructor(
         val chunkZ = z shr 4
         val key = chunkX to chunkZ
 
-        // Check shared cache first
         return localCache.getOrPut(key) {
             val sharedSnapshot = sharedChunkCache[key]?.get()
             if (sharedSnapshot != null) {
@@ -332,7 +430,12 @@ class ChunkCache private constructor(
     }
 
     fun getBlockMaterial(x: Int, y: Int, z: Int): Material {
+        if (y < 0 || y > 255) return Material.AIR
         return getChunkSnapshot(x, z).getBlockType(x and 15, y, z and 15)
     }
-}
 
+    fun getBlockData(x: Int, y: Int, z: Int): BlockData {
+        if (y < 0 || y > 255) return Bukkit.createBlockData(Material.AIR)
+        return getChunkSnapshot(x, z).getBlockData(x and 15, y, z and 15)
+    }
+}
