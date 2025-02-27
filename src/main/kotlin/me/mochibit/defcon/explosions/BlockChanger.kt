@@ -1,31 +1,13 @@
-/*
- *
- * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package me.mochibit.defcon.explosions
 
+import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.threading.scheduling.intervalWithTask
 import org.bukkit.Material
 import org.bukkit.block.Block
 import org.bukkit.block.data.*
 import org.bukkit.metadata.MetadataValue
-import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
+import org.bukkit.plugin.Plugin
 
 object BlockChanger {
     data class BlockChange(
@@ -37,9 +19,31 @@ object BlockChanger {
         val blockData: BlockData? = null
     )
 
-    private val queue: Queue<BlockChange> = ConcurrentLinkedQueue()
+    private val queue = ConcurrentLinkedQueue<BlockChange>()
     private var running = false
+    private var taskId = -1
 
+    // Configurable parameters
+    private var blocksPerTick = 1000
+    private var tickInterval = 1L
+
+    /**
+     * Configure the processing parameters
+     */
+    fun configure(blocksPerTick: Int = 1000, tickInterval: Long = 1L) {
+        this.blocksPerTick = blocksPerTick
+        this.tickInterval = tickInterval
+
+        // Restart the processor if running
+        if (running) {
+            stop(Defcon.instance)
+            start(Defcon.instance)
+        }
+    }
+
+    /**
+     * Add a block change to the processing queue
+     */
     fun addBlockChange(
         block: Block,
         newMaterial: Material,
@@ -48,76 +52,104 @@ object BlockChanger {
         metadataValue: MetadataValue? = null,
         blockData: BlockData? = null
     ) {
-        if (!running) start()
         queue.add(BlockChange(block, newMaterial, copyBlockData, metadataKey, metadataValue, blockData))
+        if (!running) start(Defcon.instance)
     }
 
-    fun start() {
+    /**
+     * Start the block processing task
+     */
+    fun start(plugin: Plugin) {
         if (running) return
         running = true
 
-        intervalWithTask(1L, 0) { task ->
+        var emptyInterval: Long = 0
+
+        taskId = plugin.server.scheduler.scheduleSyncRepeatingTask(plugin, {
             var processedCount = 0
 
-            while (processedCount < 5000 && queue.isNotEmpty()) {
-                val blockChange = queue.poll()
-                if (blockChange != null) {
-                    applyBlockChange(blockChange)
-                    processedCount++
+            while (processedCount < blocksPerTick && queue.isNotEmpty()) {
+                val blockChange = queue.poll() ?: break
+                applyBlockChange(blockChange)
+                processedCount++
+            }
+
+            // Auto-stop when queue is empty
+            if (queue.isEmpty()) {
+                emptyInterval += tickInterval
+                if (emptyInterval >= tickInterval*40) {
+                    running = false
+                    plugin.server.scheduler.cancelTask(taskId)
+                    taskId = -1
                 }
             }
 
-            task.cancel()
-            running = false
+        }, tickInterval, tickInterval)
+    }
+
+    /**
+     * Forcibly stop the processing task
+     */
+    fun stop(plugin: Plugin) {
+        if (!running) return
+        running = false
+        if (taskId != -1) {
+            plugin.server.scheduler.cancelTask(taskId)
+            taskId = -1
         }
     }
 
+    /**
+     * Apply a block change efficiently based on the block type
+     */
     private fun applyBlockChange(blockChange: BlockChange) {
         val block = blockChange.block
+        val oldBlockData = blockChange.blockData ?: (if (blockChange.copyBlockData) block.blockData.clone() else null)
 
-        if (blockChange.copyBlockData) {
-            val oldBlockData = blockChange.blockData ?: block.blockData.clone()
-            block.type = blockChange.newMaterial
+        // Change the block type
+        block.type = blockChange.newMaterial
+
+        // Apply block data if needed
+        if (blockChange.copyBlockData && oldBlockData != null) {
             val newBlockData = block.blockData
 
-            when (oldBlockData) {
-                is Directional -> {
-                    (newBlockData as? Directional)?.facing = oldBlockData.facing
-                }
-
-                is Rail -> {
-                    (newBlockData as? Rail)?.shape = oldBlockData.shape
-                }
-
-                is Bisected -> {
-                    (newBlockData as? Bisected)?.half = oldBlockData.half
-                }
-
-                is Orientable -> {
-                    (newBlockData as? Orientable)?.axis = oldBlockData.axis
-                }
-
-                is Rotatable -> {
-                    (newBlockData as? Rotatable)?.rotation = oldBlockData.rotation
-                }
-
-                is Snowable -> {
-                    (newBlockData as? Snowable)?.isSnowy = oldBlockData.isSnowy
-                }
-
-                is Waterlogged -> {
-                    (newBlockData as? Waterlogged)?.isWaterlogged = oldBlockData.isWaterlogged
-                }
+            // Only check types that are relevant for this material
+            // Apply only the properties that exist in both the old and new block data
+            if (oldBlockData is Directional && newBlockData is Directional) {
+                newBlockData.facing = oldBlockData.facing
+            }
+            if (oldBlockData is Rail && newBlockData is Rail) {
+                newBlockData.shape = oldBlockData.shape
+            }
+            if (oldBlockData is Bisected && newBlockData is Bisected) {
+                newBlockData.half = oldBlockData.half
+            }
+            if (oldBlockData is Orientable && newBlockData is Orientable) {
+                newBlockData.axis = oldBlockData.axis
+            }
+            if (oldBlockData is Rotatable && newBlockData is Rotatable) {
+                newBlockData.rotation = oldBlockData.rotation
+            }
+            if (oldBlockData is Snowable && newBlockData is Snowable) {
+                newBlockData.isSnowy = oldBlockData.isSnowy
+            }
+            if (oldBlockData is Waterlogged && newBlockData is Waterlogged) {
+                newBlockData.isWaterlogged = oldBlockData.isWaterlogged
             }
 
             block.blockData = newBlockData
-        } else {
-            block.type = blockChange.newMaterial
         }
 
+        // Apply metadata if provided
         if (blockChange.metadataKey != null && blockChange.metadataValue != null) {
             block.setMetadata(blockChange.metadataKey, blockChange.metadataValue)
         }
     }
 
+    /**
+     * Check how many block changes are pending
+     */
+    fun getPendingChangesCount(): Int {
+        return queue.size
+    }
 }

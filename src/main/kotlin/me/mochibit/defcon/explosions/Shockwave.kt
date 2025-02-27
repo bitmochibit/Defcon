@@ -53,6 +53,11 @@ class Shockwave(
         Vector3i(0, 0, -1)  // North
     )
 
+    // Reusable position objects to reduce object creation
+    private val positionCache = ThreadLocal.withInitial { Vector3i() }
+    private val blockChangeCache = ThreadLocal.withInitial { ArrayList<Triple<Vector3i, Material, BlockData>>(16) }
+    private val processedPositionsCache = ThreadLocal.withInitial { HashSet<Vector3i>(32) }
+
     fun explode() {
         val startTime = System.nanoTime()
 
@@ -110,19 +115,21 @@ class Shockwave(
                 while (!completedExplosion.get() || destructionQueue.isNotEmpty()) {
                     val explosionData = destructionQueue.poll()
 
-                    if (explosionData == null)
-                        run {
-                            // If queue is empty but explosion isn't complete, wait a bit
-                            if (!completedExplosion.get()) {
-                                Thread.sleep(10)
-                            }
-                            return@run
+                    if (explosionData == null) {
+                        // If queue is empty but explosion isn't complete, wait a bit
+                        if (!completedExplosion.get()) {
+                            Thread.sleep(10)
                         }
-                    else
+                    } else {
                         processDestruction(explosionData.first, explosionData.second)
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+            } finally {
+                if (completedExplosion.get() && destructionQueue.isEmpty()) {
+                    executorService.shutdown()
+                }
             }
         }
     }
@@ -225,7 +232,7 @@ class Shockwave(
         }
 
         // Process normal blocks in chunks to avoid overwhelming the server
-        nonTreeBlocks.chunked(200).forEach { chunk ->
+        nonTreeBlocks.chunked(500).forEach { chunk ->
             chunk.parallelStream().forEach { location ->
                 simulateExplosion(location, explosionPower)
             }
@@ -251,8 +258,9 @@ class Shockwave(
         val baseY = location.y
 
         for (dir in directionsToCheck) {
-            val adjacentLoc = Vector3i(location.x + dir.x, location.y, location.z + dir.z)
-            val wallTopY = rayTrace(adjacentLoc)
+            val tempPos = positionCache.get()
+            tempPos.set(location.x + dir.x, location.y, location.z + dir.z)
+            val wallTopY = rayTrace(tempPos)
 
             // Only process columns with significant height differences
             val heightDiff = baseY - wallTopY
@@ -263,9 +271,10 @@ class Shockwave(
                 // Process from top to bottom with decreasing power
                 for (i in 0 until blocksToProcess) {
                     val y = baseY - i
+                    tempPos.set(location.x, y, location.z)
 
                     processBlock(
-                        Vector3i(location.x, y, location.z),
+                        tempPos,
                         normalizedExplosionPower,
                         processPenetration = false
                     )
@@ -274,7 +283,7 @@ class Shockwave(
         }
     }
 
-    // Completely rewritten block penetration system
+    // Completely rewritten and optimized block penetration system
     private fun processBlock(
         blockLocation: Vector3i,
         normalizedExplosionPower: Double,
@@ -285,24 +294,31 @@ class Shockwave(
 
         // Calculate penetration parameters based on explosion power
         val maxPenetration = (normalizedExplosionPower * 8).roundToInt().coerceIn(1, 12)
-        val powerDecay = when {
-            normalizedExplosionPower > 0.8 -> 0.85 // Slow decay for high power
-            normalizedExplosionPower > 0.5 -> 0.75 // Medium decay
-            else -> 0.6 // Fast decay for low power
-        }
+        val powerDecay = 0.95
 
         var currentY = blockLocation.y
         var currentPower = normalizedExplosionPower
         var penetrationCount = 0
 
-        // Store encountered positions to avoid infinite loops
-        val processedPositions = HashSet<Vector3i>()
+        // Get thread-local data structures
+        val processedPositions = processedPositionsCache.get()
+        val blockChangeList = blockChangeCache.get()
+        val currentPos = positionCache.get()
+
+        // Clear reused collections
+        processedPositions.clear()
+        blockChangeList.clear()
+
+        // Initial capacity for collections
+        blockChangeList.ensureCapacity(maxPenetration)
 
         do {
-            val currentPos = Vector3i(blockLocation.x, currentY, blockLocation.z)
+            currentPos.set(blockLocation.x, currentY, blockLocation.z)
 
             // Skip if we've already processed this position
-            if (!processedPositions.add(currentPos)) break
+            // Create a new Vector3i for the key to avoid mutating the currentPos
+            val posKey = Vector3i(currentPos.x, currentY, currentPos.z)
+            if (!processedPositions.add(posKey)) break
 
             // Get block type efficiently
             val blockType = chunkCache.getBlockMaterial(currentPos.x, currentY, currentPos.z)
@@ -325,8 +341,7 @@ class Shockwave(
                 continue
             }
 
-            // Get the actual block and its data
-            val block = world.getBlockAt(currentPos.x, currentY, currentPos.z)
+            // Get the block data once, cache for reuse
             val blockData = chunkCache.getBlockData(currentPos.x, currentY, currentPos.z)
 
             // Determine final block state
@@ -334,16 +349,15 @@ class Shockwave(
                 Material.AIR // Destroy if power is high enough
             } else {
                 // Transform if it's the last block or power is low
-                transformationRule.customTransformation(blockType, currentPower)
+                transformationRule.transformMaterial(blockType, currentPower)
             }
 
-            // Queue the block change
-            BlockChanger.addBlockChange(
-                block,
+            // Add to our batch instead of queuing immediately
+            blockChangeList.add(Triple(
+                Vector3i(currentPos.x, currentY, currentPos.z),
                 finalMaterial,
-                (penetrationCount >= maxPenetration - 1 || currentPower <= 0.3),
-                blockData = blockData
-            )
+                blockData
+            ))
 
             // Stop if we're not processing penetration
             if (!processPenetration) break
@@ -358,6 +372,17 @@ class Shockwave(
             currentPower > 0.1 &&
             currentY > 0
         )
+
+        // Batch-process all block changes
+        blockChangeList.forEach { (pos, material, data) ->
+            val block = world.getBlockAt(pos.x, pos.y, pos.z)
+            BlockChanger.addBlockChange(
+                block,
+                material,
+                (material != Material.AIR),
+                blockData = data
+            )
+        }
     }
 
     private fun generateShockwaveColumns(radius: Int): List<Vector3i> {
@@ -366,13 +391,18 @@ class Shockwave(
         val steps = (2 * Math.PI * radius).toInt() * density
         val angleIncrement = 2 * Math.PI / steps
 
-        return MutableList(steps) { i ->
+        // Pre-allocate capacity
+        val result = ArrayList<Vector3i>(steps)
+
+        for (i in 0 until steps) {
             val angle = angleIncrement * i
             val x = round(center.blockX + radius * cos(angle)).toInt()
             val z = round(center.blockZ + radius * sin(angle)).toInt()
             val highestY = chunkCache.highestBlockYAt(x, z)
-            Vector3i(x, highestY, z)
+            result.add(Vector3i(x, highestY, z))
         }
+
+        return result
     }
 }
 

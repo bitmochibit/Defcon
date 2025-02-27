@@ -1,45 +1,57 @@
-/*
- *
- * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package me.mochibit.defcon.utils
 
 import me.mochibit.defcon.registers.BlockRegister
 import org.bukkit.Location
 import org.bukkit.Material
+import org.bukkit.World
 import org.bukkit.block.Block
 import org.joml.Vector3i
 import java.util.*
 import java.util.concurrent.CompletableFuture
-
+import java.util.concurrent.ConcurrentHashMap
 
 object FloodFill3D {
+    // Direction vectors for 3D flood fill
+    private enum class Direction(val x: Int, val y: Int, val z: Int) {
+        UP(0, 1, 0),
+        DOWN(0, -1, 0),
+        NORTH(0, 0, -1),
+        SOUTH(0, 0, 1),
+        EAST(1, 0, 0),
+        WEST(-1, 0, 0);
 
-    private enum class Direction(val vec: Vector3i) {
-        UP(Vector3i(0, 1, 0)),
-        DOWN(Vector3i(0, -1, 0)),
-        NORTH(Vector3i(0, 0, -1)),
-        SOUTH(Vector3i(0, 0, 1)),
-        EAST(Vector3i(1, 0, 0)),
-        WEST(Vector3i(-1, 0, 0))
+        fun getRelative(x: Int, y: Int, z: Int): Triple<Int, Int, Int> {
+            return Triple(x + this.x, y + this.y, z + this.z)
+        }
     }
 
+    // Lightweight block position class to avoid creating many Location objects
+    data class BlockPos(val x: Int, val y: Int, val z: Int) {
+        fun toLocation(world: World): Location = Location(world, x.toDouble(), y.toDouble(), z.toDouble())
+        fun getBlock(world: World): Block = world.getBlockAt(x, y, z)
 
+        companion object {
+            fun fromLocation(location: Location): BlockPos =
+                BlockPos(location.blockX, location.blockY, location.blockZ)
+
+            fun fromBlock(block: Block): BlockPos =
+                BlockPos(block.x, block.y, block.z)
+        }
+    }
+
+    // Cache for custom blocks to avoid repeated lookups
+    private val customBlockCache = ConcurrentHashMap<BlockPos, Boolean>()
+
+    /**
+     * Clear the custom block cache when no longer needed
+     */
+    fun clearCustomBlockCache() {
+        customBlockCache.clear()
+    }
+
+    /**
+     * Primary flood fill method that returns blocks grouped by material
+     */
     fun getFloodFillBlock(
         startBlock: Block,
         maxRange: Int,
@@ -47,66 +59,96 @@ object FloodFill3D {
         customBlockOnly: Boolean = false,
         ignoreEmpty: Boolean = false,
         blockFilter: ((Block) -> Boolean)? = null
-    ): EnumMap<Material, HashSet<Location>> {
-        val positions: EnumMap<Material, HashSet<Location>> = EnumMap(Material::class.java)
-        val queue: Queue<Block> = LinkedList()
-        val visited = HashSet<Location>()
+    ): EnumMap<Material, MutableSet<Location>> {
+        val world = startBlock.world
+        val startPos = BlockPos.fromBlock(startBlock)
+        val result = EnumMap<Material, MutableSet<Location>>(Material::class.java)
+        val queue = LinkedList<BlockPos>()
+        val visited = HashSet<BlockPos>()
 
-        queue.add(startBlock)
-        var blockCount = 0
+        queue.add(startPos)
 
-        while (queue.isNotEmpty() && blockCount < maxRange) {
-            val currentBlock = queue.poll()
-            if (visited.contains(currentBlock.location) || !isValidBlock(currentBlock, nonSolidOnly, customBlockOnly, ignoreEmpty, blockFilter)) continue
-            visited.add(currentBlock.location)
+        while (queue.isNotEmpty() && visited.size < maxRange) {
+            val currentPos = queue.poll()
 
-            positions.getOrPut(currentBlock.type) { HashSet() }.add(currentBlock.location)
-            blockCount++
+            // Skip if already visited
+            if (currentPos in visited) continue
+            visited.add(currentPos)
 
+            // Get the actual block
+            val currentBlock = currentPos.getBlock(world)
+
+            // Check if the block is valid according to our filters
+            if (!isValidBlock(currentBlock, nonSolidOnly, customBlockOnly, ignoreEmpty, blockFilter)) {
+                continue
+            }
+
+            // Add the location to the result map
+            result.getOrPut(currentBlock.type) { HashSet() }
+                 .add(currentPos.toLocation(world))
+
+            // Add neighbor blocks to the queue
             for (direction in Direction.entries) {
-                val nextBlock = currentBlock.getRelative(
-                    direction.vec.x.toInt(),
-                    direction.vec.y.toInt(),
-                    direction.vec.z.toInt()
-                )
-                queue.add(nextBlock)
+                val (nx, ny, nz) = direction.getRelative(currentPos.x, currentPos.y, currentPos.z)
+                val nextPos = BlockPos(nx, ny, nz)
+
+                if (nextPos !in visited) {
+                    queue.add(nextPos)
+                }
             }
         }
-        return positions
+
+        return result
     }
 
+    /**
+     * Simplified flood fill returning list of locations
+     */
     fun getFloodFill(
         startLoc: Location,
         maxRange: Int,
         nonSolidOnly: Boolean = false,
-        customBlockOnly: Boolean = false,
+        customBlockOnly: Boolean = false
     ): List<Location> {
-        val positions = HashSet<Location>()
-        val queue: Queue<Location> = LinkedList()
+        val world = startLoc.world ?: return emptyList()
+        val startPos = BlockPos.fromLocation(startLoc)
+        val positions = HashSet<BlockPos>()
+        val queue = LinkedList<BlockPos>()
 
-        queue.add(startLoc)
+        queue.add(startPos)
 
-        while (!queue.isEmpty() && positions.size < maxRange) {
+        while (queue.isNotEmpty() && positions.size < maxRange) {
             val currentPos = queue.poll()
-            if (positions.contains(currentPos)) continue
 
-            if (nonSolidOnly && currentPos.block.type.isSolid) continue
-            if (customBlockOnly && !isCustomBlock(currentPos)) continue
+            // Skip if already visited
+            if (currentPos in positions) continue
+
+            // Get the block and check conditions
+            val block = currentPos.getBlock(world)
+
+            if (nonSolidOnly && block.type.isSolid) continue
+            if (customBlockOnly && !isCustomBlock(currentPos, world)) continue
+
             positions.add(currentPos)
 
+            // Add neighboring blocks
             for (direction in Direction.entries) {
-                val nextPos = Location(currentPos.world, currentPos.x + direction.vec.x, currentPos.y + direction.vec.y, currentPos.z + direction.vec.z)
+                val (nx, ny, nz) = direction.getRelative(currentPos.x, currentPos.y, currentPos.z)
+                val nextPos = BlockPos(nx, ny, nz)
 
-                if (nonSolidOnly && nextPos.block.type.isSolid) continue
-                if (customBlockOnly && !isCustomBlock(nextPos)) continue
-
-                queue.add(nextPos)
+                if (nextPos !in positions) {
+                    queue.add(nextPos)
+                }
             }
         }
 
-        return positions.toList()
+        // Convert BlockPos back to Location for the result
+        return positions.map { it.toLocation(world) }
     }
 
+    /**
+     * Async version of flood fill
+     */
     fun getFloodFillAsync(
         startLoc: Location,
         maxRange: Int,
@@ -114,10 +156,13 @@ object FloodFill3D {
         customBlockOnly: Boolean = false
     ): CompletableFuture<List<Location>> {
         return CompletableFuture.supplyAsync {
-            return@supplyAsync getFloodFill(startLoc, maxRange, nonSolidOnly, customBlockOnly)
+            getFloodFill(startLoc, maxRange, nonSolidOnly, customBlockOnly)
         }
     }
 
+    /**
+     * Check if a block meets all filter criteria
+     */
     private fun isValidBlock(
         block: Block,
         nonSolidOnly: Boolean,
@@ -126,13 +171,18 @@ object FloodFill3D {
         blockFilter: ((Block) -> Boolean)?
     ): Boolean {
         return (!nonSolidOnly || !block.type.isSolid) &&
-                (!customBlockOnly || isCustomBlock(block.location)) &&
+                (!customBlockOnly || isCustomBlock(BlockPos.fromBlock(block), block.world)) &&
                 (!ignoreEmpty || !block.type.isAir) &&
                 (blockFilter == null || blockFilter(block))
     }
 
-    //TODO: To optimize
-    private fun isCustomBlock(loc: Location): Boolean {
-        return BlockRegister.getBlock(loc) != null
+    /**
+     * Optimized method to check if a location contains a custom block
+     * Uses caching to avoid repeated registry lookups
+     */
+    private fun isCustomBlock(pos: BlockPos, world: World): Boolean {
+        return customBlockCache.computeIfAbsent(pos) { p ->
+            BlockRegister.getBlock(p.toLocation(world)) != null
+        }
     }
 }
