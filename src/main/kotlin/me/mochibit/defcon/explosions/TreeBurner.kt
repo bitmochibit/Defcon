@@ -10,6 +10,8 @@ import org.bukkit.block.Block
 import org.bukkit.metadata.FixedMetadataValue
 import org.joml.Vector3f
 import org.joml.Vector3i
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.random.Random
 
 class TreeBurner(
@@ -144,9 +146,9 @@ class TreeBurner(
         // Randomize direction slightly for realism
         val randomAngle = Random.nextDouble(-Math.PI/6, Math.PI/6) // ±30 degrees
         val randomizedDirection = Vector3f(
-            (fallDirection.x * Math.cos(randomAngle) - fallDirection.z * Math.sin(randomAngle)).toFloat(),
+            (fallDirection.x * cos(randomAngle) - fallDirection.z * sin(randomAngle)).toFloat(),
             fallDirection.y,
-            (fallDirection.x * Math.sin(randomAngle) + fallDirection.z * Math.cos(randomAngle)).toFloat()
+            (fallDirection.x * sin(randomAngle) + fallDirection.z * cos(randomAngle)).toFloat()
         ).normalize()
 
         // Process the fallen tree logs

@@ -240,14 +240,20 @@ class Shockwave(
     }
 
     private fun rayTrace(location: Vector3i, maxDistance: Double = 200.0): Int {
-        val loc = Location(world, location.x.toDouble(), location.y.toDouble(), location.z.toDouble())
-        return world.rayTraceBlocks(
-            loc,
-            Vector(0.0, -1.0, 0.0),
-            maxDistance,
-            FluidCollisionMode.ALWAYS
-        )?.hitPosition?.blockY
-            ?: (location.y - maxDistance).toInt()
+        var currentDepth = 0
+        var currentY = location.y
+        while (currentDepth < maxDistance) {
+            val blockType = chunkCache.getBlockMaterial(location.x, currentY, location.z)
+
+            if (blockType != Material.AIR) {
+                return currentY
+            } else {
+                currentY--
+            }
+
+            currentDepth++
+        }
+        return currentY
     }
 
     // Improved block penetration system
@@ -353,11 +359,13 @@ class Shockwave(
             }
 
             // Add to our batch instead of queuing immediately
-            blockChangeList.add(Triple(
-                Vector3i(currentPos.x, currentY, currentPos.z),
-                finalMaterial,
-                blockData
-            ))
+            blockChangeList.add(
+                Triple(
+                    Vector3i(currentPos.x, currentY, currentPos.z),
+                    finalMaterial,
+                    blockData
+                )
+            )
 
             // Stop if we're not processing penetration
             if (!processPenetration) break
