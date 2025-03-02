@@ -200,9 +200,9 @@ class Shockwave(
         entity.damage(explosionPower * 15.0)
         if (entity !is Player) return
 
-        val inv = 2 / explosionPower
+        val inv = (1 / explosionPower)*3
         try {
-            CameraShake(entity, CameraShakeOptions(1.6f, 0.04f, 3.7f * inv, 3.0f * inv))
+            CameraShake(entity, CameraShakeOptions(2.6f, 0.04f, 3.7f * inv, 3.0f * inv))
         } catch (e: Exception) {
             println("Error applying CameraShake: ${e.message}")
         }

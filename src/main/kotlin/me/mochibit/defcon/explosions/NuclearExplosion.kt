@@ -23,6 +23,7 @@ import me.mochibit.defcon.effects.nuclear.CondensationCloudVFX
 import me.mochibit.defcon.effects.nuclear.NuclearExplosionVFX
 import me.mochibit.defcon.effects.nuclear.NuclearFogVFX
 import org.bukkit.Location
+import kotlin.math.roundToInt
 
 
 class NuclearExplosion(private val center: Location, private val nuclearComponent: NuclearComponent) : Explosion() {
@@ -127,14 +128,22 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 //
 //        }, 0, 20)
 //
+
+        val craterRadius = (nuclearComponent.blastPower * 80).roundToInt().coerceIn(20, 150)
         val shockwaveRadius = nuclearComponent.blastPower * 300
         val shockwaveHeight = nuclearComponent.blastPower * 100 * 2
 
         val falloutRadius = shockwaveRadius / 16
-
-        Shockwave(center, 0, shockwaveRadius.toInt(), shockwaveHeight.toInt()).apply {
+        Shockwave(center, craterRadius, shockwaveRadius.toInt(), shockwaveHeight.toInt()).apply {
             explode()
         }
+        Crater(center, craterRadius).apply {
+            create()
+        }
+
+
+
+        // VFX
         val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
         val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
         val nuclearFog = NuclearFogVFX(nuclearComponent, center)

@@ -30,6 +30,7 @@ import me.mochibit.defcon.registers.*
 import me.mochibit.defcon.save.savedata.PlayerDataSave
 import me.mochibit.defcon.threading.runnables.ScheduledRunnable
 import io.papermc.lib.PaperLib
+import me.mochibit.defcon.explosions.BlockChanger
 import org.bukkit.Bukkit
 import org.bukkit.GameMode
 import org.bukkit.plugin.java.JavaPlugin
@@ -49,7 +50,9 @@ class Defcon : JavaPlugin() {
 
         PaperLib.suggestPaper(this)
 
-        getLogger().info("[Defcon] has been enabled!")
+        BlockChanger.configure()
+
+        logger.info("[Defcon] has been enabled!")
 
         info("Registering resource pack")
         ResourcePackRegister.get.registerPack()
@@ -60,7 +63,7 @@ class Defcon : JavaPlugin() {
 
         /* Register definitions items */
         if (!ItemRegister().registerItems()) {
-            getLogger().warning("[Defcon] Some items were not registered!")
+            logger.warning("[Defcon] Some items were not registered!")
         }
 
         /* Register definitions blocks */
@@ -143,7 +146,7 @@ class Defcon : JavaPlugin() {
     }
 
     override fun onDisable() {
-        getLogger().info("[Defcon] has been disabled!")
+        logger.info("[Defcon] has been disabled!")
     }
 
     companion object {
@@ -153,15 +156,15 @@ class Defcon : JavaPlugin() {
 
         object Logger {
             fun info(message: String) {
-                instance.getLogger().info(message)
+                instance.logger.info(message)
             }
 
             fun warning(message: String) {
-                instance.getLogger().warning(message)
+                instance.logger.warning(message)
             }
 
             fun severe(message: String) {
-                instance.getLogger().severe(message)
+                instance.logger.severe(message)
             }
         }
     }

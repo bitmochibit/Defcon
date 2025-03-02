@@ -1,13 +1,12 @@
 package me.mochibit.defcon.explosions
 
 import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.threading.scheduling.intervalWithTask
 import org.bukkit.Material
 import org.bukkit.block.Block
 import org.bukkit.block.data.*
 import org.bukkit.metadata.MetadataValue
 import java.util.concurrent.ConcurrentLinkedQueue
-import org.bukkit.plugin.Plugin
+import java.util.concurrent.atomic.AtomicIntegerArray
 
 object BlockChanger {
     data class BlockChange(
@@ -19,26 +18,51 @@ object BlockChanger {
         val blockData: BlockData? = null
     )
 
-    private val queue = ConcurrentLinkedQueue<BlockChange>()
+    private var queues = mutableListOf<ConcurrentLinkedQueue<BlockChange>>()
+    private var queueSizes = AtomicIntegerArray(1)
+    private var taskIds = mutableListOf<Int>()
     private var running = false
-    private var taskId = -1
 
     // Configurable parameters
     private var blocksPerTick = 1000
     private var tickInterval = 1L
+    private var processorCount: Int = 6
 
     /**
      * Configure the processing parameters
      */
-    fun configure(blocksPerTick: Int = 1000, tickInterval: Long = 1L) {
+    fun configure(blocksPerTick: Int = 1000, tickInterval: Long = 1L, processorCount: Int = 6) {
         this.blocksPerTick = blocksPerTick
         this.tickInterval = tickInterval
+        this.processorCount = processorCount
+
+        queues.clear()
+        queueSizes = AtomicIntegerArray(processorCount)
+
+        repeat(processorCount) {
+            queues.add(ConcurrentLinkedQueue<BlockChange>())
+        }
 
         // Restart the processor if running
         if (running) {
-            stop(Defcon.instance)
-            start(Defcon.instance)
+            stop()
+            start()
         }
+    }
+
+    private fun findBestQueue(): Int {
+        var minIdx = 0
+        var minSize = queueSizes.get(0)
+
+        for (i in 1 until processorCount) {
+            val size = queueSizes.get(i)
+            if (size < minSize) {
+                minIdx = i
+                minSize = size
+            }
+        }
+
+        return minIdx
     }
 
     /**
@@ -52,51 +76,62 @@ object BlockChanger {
         metadataValue: MetadataValue? = null,
         blockData: BlockData? = null
     ) {
-        queue.add(BlockChange(block, newMaterial, copyBlockData, metadataKey, metadataValue, blockData))
-        if (!running) start(Defcon.instance)
+        val queueIdx = findBestQueue()
+        val blockChange = BlockChange(block, newMaterial, copyBlockData, metadataKey, metadataValue, blockData)
+
+        queues[queueIdx].add(blockChange)
+        queueSizes.incrementAndGet(queueIdx)
+
+        if (!running) start()
     }
 
     /**
      * Start the block processing task
      */
-    fun start(plugin: Plugin) {
+    private fun start() {
         if (running) return
         running = true
+        taskIds.clear()
 
-        var emptyInterval: Long = 0
+        for (queueIdx in 0 until processorCount) {
+            val taskId = Defcon.instance.server.scheduler.scheduleSyncRepeatingTask(Defcon.instance, {
+                var processedCount = 0
+                val queue = queues[queueIdx]
 
-        taskId = plugin.server.scheduler.scheduleSyncRepeatingTask(plugin, {
-            var processedCount = 0
-
-            while (processedCount < blocksPerTick && queue.isNotEmpty()) {
-                val blockChange = queue.poll() ?: break
-                applyBlockChange(blockChange)
-                processedCount++
-            }
-
-            // Auto-stop when queue is empty
-            if (queue.isEmpty()) {
-                emptyInterval += tickInterval
-                if (emptyInterval >= tickInterval*40) {
-                    running = false
-                    plugin.server.scheduler.cancelTask(taskId)
-                    taskId = -1
+                while (processedCount < blocksPerTick && queue.isNotEmpty()) {
+                    val blockChange = queue.poll() ?: break
+                    applyBlockChange(blockChange)
+                    queueSizes.decrementAndGet(queueIdx)
+                    processedCount++
                 }
-            }
 
-        }, tickInterval, tickInterval)
+                if (queueAllEmpty()) {
+                    stop()
+                }
+            }, tickInterval, tickInterval)
+            taskIds.add(taskId)
+        }
+
+    }
+
+    private fun queueAllEmpty(): Boolean {
+        for (i in 0 until processorCount) {
+            if (queueSizes.get(i) > 0) return false
+        }
+        return true
     }
 
     /**
      * Forcibly stop the processing task
      */
-    fun stop(plugin: Plugin) {
+    private fun stop() {
         if (!running) return
         running = false
-        if (taskId != -1) {
-            plugin.server.scheduler.cancelTask(taskId)
-            taskId = -1
+
+        taskIds.forEach { taskId ->
+            Defcon.instance.server.scheduler.cancelTask(taskId)
         }
+        taskIds.clear()
     }
 
     /**
@@ -107,7 +142,7 @@ object BlockChanger {
         val oldBlockData = blockChange.blockData ?: (if (blockChange.copyBlockData) block.blockData.clone() else null)
 
         // Change the block type
-        block.type = blockChange.newMaterial
+        block.setType(blockChange.newMaterial, false)
 
         // Apply block data if needed
         if (blockChange.copyBlockData && oldBlockData != null) {
@@ -150,6 +185,14 @@ object BlockChanger {
      * Check how many block changes are pending
      */
     fun getPendingChangesCount(): Int {
-        return queue.size
+        var total = 0
+        for (i in 0 until processorCount) {
+            total += queueSizes.get(i)
+        }
+        return total
+    }
+
+    fun getQueueDistribution(): List<Int> { // Debugging
+        return (0 until processorCount).map{ queueSizes.get(it) }
     }
 }
