@@ -15,7 +15,8 @@ object BlockChanger {
         val copyBlockData: Boolean,
         val metadataKey: String? = null,
         val metadataValue: MetadataValue? = null,
-        val blockData: BlockData? = null
+        val blockData: BlockData? = null,
+        val updateBlock: Boolean = false
     )
 
     private var queues = mutableListOf<ConcurrentLinkedQueue<BlockChange>>()
@@ -74,10 +75,11 @@ object BlockChanger {
         copyBlockData: Boolean = false,
         metadataKey: String? = null,
         metadataValue: MetadataValue? = null,
-        blockData: BlockData? = null
+        blockData: BlockData? = null,
+        updateBlock: Boolean = false
     ) {
         val queueIdx = findBestQueue()
-        val blockChange = BlockChange(block, newMaterial, copyBlockData, metadataKey, metadataValue, blockData)
+        val blockChange = BlockChange(block, newMaterial, copyBlockData, metadataKey, metadataValue, blockData, updateBlock)
 
         queues[queueIdx].add(blockChange)
         queueSizes.incrementAndGet(queueIdx)
@@ -142,7 +144,7 @@ object BlockChanger {
         val oldBlockData = blockChange.blockData ?: (if (blockChange.copyBlockData) block.blockData.clone() else null)
 
         // Change the block type
-        block.setType(blockChange.newMaterial, false)
+        block.setType(blockChange.newMaterial, blockChange.updateBlock)
 
         // Apply block data if needed
         if (blockChange.copyBlockData && oldBlockData != null) {

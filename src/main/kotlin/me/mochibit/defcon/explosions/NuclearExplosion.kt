@@ -137,7 +137,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         Shockwave(center, craterRadius, shockwaveRadius.toInt(), shockwaveHeight.toInt()).apply {
             explode()
         }
-        Crater(center, craterRadius).apply {
+        Crater(center, craterRadius, craterRadius/3, craterRadius, TransformationRule()).apply {
             create()
         }
 

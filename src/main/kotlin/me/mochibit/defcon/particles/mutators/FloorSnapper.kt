@@ -19,6 +19,7 @@
 
 package me.mochibit.defcon.particles.mutators
 
+import me.mochibit.defcon.utils.ChunkCache
 import org.bukkit.Location
 import org.joml.Vector3f
 import java.util.concurrent.ConcurrentHashMap
@@ -34,6 +35,7 @@ class FloorSnapper(
     private val maxDistance: Float = 80.0f
 ) : AbstractShapeMutator() {
     private val cachedMinY: ConcurrentMap<Pair<Int, Int>, Float> = ConcurrentHashMap()
+    private val chunkCache = ChunkCache.getInstance(center.world)
 
     override fun mutateLoc(location: Vector3f) {
         val x = location.x().toInt()
@@ -41,7 +43,7 @@ class FloorSnapper(
 
         // Cache the minimum Y values based on (x, z)
         val minY = cachedMinY.computeIfAbsent(x to z) {
-            val baseY = center.world.getHighestBlockYAt(x, z).toFloat()
+            val baseY = chunkCache.highestBlockYAt(x, z).toFloat()
             if (easeFromPoint != null) {
                 // Calculate distance from easing point in the X-Z plane
                 val dx = x.toFloat() - easeFromPoint.x()
