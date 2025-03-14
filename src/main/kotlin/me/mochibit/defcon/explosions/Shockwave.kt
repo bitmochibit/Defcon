@@ -2,22 +2,25 @@ package me.mochibit.defcon.explosions
 
 import me.mochibit.defcon.extensions.toVector3i
 import me.mochibit.defcon.threading.scheduling.runLater
+import me.mochibit.defcon.utils.ChunkCache
 import me.mochibit.defcon.utils.MathFunctions
 import me.mochibit.defcon.utils.MathFunctions.remap
-import org.bukkit.*
-import org.bukkit.block.Block
+import me.mochibit.defcon.utils.RayCaster
+import org.bukkit.Location
+import org.bukkit.Material
+import org.bukkit.Particle
 import org.bukkit.block.data.BlockData
 import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
 import org.joml.Vector3i
-import java.lang.ref.SoftReference
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.*
+import kotlin.random.Random
 
 class Shockwave(
     private val center: Location,
@@ -44,6 +47,7 @@ class Shockwave(
     private val destructionQueue = ConcurrentLinkedQueue<Pair<List<Vector3i>, Double>>()
     private val treeBurner = TreeBurner(world, center.toVector3i(), 200, transformationRule)
     private val chunkCache = ChunkCache.getInstance(world)
+    private val rayCaster = RayCaster(world)
 
     // Cache common calculations
     private val directionsToCheck = arrayOf(
@@ -239,34 +243,22 @@ class Shockwave(
         }
     }
 
-    private fun rayTrace(location: Vector3i, maxDistance: Double = 200.0): Int {
-        var currentDepth = 0
-        var currentY = location.y
-        while (currentDepth < maxDistance) {
-            val blockType = chunkCache.getBlockMaterial(location.x, currentY, location.z)
-
-            if (blockType != Material.AIR) {
-                return currentY
-            } else {
-                currentY--
-            }
-
-            currentDepth++
-        }
-        return currentY
-    }
-
     // Improved block penetration system
     private fun simulateExplosion(location: Vector3i, normalizedExplosionPower: Double) {
         // Process the main block first
         processBlock(location, normalizedExplosionPower)
-
         val baseY = location.y
+
+        /*
+            Check if the explosion power is near to 1.0 (~0.8-1.0) for each block ahead in every direction,
+            get the lowest point, and set the block to air from that point to the baseY.
+
+        */
 
         for (dir in directionsToCheck) {
             val tempPos = positionCache.get()
             tempPos.set(location.x + dir.x, location.y, location.z + dir.z)
-            val wallTopY = rayTrace(tempPos)
+            val wallTopY = rayCaster.cachedRayTrace(tempPos)
 
             // Only process columns with significant height differences
             val heightDiff = baseY - wallTopY
@@ -297,9 +289,27 @@ class Shockwave(
     ) {
         // Skip if power is too low
         if (normalizedExplosionPower < 0.05) return
+        val basePenetration = (normalizedExplosionPower * 8).roundToInt().coerceIn(1, 12)
 
-        // Calculate penetration parameters based on explosion power
-        val maxPenetration = (normalizedExplosionPower * 8).roundToInt().coerceIn(1, 12)
+        // Create a deterministic but varied penetration value based on position
+        // This ensures patterns rather than pure randomness
+        val positionSeed = blockLocation.x * 73 + blockLocation.z * 31
+        val random = Random(positionSeed)
+
+        // Randomize penetration with constraints based on explosion power
+        // Higher power = higher variance allowed
+        val varianceFactor = (normalizedExplosionPower * 0.6).coerceIn(0.2, 0.5)
+        val randomOffset = (random.nextDouble() * 2 - 1) * basePenetration * varianceFactor
+
+        // Apply smoothing based on distance from explosion center
+        // This creates more natural-looking crater edges
+        val distanceNormalized = 1.0 - (normalizedExplosionPower / 1.0).coerceIn(0.0, 1.0)
+        val smoothingFactor = distanceNormalized * 0.5
+
+        // Calculate final max penetration value
+        val maxPenetration = (basePenetration + randomOffset * (1 - smoothingFactor)).roundToInt()
+            .coerceIn(max(1, (basePenetration * 0.7).toInt()), (basePenetration * 1.3).toInt())
+
         val powerDecay = 0.95
 
         var currentY = blockLocation.y
@@ -338,7 +348,7 @@ class Shockwave(
 
             // Handle air blocks by looking for the next solid block below
             if (blockType == Material.AIR) {
-                val nextSolidY = rayTrace(currentPos, 30.0)
+                val nextSolidY = rayCaster.cachedRayTrace(currentPos, 30.0)
                 if (nextSolidY < currentY - 30) break // Too far down, skip
 
                 // Jump to the next solid block
@@ -350,12 +360,15 @@ class Shockwave(
             // Get the block data once, cache for reuse
             val blockData = chunkCache.getBlockData(currentPos.x, currentY, currentPos.z)
 
+            val powerVariance = (random.nextDouble() * 0.2 - 0.1) * currentPower
+            val adjustedPower = (currentPower + powerVariance).coerceIn(0.0, 1.0)
+
             // Determine final block state
-            val finalMaterial = if (currentPower > 0.3 && penetrationCount < maxPenetration - 1) {
+            val finalMaterial = if (adjustedPower > 0.3 && penetrationCount < maxPenetration - 1) {
                 Material.AIR // Destroy if power is high enough
             } else {
                 // Transform if it's the last block or power is low
-                transformationRule.transformMaterial(blockType, currentPower)
+                transformationRule.transformMaterial(blockType, adjustedPower)
             }
 
             // Add to our batch instead of queuing immediately
@@ -414,66 +427,3 @@ class Shockwave(
     }
 }
 
-// ChunkCache implementation remains mostly the same
-// It's already well-optimized with the soft reference caching system
-class ChunkCache private constructor(
-    private val world: World,
-    private val maxAccessCount: Int = 20
-) {
-    companion object {
-        private val sharedChunkCache =
-            object : LinkedHashMap<Pair<Int, Int>, SoftReference<ChunkSnapshot>>(16, 0.75f, true) {
-                private val MAX_SHARED_CACHE_SIZE = 100
-
-                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<Int, Int>, SoftReference<ChunkSnapshot>>): Boolean {
-                    return size > MAX_SHARED_CACHE_SIZE
-                }
-            }
-
-        private val instanceCache = ConcurrentHashMap<World, ChunkCache>()
-
-        fun getInstance(world: World, maxAccessCount: Int = 20): ChunkCache {
-            return instanceCache.computeIfAbsent(world) { ChunkCache(world, maxAccessCount) }
-        }
-    }
-
-    private val localCache = object : LinkedHashMap<Pair<Int, Int>, ChunkSnapshot>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<Int, Int>, ChunkSnapshot>): Boolean {
-            if (size > maxAccessCount) {
-                sharedChunkCache[eldest.key] = SoftReference(eldest.value)
-                return true
-            }
-            return false
-        }
-    }
-
-    private fun getChunkSnapshot(x: Int, z: Int): ChunkSnapshot {
-        val chunkX = x shr 4
-        val chunkZ = z shr 4
-        val key = chunkX to chunkZ
-
-        return localCache.getOrPut(key) {
-            val sharedSnapshot = sharedChunkCache[key]?.get()
-            if (sharedSnapshot != null) {
-                return@getOrPut sharedSnapshot
-            }
-            val snapshot = world.getChunkAt(chunkX, chunkZ).chunkSnapshot
-            sharedChunkCache[key] = SoftReference(snapshot)
-            snapshot
-        }
-    }
-
-    fun highestBlockYAt(x: Int, z: Int): Int {
-        return getChunkSnapshot(x, z).getHighestBlockYAt(x and 15, z and 15)
-    }
-
-    fun getBlockMaterial(x: Int, y: Int, z: Int): Material {
-        if (y < 0 || y > 255) return Material.AIR
-        return getChunkSnapshot(x, z).getBlockType(x and 15, y, z and 15)
-    }
-
-    fun getBlockData(x: Int, y: Int, z: Int): BlockData {
-        if (y < 0 || y > 255) return Bukkit.createBlockData(Material.AIR)
-        return getChunkSnapshot(x, z).getBlockData(x and 15, y, z and 15)
-    }
-}
