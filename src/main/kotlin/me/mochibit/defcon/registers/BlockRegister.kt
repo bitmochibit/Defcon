@@ -29,7 +29,9 @@ import me.mochibit.defcon.exceptions.BlockNotRegisteredException
 import me.mochibit.defcon.interfaces.PluginBlock
 import me.mochibit.defcon.utils.MetaManager
 import org.bukkit.Location
+import org.bukkit.World
 import org.bukkit.plugin.java.JavaPlugin
+import org.joml.Vector3i
 
 /**
  * This class handles the registration of the definitions blocks
@@ -81,6 +83,11 @@ class BlockRegister() {
         fun getBlock(location: Location): PluginBlock? {
             val customBlockId = MetaManager.getBlockData<String>(location, BlockDataKey.CustomBlockId) ?: return null
             return getBlock(customBlockId)
+        }
+
+        fun getBlock(loc: Vector3i, world: World): PluginBlock? {
+            val location = Location(world, loc.x.toDouble(), loc.y.toDouble(), loc.z.toDouble())
+            return getBlock(location)
         }
 
         fun getBlock(id: String): PluginBlock? {

@@ -1,245 +1,199 @@
 package me.mochibit.defcon.explosions
 
-import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.extensions.toVector3f
-import me.mochibit.defcon.utils.FloodFill3D.getFloodFillBlock
-import org.bukkit.Location
+import me.mochibit.defcon.utils.ChunkCache
 import org.bukkit.Material
 import org.bukkit.World
-import org.bukkit.block.Block
-import org.bukkit.metadata.FixedMetadataValue
 import org.joml.Vector3f
 import org.joml.Vector3i
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.random.Random
+import kotlin.math.roundToInt
 
 class TreeBurner(
     private val world: World,
     private val center: Vector3i,
-    private val maxTreeBlocks: Int = 500,
     private val transformationRule: TransformationRule
 ) {
     companion object {
         private const val LEAF_SUFFIX = "_LEAVES"
         private const val LOG_SUFFIX = "_LOG"
+        private const val WOOD_SUFFIX = "_WOOD"
         private val TERRAIN_TYPES = setOf(Material.GRASS_BLOCK, Material.DIRT, Material.PODZOL)
 
-        // New properties for the random tree falling feature
-        private const val TREE_FALL_CHANCE = 0.35 // 35% chance for a tree to fall
+        // Optimized properties for the tree falling feature
         private const val MIN_POWER_FOR_AUTOMATIC_DESTRUCTION = 0.7
+
+        private const val BATCH_SIZE = 100
+
+        // Maximum tree height to process
+        private const val MAX_TREE_HEIGHT = 60
+
     }
+    private val chunkCache = ChunkCache.getInstance(world)
+    private val blockChanger = BlockChangerFactory.getBlockChanger(world)
 
-    fun processTreeBurn(initialBlock: Block, normalizedExplosionPower: Double) {
-        // Early exit if block is not part of a tree
-        if (!isTreeBlock(initialBlock)) {
-            return
-        }
+    // Cache for material lookups
+    private val materialCache = HashMap<Vector3i, Material>()
 
-        val treeBlocks = getFloodFillBlock(initialBlock, maxTreeBlocks, ignoreEmpty = true) { block ->
-            isTreeBlock(block)
-        }
+    // Batch processing for block changes
+    private val blockChanges = mutableListOf<BlockChange>()
 
-        if (treeBlocks.isEmpty()) {
-            return
-        }
+    fun processTreeBurn(initialBlock: Vector3i, normalizedExplosionPower: Double) {
+        try {
+            // Reset state for this tree processing
+            materialCache.clear()
+            blockChanges.clear()
 
-        // Decide if this tree should completely fall over
-        val shouldTreeFall = normalizedExplosionPower < MIN_POWER_FOR_AUTOMATIC_DESTRUCTION &&
-                             Random.nextDouble() < TREE_FALL_CHANCE
-
-        // Organize blocks by type with a single pass
-        val leaves = mutableListOf<Location>()
-        val logs = mutableListOf<Location>()
-        val terrain = mutableListOf<Location>()
-
-        for ((material, locations) in treeBlocks.entries) {
-            val materialName = material.name
-            when {
-                materialName.endsWith(LEAF_SUFFIX) -> leaves.addAll(locations)
-                materialName.endsWith(LOG_SUFFIX) -> logs.addAll(locations)
-                material in TERRAIN_TYPES -> terrain.addAll(locations)
+            // Early exit if block is not part of a tree
+            if (!isTreeBlock(initialBlock)) {
+                return
             }
-        }
 
-        // Process the tree depending on its fate
-        if (shouldTreeFall) {
-            processFallingTree(logs, leaves, terrain, normalizedExplosionPower)
-        } else {
-            processStandardTreeBurn(logs, leaves, terrain, normalizedExplosionPower)
-        }
-    }
+            // Find the base of the tree by going down from the initial block
+            val treeBase = findTreeBase(initialBlock)
+            val treeMaxHeight = initialBlock.y
+            val treeMinHeight = treeBase.y
 
-    private fun isTreeBlock(block: Block): Boolean {
-        val materialName = block.type.name
-        return materialName.endsWith(LOG_SUFFIX) ||
-               materialName.endsWith(LEAF_SUFFIX) ||
-               block.type in TERRAIN_TYPES
-    }
-
-    private fun processStandardTreeBurn(
-        logs: List<Location>,
-        leaves: List<Location>,
-        terrain: List<Location>,
-        normalizedExplosionPower: Double
-    ) {
-        // Process leaves - always remove them
-        leaves.forEach { leafLocation ->
-            BlockChanger.addBlockChange(
-                leafLocation.block,
-                Material.AIR,
-            )
-        }
-
-        // Calculate log properties once
-        if (logs.isNotEmpty()) {
-            val treeMinHeight = logs.minOf { it.y }
-            val treeMaxHeight = logs.maxOf { it.y }
-            val heightRange = (treeMaxHeight - treeMinHeight).coerceAtLeast(1.0)
+            // Enforce maximum tree height limit
+            val effectiveMaxHeight = minOf(treeMinHeight + MAX_TREE_HEIGHT, treeMaxHeight)
+            val heightRange = (effectiveMaxHeight - treeMinHeight).coerceAtLeast(1)
 
             // Calculate shockwave direction once
-            val initialLogLocation = logs.firstOrNull() ?: return
-            val shockwaveDirection = initialLogLocation.subtract(
-                center.x.toDouble(), center.y.toDouble(), center.z.toDouble()
-            ).toVector3f().normalize()
+            val shockwaveDirection = Vector3f(
+                (initialBlock.x - center.x).toFloat(),
+                (initialBlock.y - center.y).toFloat(),
+                (initialBlock.z - center.z).toFloat()
+            ).normalize()
 
-            // Process logs with consistent tilt
-            logs.forEach { logLocation ->
-                processLogBlock(
-                    logLocation,
-                    treeMinHeight,
-                    heightRange,
-                    shockwaveDirection,
-                    normalizedExplosionPower
-                )
+            // Process the vertical column from top to bottom, limited by MAX_TREE_HEIGHT
+            for (y in effectiveMaxHeight downTo treeMinHeight) {
+                val currentBlock = Vector3i(initialBlock.x, y, initialBlock.z)
+                val material = chunkCache.getBlockMaterial(currentBlock.x, currentBlock.y, currentBlock.z)
+
+                when {
+                    material.name.endsWith(LEAF_SUFFIX) -> {
+                        // Process leaves - always remove them
+                        addBlockChange(currentBlock, Material.AIR)
+                    }
+                    material.name.endsWith(LOG_SUFFIX) -> {
+                        // Process log blocks with tilt based on height
+                        processLogBlock(
+                            currentBlock,
+                            treeMinHeight,
+                            heightRange,
+                            shockwaveDirection,
+                            normalizedExplosionPower
+                        )
+                    }
+                    material in TERRAIN_TYPES -> {
+                        // Process terrain - convert to scorched earth
+                        addBlockChange(currentBlock, Material.COARSE_DIRT)
+                    }
+                }
             }
-        }
 
-        // Process terrain - convert to scorched earth
-        terrain.forEach { terrainLocation ->
-            BlockChanger.addBlockChange(
-                terrainLocation.block,
-                Material.COARSE_DIRT,
-            )
+            // Apply any remaining block changes
+            applyBlockChanges()
+        } catch (e: Exception) {
+            // Log the error but prevent it from crashing the server
+            println("Error in TreeBurner: ${e.message}")
+            e.printStackTrace()
         }
     }
 
-    private fun processFallingTree(
-        logs: List<Location>,
-        leaves: List<Location>,
-        terrain: List<Location>,
-        normalizedExplosionPower: Double
-    ) {
-        if (logs.isEmpty()) return
+    private fun findTreeBase(startBlock: Vector3i): Vector3i {
+        var currentY = startBlock.y
+        val currentBlock = Vector3i(startBlock)
+        val minY = maxOf(0, currentY - MAX_TREE_HEIGHT) // Don't go below ground or more than MAX_TREE_HEIGHT down
 
-        // Determine tree properties
-        val treeMinHeight = logs.minOf { it.y }
-        val treeBase = logs.filter { it.y == treeMinHeight }
-            .minByOrNull { it.distanceSquared(Location(world, center.x.toDouble(), center.y.toDouble(), center.z.toDouble())) }
-            ?: logs.first()
+        // Go down until we hit terrain or non-tree block, with a limit
+        while (currentY > minY) {
+            val material = chunkCache.getBlockMaterial(currentBlock.x, currentY, currentBlock.z)
 
-        // Determine fall direction - away from explosion
-        val fallDirection = treeBase.subtract(
-            center.x.toDouble(), center.y.toDouble(), center.z.toDouble()
-        ).toVector3f().normalize()
-
-        // Randomize direction slightly for realism
-        val randomAngle = Random.nextDouble(-Math.PI/6, Math.PI/6) // ±30 degrees
-        val randomizedDirection = Vector3f(
-            (fallDirection.x * cos(randomAngle) - fallDirection.z * sin(randomAngle)).toFloat(),
-            fallDirection.y,
-            (fallDirection.x * sin(randomAngle) + fallDirection.z * cos(randomAngle)).toFloat()
-        ).normalize()
-
-        // Process the fallen tree logs
-        val treeHeight = logs.maxOf { it.y } - treeMinHeight
-        logs.forEach { logLocation ->
-            val heightFromBase = logLocation.y - treeMinHeight
-            val fallDistance = heightFromBase * 1.5 * normalizedExplosionPower.coerceAtLeast(0.2)
-            val newPosition = logLocation.clone().add(
-                randomizedDirection.x * fallDistance,
-                -heightFromBase * 0.8, // Logs closer to top fall more toward ground
-                randomizedDirection.z * fallDistance
-            )
-
-            // The closer to the ground, the more likely to remain as wood
-            val woodChance = 1.0 - (heightFromBase / treeHeight.coerceAtLeast(1.0)) * 0.7
-            val newMaterial = if (Random.nextDouble() < woodChance) {
-                // Find the original log type
-                val blockData = logLocation.block.blockData
-                logLocation.block.type // Preserve the original log type
-            } else {
-                Material.POLISHED_BASALT // Burned wood
+            if (material == Material.AIR) {
+                currentY--
+                continue
+            } else if (material in TERRAIN_TYPES) {
+                // Found the base (terrain)
+                currentBlock.y = currentY
+                return currentBlock
+            } else if (!isTreeBlock(currentBlock)) {
+                // If we hit a non-tree block, return the block above
+                currentBlock.y = currentY + 1
+                return currentBlock
             }
 
-            // Move the log block to its fallen position
-            BlockChanger.addBlockChange(
-                newPosition.block,
-                newMaterial,
-            )
-
-            // Remove the original log block
-            if (newPosition.block.location != logLocation.block.location) {
-                BlockChanger.addBlockChange(logLocation.block, Material.AIR)
-            }
+            currentY--
         }
 
-        // Always remove leaves
-        leaves.forEach { leafLocation ->
-            BlockChanger.addBlockChange(
-                leafLocation.block,
-                Material.AIR,
-            )
-        }
+        // Fallback to the minimum height we're willing to check
+        currentBlock.y = minY
+        return currentBlock
+    }
 
-        // Process terrain - convert to scorched earth
-        terrain.forEach { terrainLocation ->
-            BlockChanger.addBlockChange(
-                terrainLocation.block,
-                Material.COARSE_DIRT,
-            )
-        }
+    fun isTreeBlock(block: Vector3i): Boolean {
+        val material = chunkCache.getBlockMaterial(block.x, block.y, block.z)
+        val materialName = material.name
+        return materialName.endsWith(LOG_SUFFIX) ||
+                materialName.endsWith(LEAF_SUFFIX) ||
+                materialName.endsWith(WOOD_SUFFIX)
     }
 
     private fun processLogBlock(
-        logLocation: Location,
-        treeMinHeight: Double,
-        heightRange: Double,
+        logLocation: Vector3i,
+        treeMinHeight: Int,
+        heightRange: Int,
         shockwaveDirection: Vector3f,
         normalizedExplosionPower: Double
     ) {
-        val logBlock = logLocation.block
-
         // Completely destroy logs if explosion power is strong enough
         if (normalizedExplosionPower > MIN_POWER_FOR_AUTOMATIC_DESTRUCTION) {
-            BlockChanger.addBlockChange(logBlock, Material.AIR)
+            addBlockChange(logLocation, Material.AIR)
             return
         }
 
         // Calculate tilt based on height
         val blockHeight = logLocation.y - treeMinHeight
-        val heightFactor = blockHeight / heightRange
-        val tiltFactor = if (logLocation.y.toInt() == treeMinHeight.toInt()) {
+        val heightFactor = blockHeight.toDouble() / heightRange
+        val tiltFactor = if (logLocation.y == treeMinHeight) {
             0.0 // Base of tree doesn't move
         } else {
             heightFactor * normalizedExplosionPower * 6 // Smooth gradient tilt
         }
 
-        val newPosition = logLocation.clone().add(
-            shockwaveDirection.x * tiltFactor,
-            0.0,
-            shockwaveDirection.z * tiltFactor
+        val newPosition = Vector3i(
+            (logLocation.x + shockwaveDirection.x * tiltFactor).roundToInt(),
+            logLocation.y,
+            (logLocation.z + shockwaveDirection.z * tiltFactor).roundToInt()
         )
 
         // Change the block and mark it as processed
-        BlockChanger.addBlockChange(
-            newPosition.block,
-            Material.POLISHED_BASALT,
-        )
+        addBlockChange(newPosition, Material.POLISHED_BASALT)
 
         // Remove the original block if it moved
-        if (newPosition.block.location != logBlock.location) {
-            BlockChanger.addBlockChange(logBlock, Material.AIR)
+        if (newPosition != logLocation) {
+            addBlockChange(logLocation, Material.AIR)
         }
+    }
+
+    // Add a block change to our batch
+    private fun addBlockChange(location: Vector3i, material: Material) {
+        blockChanges.add(
+            BlockChange(
+                location.x,
+                location.y,
+                location.z,
+                material
+            )
+        )
+
+        // Apply changes in batches
+        if (blockChanges.size >= BATCH_SIZE) {
+            applyBlockChanges()
+        }
+    }
+
+    // Apply all pending block changes
+    private fun applyBlockChanges() {
+        blockChanger.addBlockChanges(blockChanges)
+        blockChanges.clear()
     }
 }

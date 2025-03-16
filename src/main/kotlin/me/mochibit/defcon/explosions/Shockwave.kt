@@ -9,16 +9,20 @@ import me.mochibit.defcon.utils.RayCaster
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.Particle
-import org.bukkit.block.data.BlockData
+import org.bukkit.block.BlockFace
 import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
 import org.joml.Vector3i
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.xml.crypto.dsig.Transform
+import kotlin.collections.ArrayList
+import kotlin.collections.HashSet
 import kotlin.math.*
 import kotlin.random.Random
 
@@ -45,9 +49,10 @@ class Shockwave(
 
     private val completedExplosion = AtomicBoolean(false)
     private val destructionQueue = ConcurrentLinkedQueue<Pair<List<Vector3i>, Double>>()
-    private val treeBurner = TreeBurner(world, center.toVector3i(), 200, transformationRule)
+    private val treeBurner = TreeBurner(world, center.toVector3i(), transformationRule)
     private val chunkCache = ChunkCache.getInstance(world)
     private val rayCaster = RayCaster(world)
+    private val blockChanger = BlockChangerFactory.getBlockChanger(world)
 
     // Cache common calculations
     private val directionsToCheck = arrayOf(
@@ -59,8 +64,8 @@ class Shockwave(
 
     // Reusable position objects to reduce object creation
     private val positionCache = ThreadLocal.withInitial { Vector3i() }
-    private val blockChangeCache = ThreadLocal.withInitial { ArrayList<Triple<Vector3i, Material, BlockData>>(16) }
-    private val processedPositionsCache = ThreadLocal.withInitial { HashSet<Vector3i>(32) }
+    private val blockChangeCache = ThreadLocal.withInitial { ArrayList<BlockChange>(32) }
+    private val processedPositionsCache = ThreadLocal.withInitial { HashSet<Vector3i>(64) }
 
     fun explode() {
         val startTime = System.nanoTime()
@@ -217,11 +222,9 @@ class Shockwave(
         val treeBlocks = ArrayList<Vector3i>(locations.size / 10)
         val nonTreeBlocks = ArrayList<Vector3i>(locations.size)
 
-        // Process in smaller batches to avoid overwhelming the server
         locations.chunked(500).forEach { batch ->
             batch.forEach { location ->
-                val blockType = chunkCache.getBlockMaterial(location.x, location.y, location.z)
-                if (blockType.name.endsWith("_LOG") || blockType.name.endsWith("_LEAVES")) {
+                if (treeBurner.isTreeBlock(location)) {
                     treeBlocks.add(location)
                 } else {
                     nonTreeBlocks.add(location)
@@ -230,9 +233,10 @@ class Shockwave(
         }
 
         // Process trees first as they might be more complex
-        treeBlocks.forEach { treeBlock ->
-            val block = world.getBlockAt(treeBlock.x, treeBlock.y, treeBlock.z)
-            treeBurner.processTreeBurn(block, explosionPower)
+        treeBlocks.chunked(100).forEach { chunk ->
+            chunk.forEach { treeBlock ->
+                treeBurner.processTreeBurn(treeBlock, explosionPower)
+            }
         }
 
         // Process normal blocks in chunks to avoid overwhelming the server
@@ -241,6 +245,9 @@ class Shockwave(
                 simulateExplosion(location, explosionPower)
             }
         }
+
+        treeBlocks.clear()
+        nonTreeBlocks.clear()
     }
 
     // Improved block penetration system
@@ -249,14 +256,8 @@ class Shockwave(
         processBlock(location, normalizedExplosionPower)
         val baseY = location.y
 
-        /*
-            Check if the explosion power is near to 1.0 (~0.8-1.0) for each block ahead in every direction,
-            get the lowest point, and set the block to air from that point to the baseY.
-
-        */
-
+        val tempPos = positionCache.get()
         for (dir in directionsToCheck) {
-            val tempPos = positionCache.get()
             tempPos.set(location.x + dir.x, location.y, location.z + dir.z)
             val wallTopY = rayCaster.cachedRayTrace(tempPos)
 
@@ -264,7 +265,7 @@ class Shockwave(
             val heightDiff = baseY - wallTopY
             if (heightDiff > 2) {
                 // Calculate how many blocks to process based on explosion power
-                val blocksToProcess = heightDiff.coerceIn(1, heightDiff)
+                val blocksToProcess = heightDiff.coerceIn(1, shockwaveHeight)
 
                 // Process from top to bottom with decreasing power
                 for (i in 0 until blocksToProcess) {
@@ -281,7 +282,8 @@ class Shockwave(
         }
     }
 
-    // Completely rewritten and optimized block penetration system
+
+
     private fun processBlock(
         blockLocation: Vector3i,
         normalizedExplosionPower: Double,
@@ -332,7 +334,6 @@ class Shockwave(
             currentPos.set(blockLocation.x, currentY, blockLocation.z)
 
             // Skip if we've already processed this position
-            // Create a new Vector3i for the key to avoid mutating the currentPos
             val posKey = Vector3i(currentPos.x, currentY, currentPos.z)
             if (!processedPositions.add(posKey)) break
 
@@ -357,9 +358,6 @@ class Shockwave(
                 continue
             }
 
-            // Get the block data once, cache for reuse
-            val blockData = chunkCache.getBlockData(currentPos.x, currentY, currentPos.z)
-
             val powerVariance = (random.nextDouble() * 0.2 - 0.1) * currentPower
             val adjustedPower = (currentPower + powerVariance).coerceIn(0.0, 1.0)
 
@@ -371,12 +369,20 @@ class Shockwave(
                 transformationRule.transformMaterial(blockType, adjustedPower)
             }
 
+            val updateBlock = if (finalMaterial == Material.AIR) {
+                checkUpdatableBlocks(currentPos)
+            } else {
+                false
+            }
+
             // Add to our batch instead of queuing immediately
             blockChangeList.add(
-                Triple(
-                    Vector3i(currentPos.x, currentY, currentPos.z),
+                BlockChange(
+                    currentPos.x,
+                    currentY,
+                    currentPos.z,
                     finalMaterial,
-                    blockData
+                    updateBlock =  updateBlock
                 )
             )
 
@@ -395,15 +401,37 @@ class Shockwave(
         )
 
         // Batch-process all block changes
-        blockChangeList.forEach { (pos, material, data) ->
-            val block = world.getBlockAt(pos.x, pos.y, pos.z)
-            BlockChanger.addBlockChange(
-                block,
-                material,
-                (material != Material.AIR),
-                blockData = data
-            )
+        blockChanger.addBlockChanges(blockChangeList)
+    }
+
+    val updatableBlocks: Set<Material> = EnumSet.noneOf(Material::class.java).apply {
+        addAll(TransformationRule.PLANTS)
+        addAll(TransformationRule.DEAD_PLANTS)
+        add(Material.TORCH)
+        add(Material.REDSTONE_TORCH)
+        add(Material.REDSTONE_WALL_TORCH)
+        add(Material.WALL_TORCH)
+        add(Material.REDSTONE_WIRE)
+        add(Material.REDSTONE)
+        add(Material.RAIL)
+        add(Material.ACTIVATOR_RAIL)
+        add(Material.DETECTOR_RAIL)
+        add(Material.POWERED_RAIL)
+        add(Material.LEVER)
+        add(Material.STONE_BUTTON)
+    }
+
+    private fun checkUpdatableBlocks(
+        location: Vector3i
+    ): Boolean {
+        // Check around all the block faces for updatable blocks
+        for (dir in BlockFace.entries) {
+            val blockType = chunkCache.getBlockMaterial(location.x + dir.modX, location.y+dir.modY, location.z + dir.modZ)
+            if (blockType in updatableBlocks) {
+                return true
+            }
         }
+        return false
     }
 
     private fun generateShockwaveColumns(radius: Int): List<Vector3i> {
