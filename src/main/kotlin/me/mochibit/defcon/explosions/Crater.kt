@@ -39,7 +39,7 @@ class Crater(
     private val processedBlocks = mutableListOf<BlockChange>()
     private val batchSize = 500 // Adjust based on server performance
 
-    private val blockChanger = BlockChangerFactory.getBlockChanger(world)
+    private val blockChanger = BlockChanger(world)
 
     /**
      * Creates an ellipsoidal crater with the specified dimensions.
@@ -108,12 +108,14 @@ class Crater(
                     val zPos = z + centerZ
 
                     val type = chunkCache.getBlockMaterial(xPos, yPos, zPos)
-                    if (type.isAir) {
-                        continue
-                    }
+                    if (type in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST) continue
+
 
                     // Only calculate outer ellipsoid values if needed
                     if (innerEllipsoidValue > 1.0) {
+                        if (type in TransformationRule.LIQUID_MATERIALS) continue
+
+
                         // Calculate positions in outer ellipsoid
                         val normalizedOuterX = (x * x).toDouble() / outerRadiusXSquared
                         val normalizedOuterY = (y * y).toDouble() / outerRadiusYSquared
@@ -122,9 +124,7 @@ class Crater(
                         val outerEllipsoidValue = normalizedOuterX + normalizedOuterY + normalizedOuterZ
 
                         // Skip if outside outer ellipsoid
-                        if (outerEllipsoidValue > 1.0) {
-                            continue
-                        }
+                        if (outerEllipsoidValue > 1.0) continue
 
                         // Between inner and outer ellipsoid - transform blocks
                         processedBlocks.add(

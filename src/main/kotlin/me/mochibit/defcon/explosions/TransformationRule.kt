@@ -32,7 +32,8 @@ class TransformationRule {
             Material.COMMAND_BLOCK,
             Material.COMMAND_BLOCK_MINECART,
             Material.END_PORTAL_FRAME,
-            Material.END_PORTAL
+            Material.END_PORTAL,
+            Material.AIR
         )
 
         val LIQUID_MATERIALS: Set<Material> = EnumSet.of(
@@ -51,65 +52,110 @@ class TransformationRule {
             Material.OBSIDIAN
         )
 
+        val DESTROYED_BLOCK: List<Material> = listOf(
+            Material.COBBLESTONE,
+            Material.COBBLED_DEEPSLATE
+        )
+
+        val DIRT_TRANSFORMATIONS: List<Material> = listOf(
+            Material.COARSE_DIRT,
+            Material.MYCELIUM,
+            Material.DIRT
+        )
+
+        // Group categorization for cleaner code and better performance
         val LIGHT_WEIGHT_BLOCKS: Set<Material> = EnumSet.noneOf(Material::class.java).apply {
-            add(Material.ICE)
-            add(Material.PACKED_ICE)
-            add(Material.BLUE_ICE)
-            add(Material.FROSTED_ICE)
-            add(Material.SNOW)
-            add(Material.SNOW_BLOCK)
-            add(Material.POWDER_SNOW)
+            addAll(listOf(
+                Material.ICE,
+                Material.PACKED_ICE,
+                Material.BLUE_ICE,
+                Material.FROSTED_ICE,
+                Material.SNOW,
+                Material.SNOW_BLOCK,
+                Material.POWDER_SNOW
+            ))
         }
 
         val PLANTS: Set<Material> = EnumSet.noneOf(Material::class.java).apply {
             // Group related plants for better readability
             // Grass types
-            add(Material.GRASS)
-            add(Material.TALL_GRASS)
-            add(Material.FERN)
-            add(Material.LARGE_FERN)
+            addAll(listOf(
+                Material.GRASS,
+                Material.TALL_GRASS,
+                Material.FERN,
+                Material.LARGE_FERN
+            ))
 
             // Saplings
-            add(Material.OAK_SAPLING)
-            add(Material.BIRCH_SAPLING)
-            add(Material.JUNGLE_SAPLING)
-            add(Material.ACACIA_SAPLING)
-            add(Material.DARK_OAK_SAPLING)
-            add(Material.SPRUCE_SAPLING)
-            add(Material.CHERRY_SAPLING)
-            add(Material.BAMBOO_SAPLING)
+            addAll(listOf(
+                Material.OAK_SAPLING,
+                Material.BIRCH_SAPLING,
+                Material.JUNGLE_SAPLING,
+                Material.ACACIA_SAPLING,
+                Material.DARK_OAK_SAPLING,
+                Material.SPRUCE_SAPLING,
+                Material.CHERRY_SAPLING,
+                Material.BAMBOO_SAPLING
+            ))
 
             // Flowers
-            add(Material.POPPY)
-            add(Material.DANDELION)
-            add(Material.BLUE_ORCHID)
-            add(Material.ALLIUM)
-            add(Material.AZURE_BLUET)
-            add(Material.OXEYE_DAISY)
-            add(Material.CORNFLOWER)
-            add(Material.LILY_OF_THE_VALLEY)
-            add(Material.PINK_PETALS)
-            add(Material.LILAC)
-            add(Material.PEONY)
-            add(Material.SUNFLOWER)
-            add(Material.RED_TULIP)
-            add(Material.ORANGE_TULIP)
-            add(Material.WHITE_TULIP)
-            add(Material.PINK_TULIP)
+            addAll(listOf(
+                Material.POPPY,
+                Material.DANDELION,
+                Material.BLUE_ORCHID,
+                Material.ALLIUM,
+                Material.AZURE_BLUET,
+                Material.OXEYE_DAISY,
+                Material.CORNFLOWER,
+                Material.LILY_OF_THE_VALLEY,
+                Material.PINK_PETALS,
+                Material.LILAC,
+                Material.PEONY,
+                Material.SUNFLOWER,
+                Material.RED_TULIP,
+                Material.ORANGE_TULIP,
+                Material.WHITE_TULIP,
+                Material.PINK_TULIP
+            ))
         }
 
-        // Pre-compiled regex patterns for better performance
-        private val SAPLING_PATTERN = Regex(".*sapling.*", RegexOption.IGNORE_CASE)
-        private val SLAB_WALL_STAIRS_PATTERN = Regex(".*_(SLAB|WALL|STAIRS)")
-    }
+        val STRUCTURE_TRANSFORMATIONS = mapOf(
+            MaterialType.SLAB to listOf(
+                Material.COBBLESTONE_SLAB,
+                Material.COBBLED_DEEPSLATE_SLAB
+            ),
+            MaterialType.WALL to listOf(
+                Material.COBBLESTONE_WALL,
+                Material.COBBLED_DEEPSLATE_WALL
+            ),
+            MaterialType.STAIRS to listOf(
+                Material.COBBLESTONE_STAIRS,
+                Material.COBBLED_DEEPSLATE_STAIRS
+            )
+        )
 
-    // Use a more efficient lookup approach with a function reference map
-    private val directTransformations = mapOf(
-        Material.GRASS_BLOCK to ::transformGrassBlock,
-        Material.DIRT to ::transformDirt,
-        Material.STONE to { Material.COBBLED_DEEPSLATE },
-        Material.COBBLESTONE to { Material.COBBLED_DEEPSLATE }
-    )
+        // Cache material name patterns for better performance
+        private val MATERIAL_TYPE_CACHE = mutableMapOf<Material, MaterialType>()
+
+        // Initialize the cache at class load time
+        init {
+            for (material in Material.entries) {
+                MATERIAL_TYPE_CACHE[material] = when {
+                    material.name.endsWith("_SLAB") -> MaterialType.SLAB
+                    material.name.endsWith("_WALL") -> MaterialType.WALL
+                    material.name.endsWith("_STAIRS") -> MaterialType.STAIRS
+                    material.name.contains("SAPLING", ignoreCase = true) -> MaterialType.SAPLING
+                    material.name.contains("GLASS", ignoreCase = true) -> MaterialType.GLASS
+                    else -> MaterialType.OTHER
+                }
+            }
+        }
+
+        // Enum for material type categorization
+        enum class MaterialType {
+            SLAB, WALL, STAIRS, SAPLING, GLASS, OTHER
+        }
+    }
 
     // Cache random generator for better performance
     private val random = Random.Default
@@ -121,7 +167,11 @@ class TransformationRule {
             return currentMaterial
         }
 
-        // High explosion power creates burnt blocks
+        // Get material type from cache
+        val materialType = MATERIAL_TYPE_CACHE[currentMaterial] ?: MaterialType.OTHER
+
+
+        // High explosion power creates burnt blocks for most materials
         if (normalizedExplosionPower > 0.8 && currentMaterial !in LIGHT_WEIGHT_BLOCKS) {
             return getRandomBurntBlock()
         }
@@ -129,15 +179,21 @@ class TransformationRule {
         // Handle specific material types
         return when {
             currentMaterial in LIGHT_WEIGHT_BLOCKS -> Material.AIR
-            currentMaterial in directTransformations -> directTransformations[currentMaterial]?.invoke() ?: Material.AIR
             currentMaterial in PLANTS -> transformToDeadPlantOrAir(normalizedExplosionPower)
-            SAPLING_PATTERN.matches(currentMaterial.name) -> transformToDeadPlantOrAir(normalizedExplosionPower)
-            SLAB_WALL_STAIRS_PATTERN.matches(currentMaterial.name) -> transformSlabWallStairs(currentMaterial)
-            else -> Material.AIR // Default fallback
+            currentMaterial == Material.DIRT -> DIRT_TRANSFORMATIONS.random(random)
+            currentMaterial == Material.GRASS_BLOCK -> DIRT_TRANSFORMATIONS.random(random)
+
+            materialType == MaterialType.SLAB -> STRUCTURE_TRANSFORMATIONS[MaterialType.SLAB]?.random(random) ?: currentMaterial
+            materialType == MaterialType.WALL -> STRUCTURE_TRANSFORMATIONS[MaterialType.WALL]?.random(random) ?: currentMaterial
+            materialType == MaterialType.STAIRS -> STRUCTURE_TRANSFORMATIONS[MaterialType.STAIRS]?.random(random) ?: currentMaterial
+            materialType == MaterialType.SAPLING -> transformToDeadPlantOrAir(normalizedExplosionPower)
+            materialType == MaterialType.GLASS -> Material.AIR
+
+            else ->  DESTROYED_BLOCK.random(random)
         }
     }
 
-    // Optimized random selection functions
+    // Optimized random selection functions with direct indexing
     private fun getRandomDeadPlant(): Material = DEAD_PLANTS[random.nextInt(DEAD_PLANTS.size)]
     private fun getRandomBurntBlock(): Material = BURNT_BLOCK[random.nextInt(BURNT_BLOCK.size)]
 
@@ -146,15 +202,4 @@ class TransformationRule {
         return if (normalizedExplosionPower > 0.5) Material.AIR else getRandomDeadPlant()
     }
 
-    private fun transformSlabWallStairs(material: Material): Material {
-        return when {
-            material.name.endsWith("_SLAB") -> Material.COBBLED_DEEPSLATE_SLAB
-            material.name.endsWith("_WALL") -> Material.COBBLED_DEEPSLATE_WALL
-            material.name.endsWith("_STAIRS") -> Material.COBBLED_DEEPSLATE_STAIRS
-            else -> Material.AIR // Fallback
-        }
-    }
-
-    private fun transformGrassBlock(): Material = if (random.nextBoolean()) Material.COARSE_DIRT else Material.DIRT
-    private fun transformDirt(): Material = if (random.nextBoolean()) Material.COARSE_DIRT else Material.COBBLED_DEEPSLATE
 }

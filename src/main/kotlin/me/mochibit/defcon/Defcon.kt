@@ -31,7 +31,6 @@ import me.mochibit.defcon.save.savedata.PlayerDataSave
 import me.mochibit.defcon.threading.runnables.ScheduledRunnable
 import io.papermc.lib.PaperLib
 import me.mochibit.defcon.explosions.BlockChanger
-import me.mochibit.defcon.explosions.BlockChangerFactory
 import org.bukkit.Bukkit
 import org.bukkit.GameMode
 import org.bukkit.plugin.java.JavaPlugin
