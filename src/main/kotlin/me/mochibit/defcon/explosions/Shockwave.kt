@@ -14,7 +14,6 @@ import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
 import org.joml.Vector3i
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ForkJoinPool
@@ -225,6 +224,7 @@ class Shockwave(
             batch.forEach { location ->
                 if (treeBurner.isTreeBlock(location)) {
                     treeBlocks.add(location)
+                    nonTreeBlocks.add(treeBurner.getTreeTerrain(location))
                 } else {
                     nonTreeBlocks.add(location)
                 }
@@ -257,160 +257,145 @@ class Shockwave(
         if (normalizedExplosionPower < 0.05) return
         val basePenetration = (normalizedExplosionPower * 8).roundToInt().coerceIn(1, 8)
 
-        // Create a deterministic but varied penetration value based on position
-        // This ensures patterns rather than pure randomness
+        // Create deterministic but varied penetration value based on position
         val positionSeed = blockLocation.x * 73 + blockLocation.z * 31
         val random = Random(positionSeed)
 
         // Randomize penetration with constraints based on explosion power
-        // Higher power = higher variance allowed
         val varianceFactor = (normalizedExplosionPower * 0.6).coerceIn(0.2, 0.5)
-        val randomOffset = (random.nextDouble() * 2 - 1) * basePenetration * varianceFactor
-
-        // Apply smoothing based on distance from explosion center
-        // This creates more natural-looking crater edges
-        val distanceNormalized = 1.0 - (normalizedExplosionPower / 1.0).coerceIn(0.0, 1.0)
-        val smoothingFactor = distanceNormalized * 0.5
+        val distanceNormalized = 1.0 - normalizedExplosionPower.coerceIn(0.0, 1.0)
+        val randomOffset =
+            (random.nextDouble() * 2 - 1) * basePenetration * varianceFactor * (1 - distanceNormalized * 0.5)
 
         // Calculate final max penetration value
-        val maxPenetration = (basePenetration + randomOffset * (1 - smoothingFactor)).roundToInt()
+        val maxPenetration = (basePenetration + randomOffset).roundToInt()
             .coerceIn(max(1, (basePenetration * 0.7).toInt()), (basePenetration * 1.3).toInt())
 
-        val powerDecay = 0.95
+        // Check if this is a wall block by examining surrounding blocks
+        var isWall = detectWall(blockLocation.x, blockLocation.y, blockLocation.z)
+        if (!isWall) { // Second chance for the block below
+            isWall = detectWall(blockLocation.x, blockLocation.y - 1, blockLocation.z)
+        }
 
+        // Different handling for walls vs. roofs
+        if (isWall) {
+            // Walls should be destroyed almost entirely - handle vertically
+            processWall(blockLocation, normalizedExplosionPower, random)
+        } else {
+            // Roof/floor should be penetrated downward
+            processRoof(blockLocation, normalizedExplosionPower, maxPenetration, random)
+        }
+    }
+
+    // Detect if a block is a wall by checking if it has air on at least one side
+    private fun detectWall(x: Int, y: Int, z: Int): Boolean {
+        return baseDirections.any { dir ->
+            chunkCache.getBlockMaterial(x + dir.x, y, z + dir.z) == Material.AIR
+        }
+    }
+
+    // Process a wall - destroy it almost entirely vertically
+    private fun processWall(
+        blockLocation: Vector3i,
+        normalizedExplosionPower: Double,
+        random: Random
+    ) {
+        val x = blockLocation.x
+        val z = blockLocation.z
+        val startY = blockLocation.y
+        val maxDepth = shockwaveHeight
+
+        for (depth in 0 until maxDepth) {
+            val currentY = startY - depth
+
+            if (depth > 0 && !detectWall(x, currentY, z)) break
+
+            val blockType = chunkCache.getBlockMaterial(x, currentY, z)
+            if (blockType in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST || blockType == Material.AIR) continue
+            if (blockType in TransformationRule.LIQUID_MATERIALS) break
+
+
+            val finalMaterial = if (depth > 0 && random.nextDouble() < normalizedExplosionPower) {
+                transformationRule.transformMaterial(blockType, normalizedExplosionPower)
+            } else {
+                Material.AIR
+            }
+
+
+            val shouldCopyData = finalMaterial in TransformationRule.SLABS ||
+                    finalMaterial in TransformationRule.WALLS ||
+                    finalMaterial in TransformationRule.STAIRS
+
+            blockChanger.addBlockChange(
+                x, currentY, z,
+                finalMaterial,
+                shouldCopyData,
+                (finalMaterial == Material.AIR && depth == 0)
+            )
+        }
+    }
+
+    // Process a roof/floor - penetrate downward until power is too low
+    private fun processRoof(
+        blockLocation: Vector3i,
+        normalizedExplosionPower: Double,
+        maxPenetration: Int,
+        random: Random
+    ) {
         var currentY = blockLocation.y
         var currentPower = normalizedExplosionPower
         var penetrationCount = 0
+        val powerDecay = 0.85  // Faster decay for roofs to create pockmarks rather than clean holes
 
+        val x = blockLocation.x
+        val z = blockLocation.z
 
-        var isWall = false
-
-        do {
+        while (penetrationCount < maxPenetration && currentPower > 0.1 && currentY > 0) {
             // Get block type efficiently
-            val blockType = chunkCache.getBlockMaterial(blockLocation.x, currentY, blockLocation.z)
+            val blockType = chunkCache.getBlockMaterial(x, currentY, z)
 
             // Skip if block is in blacklist or is liquid
-            if (blockType in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST || blockType in TransformationRule.LIQUID_MATERIALS) {
+            if (blockType in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST || blockType in TransformationRule.LIQUID_MATERIALS)
                 break
-            }
 
             // Handle air blocks by looking for the next solid block below
             if (blockType == Material.AIR) {
-                val nextSolidY = rayCaster.cachedRayTrace(blockLocation.x, currentY, blockLocation.z, 30.0)
+                val nextSolidY = rayCaster.cachedRayTrace(x, currentY, z, 30.0)
                 if (nextSolidY < currentY - 30) break // Too far down, skip
 
                 // Jump to the next solid block
                 currentY = nextSolidY
-                currentPower *= 0.9 // Reduce power slightly for the jump
+                currentPower *= 0.8 // Reduce power more significantly for jumps
                 continue
             }
 
+            // Add randomness to power
             val powerVariance = (random.nextDouble() * 0.2 - 0.1) * currentPower
             val adjustedPower = (currentPower + powerVariance).coerceIn(0.0, 1.0)
 
-            // Determine final block state
-            val finalMaterial = if (adjustedPower > 0.3 && penetrationCount < maxPenetration - 1) {
-                Material.AIR // Destroy if power is high enough
+            val penetrationRatio = penetrationCount.toDouble() / maxPenetration
+            val finalMaterial = if (penetrationRatio < 0.7 && adjustedPower > 0.3) {
+                Material.AIR // Destroy completely
             } else {
-                // Transform if it's the last block or power is low
+                // Transform for deeper layers or when power is lower
                 transformationRule.transformMaterial(blockType, adjustedPower)
             }
 
-            val updateBlock = if (finalMaterial == Material.AIR) {
-                checkUpdatableBlocks(blockLocation.x, currentY, blockLocation.z)
-            } else {
-                false
-            }
-
-            isWall = false
-            for (dir in baseDirections) {
-                if (chunkCache.getBlockMaterial(
-                        blockLocation.x + dir.x,
-                        currentY,
-                        blockLocation.z + dir.z
-                    ) == Material.AIR
-                ) {
-                    isWall = true
-                    break
-                }
-            }
-
-            // Add to our batch instead of queuing immediately
             blockChanger.addBlockChange(
                 blockLocation.x,
                 currentY,
                 blockLocation.z,
                 finalMaterial,
-                updateBlock = updateBlock
+                updateBlock = penetrationCount == 0
             )
 
-            // Stop if we're not processing penetration
             // Move down and update state
             currentY--
-            currentPower *= if (isWall) 0.98 else powerDecay
+            currentPower *= powerDecay + (random.nextDouble() * 0.05) // Slightly randomize decay
             penetrationCount++
-
-        } while (
-            (penetrationCount < maxPenetration &&
-            currentPower > 0.1 &&
-            currentY > 0)
-            ||
-            isWall
-        )
-    }
-
-    private val updatableBlocks: Set<Material> = EnumSet.noneOf(Material::class.java).apply {
-        addAll(TransformationRule.PLANTS)
-        addAll(TransformationRule.DEAD_PLANTS)
-
-        add(Material.TORCH)
-        add(Material.REDSTONE_TORCH)
-        add(Material.REDSTONE_WALL_TORCH)
-        add(Material.WALL_TORCH)
-        add(Material.REDSTONE_WIRE)
-        add(Material.REDSTONE)
-        add(Material.RAIL)
-        add(Material.ACTIVATOR_RAIL)
-        add(Material.DETECTOR_RAIL)
-        add(Material.POWERED_RAIL)
-        add(Material.LEVER)
-        add(Material.STONE_BUTTON)
-
-
-        add(Material.CYAN_CARPET)
-        add(Material.BLUE_CARPET)
-        add(Material.BROWN_CARPET)
-        add(Material.BLACK_CARPET)
-        add(Material.GRAY_CARPET)
-        add(Material.GREEN_CARPET)
-        add(Material.LIGHT_BLUE_CARPET)
-        add(Material.LIGHT_GRAY_CARPET)
-        add(Material.LIME_CARPET)
-        add(Material.MAGENTA_CARPET)
-        add(Material.ORANGE_CARPET)
-        add(Material.PINK_CARPET)
-        add(Material.PURPLE_CARPET)
-        add(Material.RED_CARPET)
-        add(Material.WHITE_CARPET)
-        add(Material.YELLOW_CARPET)
-
-
-    }
-
-    private fun checkUpdatableBlocks(
-        x: Int,
-        y: Int,
-        z: Int
-    ): Boolean {
-        // Check around all the block faces for updatable blocks
-        for (dir in completeDirections) {
-            val blockType = chunkCache.getBlockMaterial(x + dir.x, y + dir.y, z + dir.z)
-            if (blockType in updatableBlocks) {
-                return true
-            }
         }
-        return false
     }
+
 
     private fun generateShockwaveColumns(radius: Int): List<Vector3i> {
         // More efficient circle generation with adaptive density
@@ -426,6 +411,7 @@ class Shockwave(
             val x = round(center.blockX + radius * cos(angle)).toInt()
             val z = round(center.blockZ + radius * sin(angle)).toInt()
             val highestY = chunkCache.highestBlockYAt(x, z)
+//            val highestY = rayCaster.cachedRayTrace(x, center.blockY, z, shockwaveHeight.toDouble())
             result.add(Vector3i(x, highestY, z))
         }
 

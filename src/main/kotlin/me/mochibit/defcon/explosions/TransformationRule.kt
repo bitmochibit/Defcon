@@ -33,7 +33,6 @@ class TransformationRule {
             Material.COMMAND_BLOCK_MINECART,
             Material.END_PORTAL_FRAME,
             Material.END_PORTAL,
-            Material.AIR
         )
 
         val LIQUID_MATERIALS: Set<Material> = EnumSet.of(
@@ -59,9 +58,24 @@ class TransformationRule {
 
         val DIRT_TRANSFORMATIONS: List<Material> = listOf(
             Material.COARSE_DIRT,
-            Material.MYCELIUM,
             Material.DIRT
         )
+
+        val SLAB_TRANSFORMATIONS: EnumSet<Material> = EnumSet.of(
+            Material.COBBLED_DEEPSLATE_SLAB,
+            Material.COBBLESTONE_SLAB
+        )
+
+        val WALL_TRANSFORMATIONS: EnumSet<Material> = EnumSet.of(
+            Material.COBBLED_DEEPSLATE_WALL,
+            Material.COBBLESTONE_WALL
+        )
+
+        val STAIRS_TRANSFORMATIONS: EnumSet<Material> = EnumSet.of(
+            Material.COBBLED_DEEPSLATE_STAIRS,
+            Material.COBBLESTONE_STAIRS
+        )
+
 
         // Group categorization for cleaner code and better performance
         val LIGHT_WEIGHT_BLOCKS: Set<Material> = EnumSet.noneOf(Material::class.java).apply {
@@ -87,16 +101,11 @@ class TransformationRule {
             ))
 
             // Saplings
-            addAll(listOf(
-                Material.OAK_SAPLING,
-                Material.BIRCH_SAPLING,
-                Material.JUNGLE_SAPLING,
-                Material.ACACIA_SAPLING,
-                Material.DARK_OAK_SAPLING,
-                Material.SPRUCE_SAPLING,
-                Material.CHERRY_SAPLING,
-                Material.BAMBOO_SAPLING
-            ))
+            for (material in Material.entries){
+               if (material.name.contains("SAPLING", ignoreCase = true)){
+                   add(material)
+               }
+           }
 
             // Flowers
             addAll(listOf(
@@ -119,41 +128,36 @@ class TransformationRule {
             ))
         }
 
-        val STRUCTURE_TRANSFORMATIONS = mapOf(
-            MaterialType.SLAB to listOf(
-                Material.COBBLESTONE_SLAB,
-                Material.COBBLED_DEEPSLATE_SLAB
-            ),
-            MaterialType.WALL to listOf(
-                Material.COBBLESTONE_WALL,
-                Material.COBBLED_DEEPSLATE_WALL
-            ),
-            MaterialType.STAIRS to listOf(
-                Material.COBBLESTONE_STAIRS,
-                Material.COBBLED_DEEPSLATE_STAIRS
-            )
-        )
-
-        // Cache material name patterns for better performance
-        private val MATERIAL_TYPE_CACHE = mutableMapOf<Material, MaterialType>()
-
-        // Initialize the cache at class load time
-        init {
-            for (material in Material.entries) {
-                MATERIAL_TYPE_CACHE[material] = when {
-                    material.name.endsWith("_SLAB") -> MaterialType.SLAB
-                    material.name.endsWith("_WALL") -> MaterialType.WALL
-                    material.name.endsWith("_STAIRS") -> MaterialType.STAIRS
-                    material.name.contains("SAPLING", ignoreCase = true) -> MaterialType.SAPLING
-                    material.name.contains("GLASS", ignoreCase = true) -> MaterialType.GLASS
-                    else -> MaterialType.OTHER
-                }
-            }
+        val SLABS: EnumSet<Material> = EnumSet.noneOf(Material::class.java).apply{
+           for (material in Material.entries){
+               if (material.name.endsWith("_SLAB")){
+                   add(material)
+               }
+           }
         }
 
-        // Enum for material type categorization
-        enum class MaterialType {
-            SLAB, WALL, STAIRS, SAPLING, GLASS, OTHER
+        val WALLS: EnumSet<Material> = EnumSet.noneOf(Material::class.java).apply{
+           for (material in Material.entries){
+               if (material.name.endsWith("_WALL")){
+                   add(material)
+               }
+           }
+        }
+
+        val STAIRS: EnumSet<Material> = EnumSet.noneOf(Material::class.java).apply{
+           for (material in Material.entries){
+               if (material.name.endsWith("_STAIRS")){
+                   add(material)
+               }
+           }
+        }
+
+        val GLASS: EnumSet<Material> = EnumSet.noneOf(Material::class.java).apply{
+           for (material in Material.entries){
+               if (material.name.contains("GLASS", ignoreCase = true)){
+                   add(material)
+               }
+           }
         }
     }
 
@@ -167,28 +171,26 @@ class TransformationRule {
             return currentMaterial
         }
 
-        // Get material type from cache
-        val materialType = MATERIAL_TYPE_CACHE[currentMaterial] ?: MaterialType.OTHER
-
-
         // High explosion power creates burnt blocks for most materials
         if (normalizedExplosionPower > 0.8 && currentMaterial !in LIGHT_WEIGHT_BLOCKS) {
             return getRandomBurntBlock()
         }
 
+        if (currentMaterial in SLABS || currentMaterial in WALLS || currentMaterial in STAIRS || currentMaterial in GLASS){
+            return when(currentMaterial){
+                in SLABS -> SLAB_TRANSFORMATIONS.random(random)
+                in WALLS -> WALL_TRANSFORMATIONS.random(random)
+                in STAIRS -> STAIRS_TRANSFORMATIONS.random(random)
+                in GLASS -> Material.AIR
+                else -> currentMaterial
+            }
+        }
+
         // Handle specific material types
-        return when {
-            currentMaterial in LIGHT_WEIGHT_BLOCKS -> Material.AIR
-            currentMaterial in PLANTS -> transformToDeadPlantOrAir(normalizedExplosionPower)
-            currentMaterial == Material.DIRT -> DIRT_TRANSFORMATIONS.random(random)
-            currentMaterial == Material.GRASS_BLOCK -> DIRT_TRANSFORMATIONS.random(random)
-
-            materialType == MaterialType.SLAB -> STRUCTURE_TRANSFORMATIONS[MaterialType.SLAB]?.random(random) ?: currentMaterial
-            materialType == MaterialType.WALL -> STRUCTURE_TRANSFORMATIONS[MaterialType.WALL]?.random(random) ?: currentMaterial
-            materialType == MaterialType.STAIRS -> STRUCTURE_TRANSFORMATIONS[MaterialType.STAIRS]?.random(random) ?: currentMaterial
-            materialType == MaterialType.SAPLING -> transformToDeadPlantOrAir(normalizedExplosionPower)
-            materialType == MaterialType.GLASS -> Material.AIR
-
+        return when (currentMaterial) {
+            in LIGHT_WEIGHT_BLOCKS -> Material.AIR
+            in PLANTS -> transformToDeadPlantOrAir(normalizedExplosionPower)
+            Material.DIRT, Material.GRASS_BLOCK-> DIRT_TRANSFORMATIONS.random(random)
             else ->  DESTROYED_BLOCK.random(random)
         }
     }

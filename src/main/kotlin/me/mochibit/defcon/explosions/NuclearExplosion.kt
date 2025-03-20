@@ -130,7 +130,7 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
 //
 
         val shockwaveRadius = nuclearComponent.blastPower * 650
-        val shockwaveHeight = (nuclearComponent.blastPower * 100 * 2).roundToInt()
+        val shockwaveHeight = (nuclearComponent.blastPower * 100 * 3).roundToInt()
         val craterRadius = (shockwaveRadius/2.5).roundToInt().coerceIn(20, 150)
 
         val falloutRadius = shockwaveRadius / 16

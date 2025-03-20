@@ -19,7 +19,7 @@ class TreeBurner(
         private val TERRAIN_TYPES = setOf(Material.GRASS_BLOCK, Material.DIRT, Material.PODZOL)
 
         // Optimized properties for the tree falling feature
-        private const val MIN_POWER_FOR_AUTOMATIC_DESTRUCTION = 0.7
+        private const val MIN_POWER_FOR_AUTOMATIC_DESTRUCTION = 0.4
 
         private const val BATCH_SIZE = 100
 
@@ -28,17 +28,10 @@ class TreeBurner(
 
         private val WOOD_BLOCKS = EnumSet.noneOf(Material::class.java).apply {
             for (material in Material.entries) {
-                when {
-                    material.name.endsWith(WOOD_SUFFIX) -> {
-                        add(material)
-                    }
-
-                    material.name.endsWith(LOG_SUFFIX) -> {
-                        add(material)
-                    }
-
-                    material.name.endsWith(LEAF_SUFFIX) -> {
-                        add(material)
+                with(material.name) {
+                    when {
+                        endsWith(LEAF_SUFFIX) || endsWith(LOG_SUFFIX) || endsWith(WOOD_SUFFIX) -> add(material)
+                        else -> Unit
                     }
                 }
             }
@@ -100,11 +93,6 @@ class TreeBurner(
                             normalizedExplosionPower
                         )
                     }
-
-                    material in TERRAIN_TYPES -> {
-                        // Process terrain - convert to scorched earth
-                        addBlockChange(initialBlock.x, y, initialBlock.z, Material.COARSE_DIRT)
-                    }
                 }
             }
 
@@ -127,15 +115,17 @@ class TreeBurner(
         while (currentY > minY) {
             val material = chunkCache.getBlockMaterial(currentX, currentY, currentZ)
 
-            if (material == Material.AIR) {
-                currentY--
-                continue
-            } else if (material in TERRAIN_TYPES) {
-                // Found the base (terrain)
-                return currentY
-            } else if (!isTreeBlock(currentX, currentY, currentZ)) {
-                // If we hit a non-tree block, return the block above
-                return currentY + 1
+            when (material) {
+                Material.AIR -> {
+                    currentY--
+                    continue
+                }
+
+                !in WOOD_BLOCKS -> {
+                    return currentY + 1
+                }
+
+                else -> Unit
             }
 
             currentY--
@@ -143,6 +133,14 @@ class TreeBurner(
 
         // Fallback to the minimum height we're willing to check
         return minY
+    }
+
+    fun getTreeTerrain(startLoc: Vector3i): Vector3i {
+        return Vector3i(
+            startLoc.x,
+            findTreeBase(startLoc) - 1,
+            startLoc.z
+        )
     }
 
 

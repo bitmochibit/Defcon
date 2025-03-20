@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "me.mochibit"
-version = "1.4-SNAPSHOT"
+version = "1.3.5-SNAPSHOT"
 description = "A plugin that adds nuclear energy, along with its advantages and dangers"
 java.sourceCompatibility = JavaVersion.VERSION_17
 
@@ -76,6 +76,12 @@ tasks.withType<JavaCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.processResources {
+    filesMatching("plugin.yml") {
+        expand("version" to project.version)
+    }
 }
 
 tasks.jar {

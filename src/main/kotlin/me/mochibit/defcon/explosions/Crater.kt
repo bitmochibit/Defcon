@@ -108,8 +108,10 @@ class Crater(
                     val zPos = z + centerZ
 
                     val type = chunkCache.getBlockMaterial(xPos, yPos, zPos)
-                    if (type in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST) continue
-
+                    when (type) {
+                        Material.AIR, Material.CAVE_AIR, Material.VOID_AIR, in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST -> continue
+                        else -> Unit
+                    }
 
                     // Only calculate outer ellipsoid values if needed
                     if (innerEllipsoidValue > 1.0) {

@@ -219,7 +219,7 @@ class BlockChangeWorker(
         val oldBlockData = if (change.copyBlockData) block.blockData else null
 
         // Apply material change
-        block.setType(change.newMaterial, false)
+        block.setType(change.newMaterial, change.updateBlock)
 
         // Apply block data if needed
         if (change.copyBlockData && oldBlockData != null) {
@@ -303,7 +303,7 @@ class BlockChangeWorker(
 class BlockChanger(private val world: World) {
     // Worker pool configuration
     private var workerCount = max(1, Runtime.getRuntime().availableProcessors() / 2)
-    private var blocksPerWorkerTick = 500
+    private var blocksPerWorkerTick = 250
     private var tickInterval = 1L
     private var pauseThreshold = 10000
     private var autoRestartDelay = 60L
