@@ -24,12 +24,13 @@ import me.mochibit.defcon.classes.CustomBlockDefinition
 import me.mochibit.defcon.classes.PluginConfiguration
 import me.mochibit.defcon.enums.BlockBehaviour
 import me.mochibit.defcon.enums.BlockDataKey
-import me.mochibit.defcon.enums.ConfigurationStorages
+import me.mochibit.defcon.enums.ConfigurationStorage
 import me.mochibit.defcon.exceptions.BlockNotRegisteredException
 import me.mochibit.defcon.interfaces.PluginBlock
 import me.mochibit.defcon.utils.MetaManager
 import org.bukkit.Location
 import org.bukkit.World
+import org.bukkit.plugin.Plugin
 import org.bukkit.plugin.java.JavaPlugin
 import org.joml.Vector3i
 
@@ -47,10 +48,8 @@ class BlockRegister() {
     fun registerBlocks() {
         registeredBlocks = HashMap()
         /* REGISTER THE ITEMS COMING FROM THE CONFIG */
-        val blockConfiguration = PluginConfiguration(pluginInstance, ConfigurationStorages.Blocks)
-        val blockConfig = blockConfiguration.config
-        blockConfig!!.getList("enabled-blocks")!!.forEach { item: Any? ->
-
+        val blockConfig = PluginConfiguration.get(ConfigurationStorage.Blocks).config
+        blockConfig.getList("enabled-blocks")!!.forEach { item: Any? ->
             val blockId = item.toString()
             if (registeredBlocks!![blockId] != null) return@forEach
             val blockMinecraftId = blockConfig.getString("$item.block-minecraft-id") ?: throw BlockNotRegisteredException(blockId)
@@ -71,7 +70,6 @@ class BlockRegister() {
 
             registeredBlocks!![customBlock.id] = customBlock
         }
-        blockConfiguration.saveConfig()
     }
 
     companion object {

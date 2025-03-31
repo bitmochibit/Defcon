@@ -19,40 +19,38 @@
 
 package me.mochibit.defcon.classes
 
-import me.mochibit.defcon.enums.ConfigurationStorages
+import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.Defcon.Companion.Logger
+import me.mochibit.defcon.enums.ConfigurationStorage
 import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.configuration.file.YamlConfiguration
-import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
 import java.io.IOException
 import java.io.InputStreamReader
-import java.util.logging.Level
 
-class PluginConfiguration(private val plugin: JavaPlugin?, configurationStorage: ConfigurationStorages) {
-    private val filePath: String = configurationStorage.storagePath
-    private val fileName: String = configurationStorage.storageFileName + ".yml"
-    private var configurationFile: File? = null
-    private var configurationFilePath: File? = null
+class PluginConfiguration(private val storage: ConfigurationStorage) {
+    private val configDir = File(Defcon.instance.dataFolder, storage.storagePath)
+    private val configFile = File(configDir, "${storage.storageFileName}.yml")
+
     private var configuration: FileConfiguration? = null
 
     init {
-        configurationFilePath = File(plugin!!.dataFolder, filePath)
-        configurationFile = File(configurationFilePath, fileName)
-
-        // Initialization of the default if it doesn't exist
+        ensureDirectories()
         saveDefaultConfig()
+        reloadConfig()
+    }
+
+    private fun ensureDirectories() {
+        if (!configDir.exists() && !configDir.mkdirs()) {
+            Logger.severe("Could not create directory: $configDir")
+        }
     }
 
     fun reloadConfig() {
-        if (configurationFilePath == null) {
-            configurationFilePath = File(plugin!!.dataFolder, filePath)
-        }
-        if (configurationFile == null) {
-            configurationFile = File(configurationFilePath, fileName)
-        }
-        configuration = YamlConfiguration.loadConfiguration(configurationFile!!)
-        val stream = plugin!!.getResource(fileName)
-        if (stream != null) {
+        ensureDirectories()
+        configuration = YamlConfiguration.loadConfiguration(configFile)
+
+        Defcon.instance.getResource(configFile.name)?.use { stream ->
             val ymlFile = YamlConfiguration.loadConfiguration(InputStreamReader(stream))
             (configuration as YamlConfiguration).setDefaults(ymlFile)
         }
@@ -60,39 +58,50 @@ class PluginConfiguration(private val plugin: JavaPlugin?, configurationStorage:
 
     fun saveConfig() {
         try {
-            configuration!!.save(configurationFile!!)
+            configuration?.save(configFile)
         } catch (e: IOException) {
-            plugin!!.getLogger().log(Level.SEVERE, "Could not save config to $configurationFile", e)
+            Logger.severe("Could not save config to $configFile: ${e.message}")
         }
     }
 
     private fun saveDefaultConfig() {
-        if (!configurationFilePath!!.exists()) {
-            if (!configurationFilePath!!.mkdirs()) {
-                plugin!!.getLogger().log(Level.WARNING, "Could not create the directory!")
-                return
-            }
-        }
-        if (!configurationFile!!.exists()) {
-            plugin!!.saveResource(filePath + fileName, false)
+        if (configFile.exists()) return
+        try {
+            Defcon.instance.saveResource("${storage.storagePath}${storage.storageFileName}.yml", false)
+        } catch (e: Exception) {
+            Logger.severe("Error while saving default config! ${e.message}")
         }
     }
 
-    val config: FileConfiguration?
+    val config: FileConfiguration
         get() {
-            if (!configurationFilePath!!.exists()) {
-                saveDefaultConfig()
-            }
-            if (configuration == null) {
-                reloadConfig()
-            }
-            return configuration
+            if (configuration == null) reloadConfig()
+            return configuration!!
         }
 
     companion object {
-        fun save(config: PluginConfiguration) {
-            config.saveConfig()
-            config.reloadConfig()
+        private val configurations = mutableMapOf<ConfigurationStorage, PluginConfiguration>()
+
+        fun initializeAll() {
+            for (storage in ConfigurationStorage.entries) {
+                configurations[storage] = PluginConfiguration(storage)
+            }
+        }
+
+        fun get(storage: ConfigurationStorage): PluginConfiguration {
+            return configurations[storage] ?: PluginConfiguration(storage)
+        }
+
+        fun saveAll() {
+            for (config in configurations.values) {
+                config.saveConfig()
+            }
+        }
+
+        fun reloadAll() {
+            for (config in configurations.values) {
+                config.reloadConfig()
+            }
         }
     }
 }

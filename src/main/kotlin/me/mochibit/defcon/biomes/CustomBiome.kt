@@ -52,25 +52,22 @@ open class CustomBiome {
     )
 
     // Spawners
-    var monsterSpawners: HashSet<BiomeSpawner> = HashSet()
-    var creatureSpawners: HashSet<BiomeSpawner> = HashSet()
-    var ambientSpawners: HashSet<BiomeSpawner> = HashSet()
-    var axolotlSpawners: HashSet<BiomeSpawner> = HashSet()
-    var undergroundWaterCreatureSpawners: HashSet<BiomeSpawner> = HashSet()
-    var waterCreatureSpawners: HashSet<BiomeSpawner> = HashSet()
-    var waterAmbientSpawners: HashSet<BiomeSpawner> = HashSet()
-    var miscSpawners: HashSet<BiomeSpawner> = HashSet()
+    val monsterSpawners: HashSet<BiomeSpawner> = HashSet()
+    val creatureSpawners: HashSet<BiomeSpawner> = HashSet()
+    val ambientSpawners: HashSet<BiomeSpawner> = HashSet()
+    val axolotlSpawners: HashSet<BiomeSpawner> = HashSet()
+    val undergroundWaterCreatureSpawners: HashSet<BiomeSpawner> = HashSet()
+    val waterCreatureSpawners: HashSet<BiomeSpawner> = HashSet()
+    val waterAmbientSpawners: HashSet<BiomeSpawner> = HashSet()
+    val miscSpawners: HashSet<BiomeSpawner> = HashSet()
 
     // Spawn costs (this is not an array but an object)
-    var spawnCosts: HashSet<BiomeSpawnCost> = HashSet()
+    val spawnCosts: HashSet<BiomeSpawnCost> = HashSet()
 
     // Features
-    var features: HashSet<BiomeFeature> = HashSet()
+    val features: HashSet<BiomeFeature> = HashSet()
 
     // Carvers
-    var carvers: HashSet<BiomeCarver> = HashSet()
+    val carvers: HashSet<BiomeCarver> = HashSet()
 
-    open fun build() : CustomBiome {
-        return this;
-    }
 }

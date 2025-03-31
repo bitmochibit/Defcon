@@ -29,26 +29,21 @@ import org.bukkit.Particle
 
 @BiomeInfo("burning_air")
 class BurningAirBiome : CustomBiome() {
-    override fun build(): CustomBiome {
-        val builder = CustomBiomeBuilder()
-            .setPrecipitation(PrecipitationType.NONE)
-            .setTemperature(2.0f)
-            .setDownfall(0.1f)
-            .setTemperatureModifier(TemperatureModifier.NONE)
-            .setHasPrecipitation(false)
-            .setEffects(
-                BiomeEffects(
-                    skyColor = 16557138,
-                    fogColor = 16739888,
-                    waterColor = 4159204,
-                    waterFogColor = 329011,
-                    particle = BiomeParticle(
-                        particle = Particle.LAVA,
-                        probability = 0.005f
-                    )
-                )
+    init {
+        precipitation = PrecipitationType.NONE
+        temperature = 2.0f
+        downfall = 0.1f
+        temperatureModifier = TemperatureModifier.NONE
+        hasPrecipitation = false
+        effects = BiomeEffects(
+            skyColor = 16557138,
+            fogColor = 16739888,
+            waterColor = 4159204,
+            waterFogColor = 329011,
+            particle = BiomeParticle(
+                particle = Particle.LAVA,
+                probability = 0.005f
             )
-
-        return builder.build()
+        )
     }
 }

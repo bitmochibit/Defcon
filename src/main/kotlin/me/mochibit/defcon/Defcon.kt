@@ -25,36 +25,29 @@ import me.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
 import me.mochibit.defcon.extensions.getRadiationLevel
 import me.mochibit.defcon.extensions.increaseRadiationLevel
 import me.mochibit.defcon.radiation.RadiationArea
-import me.mochibit.defcon.radiation.RadiationAreaFactory
 import me.mochibit.defcon.registers.*
-import me.mochibit.defcon.save.savedata.PlayerDataSave
-import me.mochibit.defcon.threading.runnables.ScheduledRunnable
 import io.papermc.lib.PaperLib
-import me.mochibit.defcon.explosions.BlockChanger
+import me.mochibit.defcon.classes.PluginConfiguration
+import me.mochibit.defcon.notification.NotificationManager
 import org.bukkit.Bukkit
 import org.bukkit.GameMode
 import org.bukkit.plugin.java.JavaPlugin
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
 
 class Defcon : JavaPlugin() {
     override fun onLoad() {
         instance = this
-
-        // Register datapack
-        DatapackRegister.get.registerPack()
     }
 
     override fun onEnable() {
-
         PaperLib.suggestPaper(this)
-
         logger.info("[Defcon] has been enabled!")
+        PluginConfiguration.initializeAll()
 
-        info("Registering resource pack")
-        ResourcePackRegister.get.registerPack()
+        info("Registering resource pack and datapack")
+        DatapackRegister.register()
+        ResourcePackRegister.register()
 
+        NotificationManager.startBroadcastTask()
 
         /* Register all plugin's listeners */
         EventRegister().registerEvents()
@@ -72,14 +65,6 @@ class Defcon : JavaPlugin() {
 
         /* Register structures */
         StructureRegister().registerStructures()
-
-        // TODO: Thread pool for the scheduledRunnable, so there's a static class and there are a dynamic number of scheduledRunnable instances.
-        // For example, if we drop 5 nukes, we want to have 5 scheduledRunnable instances running at the same time, not just one, so we can process the nukes in parallel
-        // (for now they are processed sequentially)
-
-
-
-
 
         //TODO: Refactor
         Bukkit.getScheduler().runTaskTimer(
@@ -145,12 +130,16 @@ class Defcon : JavaPlugin() {
 
     override fun onDisable() {
         logger.info("[Defcon] has been disabled!")
+        PluginConfiguration.saveAll()
+        NotificationManager.saveNotifications()
     }
 
     companion object {
         lateinit var instance: Defcon
 
         var namespace = "defcon"
+
+        val minecraftVersion = Bukkit.getServer().bukkitVersion.split("-")[0]
 
         object Logger {
             fun info(message: String) {

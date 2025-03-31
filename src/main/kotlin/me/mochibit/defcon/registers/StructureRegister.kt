@@ -21,7 +21,7 @@ package me.mochibit.defcon.registers
 
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.classes.PluginConfiguration
-import me.mochibit.defcon.enums.ConfigurationStorages
+import me.mochibit.defcon.enums.ConfigurationStorage
 import me.mochibit.defcon.enums.StructureBehaviour
 import me.mochibit.defcon.exceptions.BlockNotRegisteredException
 import me.mochibit.defcon.interfaces.PluginBlock
@@ -50,14 +50,13 @@ class StructureRegister() {
     fun registerStructures() {
         registeredStructures = HashMap()
         /* REGISTER THE ITEMS COMING FROM THE CONFIG */
-        val structureConfiguration = PluginConfiguration(pluginInstance, ConfigurationStorages.Structures)
-        val structureConfig = structureConfiguration.config
+        val structureConfig = PluginConfiguration.get(ConfigurationStorage.Structures).config
         val registeredBlocks: HashMap<String?, PluginBlock?>? = try {
             BlockRegister.getRegisteredBlocks()
         } catch (e: BlockNotRegisteredException) {
             throw RuntimeException("Unable to register structures, blocks not registered")
         }
-        structureConfig!!.getList("enabled-structures")!!.forEach { item: Any? ->
+        structureConfig.getList("enabled-structures")!!.forEach { item: Any? ->
             var structure: StructureDefinition? = null
 
             // Get behaviour from Item
@@ -146,7 +145,6 @@ class StructureRegister() {
             registeredStructures[item.toString()] = structure
 
         }
-        structureConfiguration.saveConfig()
     }
 
     fun searchByBlock(location: Location): StructureQuery {

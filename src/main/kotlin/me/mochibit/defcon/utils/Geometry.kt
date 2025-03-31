@@ -20,17 +20,13 @@
 package me.mochibit.defcon.utils
 
 import me.mochibit.defcon.classes.StructureBlock
-import me.mochibit.defcon.explosions.Shockwave
-import me.mochibit.defcon.extensions.toChunkCoordinate
 import org.bukkit.ChunkSnapshot
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.World
 import org.joml.Vector3d
-import org.joml.Vector3f
 import java.util.*
 import kotlin.math.atan2
-import kotlin.math.floor
 
 object Geometry {
     fun getConvexHullXZ(points: List<Location>): MutableList<Location> {

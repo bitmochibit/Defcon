@@ -22,7 +22,7 @@ package me.mochibit.defcon.registers
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.classes.CustomItemDefinition
 import me.mochibit.defcon.classes.PluginConfiguration
-import me.mochibit.defcon.enums.ConfigurationStorages
+import me.mochibit.defcon.enums.ConfigurationStorage
 import me.mochibit.defcon.enums.ItemBehaviour
 import me.mochibit.defcon.exceptions.ItemNotRegisteredException
 import me.mochibit.defcon.interfaces.PluginItem
@@ -47,8 +47,7 @@ class ItemRegister() {
     fun registerItems(): Boolean {
         registeredItems = HashMap()
         /* REGISTER THE ITEMS COMING FROM THE CONFIG */
-        val itemConfigurator = PluginConfiguration(pluginInstance, ConfigurationStorages.Items)
-        val itemConfig = itemConfigurator.config ?: return false
+        val itemConfig = PluginConfiguration.get(ConfigurationStorage.Items).config
         if (itemConfig.getList("enabled-items") == null) {
             return false
         }
@@ -95,7 +94,6 @@ class ItemRegister() {
             Defcon.Companion.Logger.info("Registered item $itemId")
             registeredItems[customItem.id] = customItem
         }
-        itemConfigurator.saveConfig()
         return true
     }
 

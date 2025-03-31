@@ -1,0 +1,5 @@
+# Pack format fallbacks, to use if the plugin release is before a certain minecraft version, used for resource pack and data pack generation
+# You can read more about pack format here: https://minecraft.fandom.com/wiki/Pack_format
+pack_format_fallback:
+  resource_pack: 46
+  data_pack: 71

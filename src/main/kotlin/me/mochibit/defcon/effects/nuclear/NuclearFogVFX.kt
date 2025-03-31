@@ -23,19 +23,12 @@ import me.mochibit.defcon.effects.AnimatedEffect
 import me.mochibit.defcon.effects.ParticleComponent
 import me.mochibit.defcon.effects.TemperatureComponent
 import me.mochibit.defcon.explosions.NuclearComponent
-import me.mochibit.defcon.explosions.Shockwave
-import me.mochibit.defcon.extensions.toVector3d
 import me.mochibit.defcon.extensions.toVector3f
 import me.mochibit.defcon.particles.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.CylinderShape
 import me.mochibit.defcon.particles.mutators.FloorSnapper
 import me.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
-import me.mochibit.defcon.vertexgeometry.particle.ParticleShape
-import me.mochibit.defcon.vertexgeometry.shapes.CylinderBuilder
-import me.mochibit.defcon.vertexgeometry.shapes.SphereBuilder
-import org.bukkit.ChunkSnapshot
 import org.bukkit.Location
-import org.bukkit.Particle
 import org.joml.Vector3f
 
 class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val center: Location) :

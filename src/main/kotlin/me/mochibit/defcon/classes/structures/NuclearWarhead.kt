@@ -20,7 +20,7 @@
 package me.mochibit.defcon.classes.structures
 
 import me.mochibit.defcon.explosions.NuclearComponent
-import me.mochibit.defcon.explosions.NuclearExplosion
+import me.mochibit.defcon.explosions.types.NuclearExplosion
 import me.mochibit.defcon.interfaces.ExplodingStructure
 import org.bukkit.Location
 

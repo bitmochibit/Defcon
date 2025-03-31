@@ -20,7 +20,7 @@
 package me.mochibit.defcon.commands
 
 import me.mochibit.defcon.explosions.NuclearComponent
-import me.mochibit.defcon.explosions.NuclearExplosion
+import me.mochibit.defcon.explosions.types.NuclearExplosion
 import org.bukkit.ChatColor
 import org.bukkit.Location
 import org.bukkit.entity.Player
