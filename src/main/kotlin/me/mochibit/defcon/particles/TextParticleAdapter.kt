@@ -19,11 +19,6 @@
 
 package me.mochibit.defcon.particles
 
-import com.comphenix.protocol.PacketType
-import com.comphenix.protocol.events.PacketContainer
-import com.comphenix.protocol.wrappers.AdventureComponentConverter
-import com.comphenix.protocol.wrappers.WrappedChatComponent
-import com.comphenix.protocol.wrappers.WrappedDataValue
 import me.mochibit.defcon.extensions.toInt
 import me.mochibit.defcon.particles.templates.TextDisplayParticleProperties
 import net.kyori.adventure.text.Component

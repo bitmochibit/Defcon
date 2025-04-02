@@ -150,6 +150,7 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
         val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
         val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
         val nuclearFog = NuclearFogVFX(nuclearComponent, center)
+
         nuclearExplosion.instantiate(async = true, useThreadPool = true)
         nuclearFog.instantiate(async = true, useThreadPool = true)
         condensationCloud.instantiate(async = true, useThreadPool = true)

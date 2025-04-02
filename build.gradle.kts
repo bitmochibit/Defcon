@@ -18,7 +18,7 @@ description = "A plugin that adds nuclear energy, along with its advantages and 
 object Versions {
     const val KOTLIN = "2.1.20"
     const val PAPER_API = "1.21.4-R0.1-SNAPSHOT"
-    const val PROTOCOL_LIB_PLUGIN = "5.3.0"
+    const val PACKET_EVENTS = "2.7.0"
     const val CUSTOM_BLOCK_DATA = "2.2.4"
     const val GSON = "2.10.1"
     const val JUNIT = "5.10.1"
@@ -26,6 +26,12 @@ object Versions {
     const val JVM = 21
     val JAVA_VERSION = JavaVersion.VERSION_21
 }
+
+object PacketEvents {
+    const val PLATFORM = "spigot"
+
+}
+
 
 // Output configuration
 val outputPluginDirectory: String = project.findProperty("outputDir")?.toString()
@@ -82,14 +88,17 @@ repositories {
     maven("https://oss.sonatype.org/content/groups/public/") {
         name = "sonatype"
     }
-    maven("https://repo.dmulloy2.net/repository/public/") // ProtocolLib
     maven("https://hub.jeff-media.com/nexus/repository/jeff-media-public/") // CustomBlockData
+
+    maven { url = uri("https://repo.codemc.io/repository/maven-releases/") }
+
+    maven { url = uri("https://repo.codemc.io/repository/maven-snapshots/") }
 }
 
 dependencies {
     // Server API - compileOnly to avoid bundling
     compileOnly("io.papermc.paper:paper-api:${Versions.PAPER_API}")
-    compileOnly("com.comphenix.protocol", "ProtocolLib", Versions.PROTOCOL_LIB_PLUGIN)
+    compileOnly("com.github.retrooper", "packetevents-${PacketEvents.PLATFORM}",Versions.PACKET_EVENTS)
 
     // Libraries to be shaded
     implementation("com.jeff-media:custom-block-data:${Versions.CUSTOM_BLOCK_DATA}")
@@ -139,7 +148,7 @@ tasks.runServer {
     minecraftVersion("1.20.2")
 
     downloadPlugins {
-        github("dmulloy2", "ProtocolLib", Versions.PROTOCOL_LIB_PLUGIN, "ProtocolLib.jar")
+        github("retrooper", "packetevents", "v${Versions.PACKET_EVENTS}", "packetevents-${PacketEvents.PLATFORM}-${Versions.PACKET_EVENTS}.jar")
     }
 }
 

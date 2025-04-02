@@ -139,7 +139,7 @@ abstract class DisplayEntityParticleAdapter<T: DisplayParticleProperties>(privat
     }
 
     override fun updatePosition(displayID: Int, newLocation: Vector3f, players: List<Player>) {
-        val packet = PacketContainer(PacketType.Play.Server.ENTITY_TELEPORT)
+        val packet = PacketContainer(PacketType.Play.Server.POSITION)
         packet.integers.write(0, displayID)
         with(packet.doubles) {
             write(0, newLocation.x.toDouble())

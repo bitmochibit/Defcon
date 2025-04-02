@@ -32,9 +32,12 @@ import io.papermc.paper.command.brigadier.Commands
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes
 import io.papermc.paper.command.brigadier.argument.resolvers.BlockPositionResolver
 import io.papermc.paper.math.BlockPosition
+import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.commands.CommandInfo
 import me.mochibit.defcon.commands.GenericCommand
 import me.mochibit.defcon.explosions.types.Explosion
+import me.mochibit.defcon.explosions.types.NuclearExplosion
+import org.bukkit.Bukkit
 import org.bukkit.FluidCollisionMode
 import org.bukkit.Location
 import org.bukkit.World
@@ -143,8 +146,6 @@ class ExplodeCommand : GenericCommand() {
 
         try {
             // Create and trigger the explosion
-
-
             val centerParam = explosionClass.primaryConstructor?.parameters?.find { it.name == "center" }
                 ?: throw IllegalStateException("No center parameter found for explosion class $explosionName")
 
@@ -155,7 +156,10 @@ class ExplodeCommand : GenericCommand() {
             val explosionInstance = explosionClass.primaryConstructor?.callBy(params)
                 ?: throw IllegalStateException("Could not instantiate explosion of type $explosionName")
 
-            explosionInstance.explode()
+
+            Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance) { ->
+                explosionInstance.explode()
+            }
 
             sendMessage(sender, "Created explosion of type $explosionName at ${location.blockX}, ${location.blockY}, ${location.blockZ}", false)
 

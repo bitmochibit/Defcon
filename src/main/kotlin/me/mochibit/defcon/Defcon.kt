@@ -19,6 +19,8 @@
 
 package me.mochibit.defcon
 
+import com.github.retrooper.packetevents.PacketEvents
+import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager
 import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.events.customitems.GeigerDetectEvent
@@ -35,10 +37,15 @@ import org.bukkit.plugin.java.JavaPlugin
 
 class Defcon : JavaPlugin() {
     override fun onLoad() {
+        PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this))
+        PacketEvents.getAPI().load()
+
         _instance = this
     }
 
     override fun onEnable() {
+        PacketEvents.getAPI().init()
+
         logger.info("[Defcon] has been enabled!")
         PluginConfiguration.initializeAll()
 
@@ -128,6 +135,7 @@ class Defcon : JavaPlugin() {
     }
 
     override fun onDisable() {
+        PacketEvents.getAPI().terminate()
         logger.info("[Defcon] has been disabled!")
         PluginConfiguration.saveAll()
         NotificationManager.saveNotifications()
