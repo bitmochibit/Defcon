@@ -18,7 +18,6 @@ import me.mochibit.defcon.notification.Notification
 import me.mochibit.defcon.notification.NotificationManager
 import me.mochibit.defcon.notification.NotificationType
 import me.mochibit.defcon.registers.packformat.FormatReader
-import me.mochibit.defcon.utils.getComponentWithGradient
 import me.mochibit.defcon.utils.versionGreaterOrEqualThan
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextColor.color
@@ -76,7 +75,6 @@ object DatapackRegister : PackRegister() {
     }
 
     override fun onMove() {
-        info("DATAPACK INSTALLED, SERVER RESTART REQUIRED")
         NotificationManager.addNotification(
             messageForServerRestart,
             NotificationType.WARNING

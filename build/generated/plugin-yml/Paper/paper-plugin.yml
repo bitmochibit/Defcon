@@ -1,0 +1,18 @@
+api-version: "1.19"
+name: Defcon
+version: 1.3.5-SNAPSHOT
+main: me.mochibit.defcon.Defcon
+description: "A plugin that adds nuclear energy, along with its advantages and dangers"
+authors:
+  - MochiBit
+website: https://github.com/mochibit/defcon
+permissions:
+  defcon.admin:
+    description: Gives access to all Defcon admin commands
+    default: op
+dependencies:
+  server:
+    ProtocolLib:
+      load: BEFORE
+      required: true
+      join-classpath: true

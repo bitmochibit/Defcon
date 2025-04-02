@@ -21,7 +21,7 @@ package me.mochibit.defcon.effects.nuclear
 
 import me.mochibit.defcon.effects.AnimatedEffect
 import me.mochibit.defcon.effects.ParticleComponent
-import me.mochibit.defcon.explosions.NuclearComponent
+import me.mochibit.defcon.explosions.ExplosionComponent
 import me.mochibit.defcon.particles.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.RingSurfaceShape
 import me.mochibit.defcon.particles.emitter.SphereSurfaceShape
@@ -31,7 +31,7 @@ import org.bukkit.Location
 import org.joml.Vector3f
 
 
-class CondensationCloudVFX(private val nuclearComponent: NuclearComponent, private val position: Location) :
+class CondensationCloudVFX(private val nuclearComponent: ExplosionComponent, private val position: Location) :
     AnimatedEffect(20 * 120) {
     private var riseSpeed = 6.0f
     private var ringRiseSpeed = 3.0f

@@ -1,108 +1,215 @@
+import net.minecrell.pluginyml.paper.PaperPluginDescription
+import java.time.Instant
+
 plugins {
-    kotlin("jvm") version "1.9.22"
-    id("java")
-    id("com.github.johnrengelman.shadow") version "7.1.2" // for shading dependencies
+    kotlin("jvm") version "2.1.20"
+    id("com.gradleup.shadow") version "9.0.0-beta12"
+    id("xyz.jpenilla.run-paper") version "2.3.1"
+    id("de.eldoria.plugin-yml.paper") version "0.7.1"
 }
 
 group = "me.mochibit"
 version = "1.3.5-SNAPSHOT"
+
+// Project metadata
 description = "A plugin that adds nuclear energy, along with its advantages and dangers"
-java.sourceCompatibility = JavaVersion.VERSION_17
 
-// Define variables for commonly used values
-val kotlinVersion = "1.9.22"
-val jvmTargetVersion = "17"
-val paperApiVersion = "1.20.2-R0.1-SNAPSHOT"
-val protocolLibVersion = "5.2.0-SNAPSHOT"
-val customBlockDataVersion = "2.2.3"
-val gsonVersion = "2.10"
+// Dependency versions - centralized for easier management
+object Versions {
+    const val KOTLIN = "2.1.20"
+    const val PAPER_API = "1.21.4-R0.1-SNAPSHOT"
+    const val PROTOCOL_LIB_PLUGIN = "5.3.0"
+    const val CUSTOM_BLOCK_DATA = "2.2.4"
+    const val GSON = "2.10.1"
+    const val JUNIT = "5.10.1"
+    const val MOCKITO = "5.8.0"
+    const val JVM = 21
+    val JAVA_VERSION = JavaVersion.VERSION_21
+}
 
-// Get the output directory from system properties or use default `build/libs`
-val outputPluginDirectory = project.findProperty("outputDir")?.toString() ?: layout.buildDirectory.dir("libs").get().asFile.path
-println("Output directory: $outputPluginDirectory")
+// Output configuration
+val outputPluginDirectory: String = project.findProperty("outputDir")?.toString()
+    ?: layout.buildDirectory.dir("libs").get().asFile.path
+logger.lifecycle("Output directory: $outputPluginDirectory")
+
+kotlin {
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(Versions.JVM))
+    }
+}
+
+// Java configuration
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(Versions.JVM))
+    }
+    withSourcesJar()
+    withJavadocJar()
+    sourceCompatibility = Versions.JAVA_VERSION
+    targetCompatibility = Versions.JAVA_VERSION
+}
+
+// Plugin.yml generation
+paper {
+    main = "me.mochibit.defcon.Defcon"
+    apiVersion = "1.19"
+    name = "Defcon"
+    version = project.version.toString()
+    description = project.description
+    authors = listOf("MochiBit")
+    website = "https://github.com/mochibit/defcon"
+
+    serverDependencies {
+        register("ProtocolLib") {
+            load = PaperPluginDescription.RelativeLoadOrder.BEFORE
+            required = true
+        }
+    }
+
+    permissions {
+        register("defcon.admin") {
+            description = "Gives access to all Defcon admin commands"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
+        }
+    }
+}
 
 repositories {
     mavenCentral()
-    maven("https://repo.dmulloy2.net/repository/public/")
-    maven("https://hub.jeff-media.com/nexus/repository/jeff-media-public/")
-    maven("https://repo.papermc.io/repository/maven-public/")
-    maven("https://oss.sonatype.org/content/groups/public/")
-    maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")
-    maven("https://maven.enginehub.org/repo/")
+    maven("https://repo.papermc.io/repository/maven-public/") {
+        name = "papermc-repo"
+    }
+    maven("https://oss.sonatype.org/content/groups/public/") {
+        name = "sonatype"
+    }
+    maven("https://repo.dmulloy2.net/repository/public/") // ProtocolLib
+    maven("https://hub.jeff-media.com/nexus/repository/jeff-media-public/") // CustomBlockData
 }
 
 dependencies {
-    // Paper API
-    compileOnly("io.papermc.paper:paper-api:$paperApiVersion")
-    implementation("io.papermc:paperlib:1.0.7")
+    // Server API - compileOnly to avoid bundling
+    compileOnly("io.papermc.paper:paper-api:${Versions.PAPER_API}")
+    compileOnly("com.comphenix.protocol", "ProtocolLib", Versions.PROTOCOL_LIB_PLUGIN)
 
-    // Spigot API
-    compileOnly("org.spigotmc:spigot-api:$paperApiVersion")
+    // Libraries to be shaded
+    implementation("com.jeff-media:custom-block-data:${Versions.CUSTOM_BLOCK_DATA}")
+    implementation("org.reflections:reflections:0.10.2") {
+        exclude(group = "org.slf4j")
+        exclude(group = "com.google.code.findbugs")
+    }
+    implementation(kotlin("stdlib-jdk8", Versions.KOTLIN))
+    implementation(kotlin("reflect", Versions.KOTLIN))
+    implementation("com.google.code.gson:gson:${Versions.GSON}")
 
-    // CustomBlockData
-    implementation("com.jeff-media:custom-block-data:$customBlockDataVersion")
-
-    // ProtocolLib
-    compileOnly("com.comphenix.protocol:ProtocolLib:$protocolLibVersion")
-
-    // WorldGuard
-    compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.8-SNAPSHOT")
-
-    // Reflections
-    implementation("org.reflections:reflections:0.10.2")
-
-    // Kotlin Standard Library
-    implementation(kotlin("stdlib-jdk8", kotlinVersion))
-
-    // Kotlin Test Library
-    testImplementation(kotlin("test", kotlinVersion))
-
-    // Gson
-    implementation("com.google.code.gson:gson:$gsonVersion")
+    // Testing
+    testImplementation(kotlin("test", Versions.KOTLIN))
+    testImplementation("org.junit.jupiter:junit-jupiter:${Versions.JUNIT}")
+    testImplementation("org.mockito:mockito-core:${Versions.MOCKITO}")
+    testImplementation("io.papermc.paper:paper-api:${Versions.PAPER_API}")
 }
 
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    kotlinOptions {
-        jvmTarget = jvmTargetVersion
-        apiVersion = "1.9"
-        languageVersion = "1.9"
+// Kotlin compilation
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(Versions.JVM.toString()))
+        freeCompilerArgs.addAll("-Xjvm-default=all", "-opt-in=kotlin.RequiresOptIn")
     }
 }
 
-tasks.withType<JavaCompile> {
-    sourceCompatibility = jvmTargetVersion
-    targetCompatibility = jvmTargetVersion
+// Java compilation
+tasks.withType<JavaCompile>().configureEach {
+    options.apply {
+        encoding = "UTF-8"
+        release.set(Versions.JVM)
+    }
 }
 
-tasks.withType<Test> {
+// Testing configuration
+tasks.test {
     useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
+    // Parallel test execution for faster builds
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).takeIf { it > 0 } ?: 1
 }
 
-tasks.processResources {
-    filesMatching("plugin.yml") {
-        expand("version" to project.version)
+// Server test configuration
+tasks.runServer {
+    minecraftVersion("1.20.2")
+
+    downloadPlugins {
+        github("dmulloy2", "ProtocolLib", Versions.PROTOCOL_LIB_PLUGIN, "ProtocolLib.jar")
     }
 }
 
+// JAR configuration
 tasks.jar {
     archiveBaseName.set("Defcon")
-    archiveVersion.set(version.toString())
+    archiveVersion.set(project.version.toString())
+    enabled = false // Disable default jar
 }
 
+// Shadow JAR configuration
 tasks.shadowJar {
-    // Apply relocations to avoid classpath conflicts
-    relocate("io.papermc.lib", "me.mochibit.defcon.internalapi.paperlib")
-    relocate("com.jeff_media.customblockdata", "me.mochibit.defcon.internalapi.customblockdata")
+    archiveBaseName.set("Defcon")
+    archiveClassifier.set("")
+    archiveVersion.set(project.version.toString())
+
+//  Relocate dependencies
+    relocate("com.jeff_media.customblockdata", "me.mochibit.defcon.lib.customblockdata")
+//    relocate("org.reflections", "me.mochibit.defcon.lib.reflections")
+//    relocate("com.google.gson", "me.mochibit.defcon.lib.gson")
+//    relocate("javassist", "me.mochibit.defcon.lib.javassist")
+
+//  Minimize JAR size
+    minimize {
+        exclude(dependency("org.jetbrains.kotlin:.*"))
+    }
+
+    // Exclude unnecessary files
+    exclude("META-INF/*.DSA", "META-INF/*.RSA", "META-INF/*.SF")
+
+    // Add build timestamp manifest entry
+    manifest {
+        attributes(
+            "Built-By" to System.getProperty("user.name"),
+            "Build-Timestamp" to Instant.now().toString(),
+            "Created-By" to "Gradle ${gradle.gradleVersion}",
+            "Implementation-Title" to project.name,
+            "Implementation-Version" to project.version
+        )
+    }
 }
 
-// Ensure shadowJar task runs when building the project
+// Default artifact
+artifacts {
+    archives(tasks.shadowJar)
+}
+
+// Make shadowJar part of the build process
 tasks.build {
     dependsOn(tasks.shadowJar)
 }
 
-// Task to copy the built plugin to the specified directory
+// Install plugin task
 tasks.register<Copy>("installPlugin") {
     dependsOn(tasks.shadowJar)
     from(tasks.shadowJar.get().archiveFile)
     into(file(outputPluginDirectory))
+    doLast {
+        logger.lifecycle("Plugin installed to: $outputPluginDirectory/${tasks.shadowJar.get().archiveFileName.get()}")
+    }
+}
+
+// Clean, build and install task
+tasks.register("cleanBuildInstall") {
+    group = "build"
+    description = "Cleans the project, builds it, and installs the plugin to the output directory"
+    dependsOn(tasks.clean, "installPlugin")
+}
+
+// Configure Gradle to use parallel execution where possible
+gradle.taskGraph.whenReady {
+    System.setProperty("org.gradle.parallel", "true")
 }

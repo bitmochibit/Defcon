@@ -22,7 +22,7 @@ package me.mochibit.defcon.effects.nuclear
 import me.mochibit.defcon.effects.AnimatedEffect
 import me.mochibit.defcon.effects.ParticleComponent
 import me.mochibit.defcon.effects.TemperatureComponent
-import me.mochibit.defcon.explosions.NuclearComponent
+import me.mochibit.defcon.explosions.ExplosionComponent
 import me.mochibit.defcon.extensions.toVector3f
 import me.mochibit.defcon.particles.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.CylinderShape
@@ -31,7 +31,7 @@ import me.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
 import org.bukkit.Location
 import org.joml.Vector3f
 
-class NuclearFogVFX(private val nuclearComponent: NuclearComponent, private val center: Location) :
+class NuclearFogVFX(private val nuclearComponent: ExplosionComponent, private val center: Location) :
     AnimatedEffect(3600) {
 
 

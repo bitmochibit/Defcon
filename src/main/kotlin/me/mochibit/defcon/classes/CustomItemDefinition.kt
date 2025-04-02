@@ -26,6 +26,7 @@ import me.mochibit.defcon.interfaces.PluginItem
 import me.mochibit.defcon.utils.ColorUtils
 import me.mochibit.defcon.utils.MetaManager
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Material
 import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
@@ -66,13 +67,11 @@ class CustomItemDefinition(
             /* Meta assignment */
             val itemMeta = customItem.itemMeta
 
-            itemMeta.displayName(
-                Component.text(displayName)
-            )
+            itemMeta.displayName(MiniMessage.miniMessage().deserialize(displayName))
 
             if (description != null) {
                 itemMeta.lore(
-                    description.split("\n").map { Component.text(ColorUtils.parseColor(it)) }
+                    description.split("\n").map { MiniMessage.miniMessage().deserialize(it) }
                 )
             }
 

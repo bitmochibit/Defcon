@@ -19,15 +19,15 @@
 
 package me.mochibit.defcon.classes.structures
 
-import me.mochibit.defcon.explosions.NuclearComponent
+import me.mochibit.defcon.explosions.ExplosionComponent
 import me.mochibit.defcon.explosions.types.NuclearExplosion
 import me.mochibit.defcon.interfaces.ExplodingStructure
 import org.bukkit.Location
 
 
 class NuclearWarhead : AbstractStructureDefinition(), ExplodingStructure {
-    override fun explode(center: Location, nuclearComponent: NuclearComponent) {
-        NuclearExplosion(center, nuclearComponent).explode()
+    override fun explode(center: Location, explosionComponent: ExplosionComponent) {
+        NuclearExplosion(center, explosionComponent).explode()
     }
 
 }

@@ -22,8 +22,7 @@ package me.mochibit.defcon.explosions.types
 import me.mochibit.defcon.effects.nuclear.CondensationCloudVFX
 import me.mochibit.defcon.effects.nuclear.NuclearExplosionVFX
 import me.mochibit.defcon.effects.nuclear.NuclearFogVFX
-import me.mochibit.defcon.explosions.Explosion
-import me.mochibit.defcon.explosions.NuclearComponent
+import me.mochibit.defcon.explosions.ExplosionComponent
 import me.mochibit.defcon.explosions.TransformationRule
 import me.mochibit.defcon.explosions.processor.Crater
 import me.mochibit.defcon.explosions.processor.Shockwave
@@ -31,8 +30,7 @@ import org.bukkit.Location
 import kotlin.math.roundToInt
 
 
-class NuclearExplosion(private val center: Location, private val nuclearComponent: NuclearComponent) : Explosion() {
-
+class NuclearExplosion(center: Location, private val nuclearComponent: ExplosionComponent = ExplosionComponent()) : Explosion(center) {
     override fun explode() {
 //        // Send to a nearby player the flash of the explosion (radius)
 //        center.world.getNearbyPlayers(center, 300.0).forEach { player ->
@@ -155,6 +153,8 @@ class NuclearExplosion(private val center: Location, private val nuclearComponen
         nuclearExplosion.instantiate(async = true, useThreadPool = true)
         nuclearFog.instantiate(async = true, useThreadPool = true)
         condensationCloud.instantiate(async = true, useThreadPool = true)
+
+
 
 //        center.world.getNearbyPlayers(center, 300.0).forEach { player ->
 //            val task = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, Runnable

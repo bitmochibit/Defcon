@@ -24,7 +24,7 @@ import org.bukkit.Particle
 import org.bukkit.inventory.ItemStack
 
 data class BiomeParticle (
-    var particle: Particle = Particle.BLOCK_DUST,
+    var particle: Particle = Particle.BLOCK_CRUMBLE,
     var probability: Float = 0.5f,
 
     // Per particle data

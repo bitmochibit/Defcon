@@ -179,7 +179,7 @@ class Shockwave(
         runLater(1L) {
             // Spawn particles in batches
             particleLocations.forEach { loc ->
-                world.spawnParticle(Particle.EXPLOSION_LARGE, loc, 0)
+                world.spawnParticle(Particle.EXPLOSION, loc, 0)
             }
 
             val locationCursor = Location(world, 0.0, 0.0, 0.0)

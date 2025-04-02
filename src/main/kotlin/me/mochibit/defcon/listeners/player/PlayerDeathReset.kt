@@ -41,10 +41,10 @@ class PlayerDeathReset : Listener {
             val radLevel = playerData.getRadiationLevel()
             playerData.resetRadiationLevel()
             // Reset the player's max health
-            val currentMaxHealth = player.getAttribute(GENERIC_MAX_HEALTH)?.baseValue
+            val currentMaxHealth = player.getAttribute(MAX_HEALTH)?.baseValue
             if (currentMaxHealth != null) {
                 // Give back the maximum health the player had before radiation
-                player.getAttribute(GENERIC_MAX_HEALTH)?.baseValue = currentMaxHealth + radLevel.coerceAtMost(20.0)
+                player.getAttribute(MAX_HEALTH)?.baseValue = currentMaxHealth + radLevel.coerceAtMost(20.0)
             }
         })
     }

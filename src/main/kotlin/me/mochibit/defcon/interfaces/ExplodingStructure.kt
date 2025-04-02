@@ -19,9 +19,9 @@
 
 package me.mochibit.defcon.interfaces
 
-import me.mochibit.defcon.explosions.NuclearComponent
+import me.mochibit.defcon.explosions.ExplosionComponent
 import org.bukkit.Location
 
 interface ExplodingStructure {
-    fun explode(center: Location, nuclearComponent: NuclearComponent);
+    fun explode(center: Location, explosionComponent: ExplosionComponent);
 }

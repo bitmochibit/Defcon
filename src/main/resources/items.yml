@@ -58,7 +58,7 @@ gas-mask:
   behaviour: "gas_mask"
 
 geiger:
-  item-name: "&#cbfb09G&#cff408e&#d3ed08i&#d8e607g&#dcdf06e&#e0d805r &#e4d105C&#e8ca04o&#ecc303u&#f1bc02n&#f5b502t&#f9ae01e&#fda700r"
+  item-name: "<gradient:#34e89e:#0f3443>Geiger Counter</gradient>"
   item-description: "&eThis item measures the radiation levels"
   item-minecraft-id: COMPASS
   item-data-model-id: 1

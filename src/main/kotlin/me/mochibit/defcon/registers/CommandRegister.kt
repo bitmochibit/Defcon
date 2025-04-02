@@ -19,30 +19,30 @@
 
 package me.mochibit.defcon.registers
 
+import io.papermc.paper.command.brigadier.Commands
+import io.papermc.paper.plugin.lifecycle.event.LifecycleEvent
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents
 import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.commands.GenericCommand
 import org.bukkit.plugin.java.JavaPlugin
 import org.reflections.Reflections
 import java.lang.reflect.InvocationTargetException
 
-class CommandRegister() {
+class CommandRegister {
     private val packageName: String = Defcon.instance.javaClass.getPackage().name
-    private var plugin: JavaPlugin = JavaPlugin.getPlugin(Defcon::class.java)
 
     fun registerCommands() {
-        plugin.getLogger().info("Registering commands from $packageName.commands")
+        info("Registering commands from $packageName.commands")
+
+        val commandBuilderLeafs = mutableListOf<GenericCommand>()
+
         for (commandClass in Reflections("$packageName.commands").getSubTypesOf(GenericCommand::class.java)) {
             try {
                 val genericCommand = commandClass.getDeclaredConstructor().newInstance()
+                commandBuilderLeafs.add(genericCommand)
                 // debug info
-                plugin.getLogger().info("Registering command: ${genericCommand.commandInfo.name}")
-                val pluginCommand = plugin.getCommand(genericCommand.commandInfo.name)
-                if (pluginCommand == null) {
-                    plugin.getLogger().warning("Command ${genericCommand.commandInfo.name} not found, cache issue?")
-                    continue
-                }
-
-                pluginCommand.setExecutor(genericCommand);
+                info("Registering command: ${genericCommand.commandInfo.name}")
 
             } catch (e: InstantiationException) {
                 throw RuntimeException(e)
@@ -53,6 +53,17 @@ class CommandRegister() {
             } catch (e: NoSuchMethodException) {
                 throw RuntimeException(e)
             }
+        }
+
+        val commandTree = Commands
+            .literal(GenericCommand.COMMAND_ROOT)
+
+        for (command in commandBuilderLeafs) {
+            commandTree.then(command.getCommand())
+        }
+
+        Defcon.instance.lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS) { commands ->
+            commands.registrar().register(commandTree.build())
         }
     }
 }

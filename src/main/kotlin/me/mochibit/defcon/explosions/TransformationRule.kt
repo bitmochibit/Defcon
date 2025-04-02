@@ -128,7 +128,7 @@ class TransformationRule {
             // Grass types
             addAll(
                 listOf(
-                    Material.GRASS,
+                    Material.SHORT_GRASS,
                     Material.TALL_GRASS,
                     Material.FERN,
                     Material.LARGE_FERN

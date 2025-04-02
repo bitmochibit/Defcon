@@ -19,6 +19,7 @@
 
 package me.mochibit.defcon
 
+import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager
 import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.events.customitems.GeigerDetectEvent
 import me.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
@@ -26,7 +27,6 @@ import me.mochibit.defcon.extensions.getRadiationLevel
 import me.mochibit.defcon.extensions.increaseRadiationLevel
 import me.mochibit.defcon.radiation.RadiationArea
 import me.mochibit.defcon.registers.*
-import io.papermc.lib.PaperLib
 import me.mochibit.defcon.classes.PluginConfiguration
 import me.mochibit.defcon.notification.NotificationManager
 import org.bukkit.Bukkit
@@ -35,11 +35,10 @@ import org.bukkit.plugin.java.JavaPlugin
 
 class Defcon : JavaPlugin() {
     override fun onLoad() {
-        instance = this
+        _instance = this
     }
 
     override fun onEnable() {
-        PaperLib.suggestPaper(this)
         logger.info("[Defcon] has been enabled!")
         PluginConfiguration.initializeAll()
 
@@ -105,7 +104,7 @@ class Defcon : JavaPlugin() {
                     if (radLevel <= 0.0) continue
 
                     // Decrease max health
-                    player.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH)?.baseValue = 20.0 - radLevel.coerceAtMost(20.0)
+                    player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)?.baseValue = 20.0 - radLevel.coerceAtMost(20.0)
 
                     if (radLevel > 5.0) {
                         // Give nausea effect
@@ -113,13 +112,13 @@ class Defcon : JavaPlugin() {
                     }
                     if (radLevel > 10.0) {
                         // Give poison effect
-                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.CONFUSION, 100, 1))
+                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.NAUSEA, 100, 1))
                     }
 
                     if (radLevel > 15.0) {
                         // Give poison effect
-                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.SLOW, 100, 1))
-                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.SLOW_DIGGING, 100, 1))
+                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.SLOWNESS, 100, 1))
+                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.MINING_FATIGUE, 100, 1))
                     }
                 }
             },
@@ -135,7 +134,8 @@ class Defcon : JavaPlugin() {
     }
 
     companion object {
-        lateinit var instance: Defcon
+        private lateinit var _instance: Defcon
+        val instance get() = _instance
 
         var namespace = "defcon"
 
@@ -143,15 +143,15 @@ class Defcon : JavaPlugin() {
 
         object Logger {
             fun info(message: String) {
-                instance.logger.info(message)
+                _instance.logger.info(message)
             }
 
             fun warning(message: String) {
-                instance.logger.warning(message)
+                _instance.logger.warning(message)
             }
 
             fun severe(message: String) {
-                instance.logger.severe(message)
+                _instance.logger.severe(message)
             }
         }
     }

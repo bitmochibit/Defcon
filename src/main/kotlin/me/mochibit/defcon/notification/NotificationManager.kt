@@ -24,7 +24,6 @@ import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.threading.scheduling.interval
-import me.mochibit.defcon.utils.getComponentWithGradient
 import net.kyori.adventure.audience.Audience
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
@@ -45,7 +44,7 @@ import kotlin.io.path.createDirectories
  */
 object NotificationManager {
     // Configuration
-    private val CONFIG_FILENAME = "notifications.json"
+    private const val CONFIG_FILENAME = "notifications.json"
     private const val DEFAULT_BROADCAST_INTERVAL_SECONDS = 60
 
     // File management
@@ -180,26 +179,10 @@ object NotificationManager {
      */
     private fun getPrefix(notification: Notification): Component {
         return when (notification.type) {
-            NotificationType.INFO -> getComponentWithGradient(
-                "DEFCON ☢",
-                bold = true,
-                colors = listOf("#74ebd5", "#ACB6E5")
-            )
-            NotificationType.WARNING -> getComponentWithGradient(
-                "DEFCON ☢",
-                bold = true,
-                colors = listOf("#f12711", "#f5af19")
-            )
-            NotificationType.ERROR -> getComponentWithGradient(
-                "DEFCON ☢",
-                bold = true,
-                colors = listOf("#FF416C", "#FF4B2B")
-            )
-            NotificationType.SUCCESS -> getComponentWithGradient(
-                "DEFCON ☢",
-                bold = true,
-                colors = listOf("#11998e", "#38ef7d")
-            )
+            NotificationType.INFO -> miniMessage.deserialize("<gradient:#a8ff78:#ACB6E5><bold>DEFCON ☢</bold></gradient>")
+            NotificationType.WARNING -> miniMessage.deserialize("<gradient:#f12711:#f5af19><bold>DEFCON ☢</bold></gradient>")
+            NotificationType.ERROR -> miniMessage.deserialize("<gradient:#FF416C:#FF4B2B><bold>DEFCON ☢</bold></gradient>")
+            NotificationType.SUCCESS -> miniMessage.deserialize("<gradient:#11998e:#38ef7d><bold>DEFCON ☢</bold></gradient>")
         }
     }
 

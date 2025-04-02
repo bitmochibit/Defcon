@@ -1,23 +1,18 @@
 package me.mochibit.defcon.biomes
 
 import com.comphenix.protocol.PacketType
-import com.comphenix.protocol.ProtocolLib
 import com.comphenix.protocol.ProtocolLibrary
 import com.comphenix.protocol.events.PacketContainer
 import com.comphenix.protocol.wrappers.ChunkCoordIntPair
-import com.comphenix.protocol.wrappers.WrappedLevelChunkData
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.threading.jobs.SimpleCompositionJob
 import me.mochibit.defcon.threading.runnables.ScheduledRunnable
 import org.bukkit.Bukkit
 import org.bukkit.Chunk
-import org.bukkit.World
-import org.bukkit.block.Biome
 import org.bukkit.entity.Player
 
 class CustomBiomeHandler {
     companion object {
-        private val UNSAFE = Bukkit.getUnsafe()
         private const val CHUNK_SIZE = 16
         fun setCustomBiome(chunk: Chunk, biome: CustomBiome) {
             val syncRunnable = ScheduledRunnable().maxMillisPerTick(2.5)
@@ -33,6 +28,8 @@ class CustomBiomeHandler {
                 val key = biome.biomeKey
                 val maxHeight = chunk.world.maxHeight
 
+
+
                 for (x in minX until maxX step 4) {
                     for (z in minZ until maxZ step 4) {
                         syncRunnable.addWorkload(SimpleCompositionJob(key) {
@@ -40,7 +37,7 @@ class CustomBiomeHandler {
                                 for (offsetZ in 0 until 4) {
                                     for (y in 55 until maxHeight) {
                                         // Set the biome of each block to the custom biome
-                                        UNSAFE.setBiomeKey(chunk.world, x + offsetX, y, z + offsetZ, key)
+//                                        chunk.world.setBiome(chunk.world, x + offsetX, y, z + offsetZ, key)
                                     }
                                 }
                             }
@@ -64,9 +61,12 @@ class CustomBiomeHandler {
             val chunkCoord = ChunkCoordIntPair(chunk.x, chunk.z)
 
             players.forEach { player ->
-                Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {sendChunkDataPacket(protocolManager, player, chunkCoord)})
+                Bukkit.getScheduler().runTaskAsynchronously(
+                    Defcon.instance,
+                    Runnable { sendChunkDataPacket(protocolManager, player, chunkCoord) })
             }
         }
+
         private fun sendChunkDataPacket(
             protocolManager: com.comphenix.protocol.ProtocolManager,
             player: Player,
