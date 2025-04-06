@@ -22,7 +22,7 @@ package me.mochibit.defcon.effects.nuclear
 import me.mochibit.defcon.effects.AnimatedEffect
 import me.mochibit.defcon.effects.ParticleComponent
 import me.mochibit.defcon.explosions.ExplosionComponent
-import me.mochibit.defcon.particles.ParticleEmitter
+import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.RingSurfaceShape
 import me.mochibit.defcon.particles.emitter.SphereSurfaceShape
 import me.mochibit.defcon.particles.templates.definition.ExplosionDustParticle

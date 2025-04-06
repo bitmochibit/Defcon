@@ -65,12 +65,12 @@ paper {
     authors = listOf("MochiBit")
     website = "https://github.com/mochibit/defcon"
 
-    serverDependencies {
-        register("ProtocolLib") {
-            load = PaperPluginDescription.RelativeLoadOrder.BEFORE
-            required = true
-        }
-    }
+//    serverDependencies {
+//        register("packetevents") {
+//            load = PaperPluginDescription.RelativeLoadOrder.BEFORE
+//            required = true
+//        }
+//    }
 
     permissions {
         register("defcon.admin") {
@@ -98,7 +98,7 @@ repositories {
 dependencies {
     // Server API - compileOnly to avoid bundling
     compileOnly("io.papermc.paper:paper-api:${Versions.PAPER_API}")
-    compileOnly("com.github.retrooper", "packetevents-${PacketEvents.PLATFORM}",Versions.PACKET_EVENTS)
+    implementation("com.github.retrooper", "packetevents-${PacketEvents.PLATFORM}", Versions.PACKET_EVENTS)
 
     // Libraries to be shaded
     implementation("com.jeff-media:custom-block-data:${Versions.CUSTOM_BLOCK_DATA}")
@@ -166,6 +166,7 @@ tasks.shadowJar {
     archiveVersion.set(project.version.toString())
 
 //  Relocate dependencies
+    relocate("com.github.retrooper.packetevents", "me.mochibit.defcon.lib.packetevents")
     relocate("com.jeff_media.customblockdata", "me.mochibit.defcon.lib.customblockdata")
 //    relocate("org.reflections", "me.mochibit.defcon.lib.reflections")
 //    relocate("com.google.gson", "me.mochibit.defcon.lib.gson")

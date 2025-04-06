@@ -138,13 +138,13 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
 
         val falloutRadius = shockwaveRadius / 16
 
-        Shockwave(center, craterRadius, shockwaveRadius.toInt(), shockwaveHeight).apply {
-            explode()
-        }
-
-        Crater(center, craterRadius, craterRadius/6, craterRadius, TransformationRule(), shockwaveHeight).apply {
-            create()
-        }
+//        Shockwave(center, craterRadius, shockwaveRadius.toInt(), shockwaveHeight).apply {
+//            explode()
+//        }
+//
+//        Crater(center, craterRadius, craterRadius/6, craterRadius, TransformationRule(), shockwaveHeight).apply {
+//            create()
+//        }
 
         // VFX
         val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)

@@ -19,12 +19,7 @@
 
 package me.mochibit.defcon.particles.templates
 
-import me.mochibit.defcon.particles.TextParticleAdapter
-import me.mochibit.defcon.particles.ParticleAdapter
 import kotlin.reflect.KClass
 
 abstract class TextDisplayParticle(properties: TextDisplayParticleProperties) : AbstractParticle(properties) {
-    init {
-        particleAdapter = TextParticleAdapter(properties)
-    }
 }

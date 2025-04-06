@@ -135,10 +135,10 @@ class Defcon : JavaPlugin() {
     }
 
     override fun onDisable() {
-        PacketEvents.getAPI().terminate()
         logger.info("[Defcon] has been disabled!")
         PluginConfiguration.saveAll()
         NotificationManager.saveNotifications()
+        PacketEvents.getAPI().terminate()
     }
 
     companion object {

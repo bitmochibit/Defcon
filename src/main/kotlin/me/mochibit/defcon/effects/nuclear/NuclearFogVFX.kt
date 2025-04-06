@@ -24,7 +24,7 @@ import me.mochibit.defcon.effects.ParticleComponent
 import me.mochibit.defcon.effects.TemperatureComponent
 import me.mochibit.defcon.explosions.ExplosionComponent
 import me.mochibit.defcon.extensions.toVector3f
-import me.mochibit.defcon.particles.ParticleEmitter
+import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.CylinderShape
 import me.mochibit.defcon.particles.mutators.FloorSnapper
 import me.mochibit.defcon.particles.templates.definition.ExplosionDustParticle

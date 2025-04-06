@@ -10,9 +10,3 @@ permissions:
   defcon.admin:
     description: Gives access to all Defcon admin commands
     default: op
-dependencies:
-  server:
-    ProtocolLib:
-      load: BEFORE
-      required: true
-      join-classpath: true

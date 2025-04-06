@@ -19,14 +19,12 @@
 
 package me.mochibit.defcon.vertexgeometry.particle
 
-import me.mochibit.defcon.particles.ParticleEmitter
+import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.particles.templates.AbstractParticle
-import me.mochibit.defcon.particles.templates.GenericParticleProperties
 import me.mochibit.defcon.vertexgeometry.VertexShapeBuilder
 import me.mochibit.defcon.vertexgeometry.vertexes.SpawnableVertex
 import me.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import org.bukkit.*
-import kotlin.concurrent.thread
 import kotlin.random.Random
 
 class ParticleShape(

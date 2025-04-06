@@ -1,7 +1,7 @@
 package me.mochibit.defcon.effects
 
 import me.mochibit.defcon.lifecycle.Lifecycled
-import me.mochibit.defcon.particles.ParticleEmitter
+import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.EmitterShape
 import me.mochibit.defcon.particles.templates.AbstractParticle
 import me.mochibit.defcon.threading.scheduling.runLater

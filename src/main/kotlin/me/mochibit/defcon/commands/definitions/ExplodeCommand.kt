@@ -59,7 +59,7 @@ class ExplodeCommand : GenericCommand() {
         }
 
         // Maximum raycast distance
-        private const val MAX_RAYCAST_DISTANCE = 100.0
+        private const val MAX_RAYCAST_DISTANCE = 500.0
     }
 
     // Simplified suggestion provider

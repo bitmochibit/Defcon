@@ -19,7 +19,6 @@
 
 package me.mochibit.defcon.particles.templates
 
-import me.mochibit.defcon.particles.ParticleAdapter
 import org.bukkit.Color
 import org.bukkit.entity.Player
 import org.joml.Vector3d
@@ -42,9 +41,6 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     var colorDarkenFactorMax = 1.0; private set
     var colorLightenFactorMin = 0.1; private set
     var colorLightenFactorMax = 0.2; private set
-
-    lateinit var particleAdapter: ParticleAdapter
-
 
     fun accelerationTicks(ticks: Int) = apply { initialAccelerationTicks = ticks }
     fun acceleration(vector3: Vector3f) = apply { initialAcceleration = vector3 }

@@ -23,15 +23,16 @@ import me.mochibit.defcon.effects.AnimatedEffect
 import me.mochibit.defcon.effects.ParticleComponent
 import me.mochibit.defcon.effects.TemperatureComponent
 import me.mochibit.defcon.explosions.ExplosionComponent
-import me.mochibit.defcon.particles.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.CylinderShape
+import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.SphereShape
 import me.mochibit.defcon.particles.emitter.SphereSurfaceShape
 import me.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
 import org.bukkit.Location
 import org.joml.Vector3f
 
-class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val center: Location) : AnimatedEffect(3600) {
+class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val center: Location) :
+    AnimatedEffect(3600) {
     private val maxHeight = 250.0
     private var currentHeight = 0.0f
     private var riseSpeed = 5.0f
@@ -48,10 +49,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
     ).addSpawnableParticle(
         ExplosionDustParticle()
             .scale(Vector3f(30.0f, 30.0f, 30.0f))
-            .velocity(Vector3f(0.0f, .5f, 0.0f))
-            .damping(
-                Vector3f(0.0f, 0.1f, 0.0f)
-            ), true
+            .velocity(Vector3f(0.0f, 1f, 0.0f))
     )
 
 
@@ -67,8 +65,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
     ).addSpawnableParticle(
         ExplosionDustParticle()
             .scale(Vector3f(45.0f, 45.0f, 45.0f))
-            .velocity(Vector3f(0.0f, .3f, 0.0f))
-            .damping(Vector3f(0.0f, 0.1f, 0.0f)), true
+            .velocity(Vector3f(0.0f, .8f, 0.0f))
     )
 
     private val tertiaryCloud: ParticleComponent = ParticleComponent(
@@ -83,8 +80,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
     ).addSpawnableParticle(
         ExplosionDustParticle()
             .scale(Vector3f(50.0f, 50.0f, 50.0f))
-            .velocity(Vector3f(0.0f, .2f, 0.0f))
-            .damping(Vector3f(0.0f, 0.1f, 0.0f)),
+            .velocity(Vector3f(0.0f, .6f, 0.0f)),
         true
     )
 
@@ -100,8 +96,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
     ).addSpawnableParticle(
         ExplosionDustParticle()
             .scale(Vector3f(55.0f, 55.0f, 55.0f))
-            .velocity(Vector3f(0.0f, -.8f, 0.0f))
-            .damping(Vector3f(0.0f, 0.1f, 0.0f)),
+            .velocity(Vector3f(0.0f, -1.0f, 0.0f)),
         true
     )
         .translate(Vector3f(0.0f, -5.0f, 0.0f))
@@ -117,7 +112,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
         ),
         TemperatureComponent(temperatureCoolingRate = 40.0)
     ).addSpawnableParticle(
-        ExplosionDustParticle().velocity(Vector3f(0.0f, -1.0f, 0.0f))
+        ExplosionDustParticle().velocity(Vector3f(0.0f, -1.2f, 0.0f))
     )
         .translate(Vector3f(0.0f, -30.0f, 0.0f))
 
@@ -133,13 +128,14 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
         TemperatureComponent(temperatureCoolingRate = 100.0)
     ).addSpawnableParticle(
         ExplosionDustParticle()
+            .velocity(Vector3f(0.0f, -1.2f, 0.0f))
     )
         .apply {
             visible = false
         }
         .translate(Vector3f(0.0f, -90.0f, 0.0f))
         .setVisibilityAfterDelay(true, 20 * 50)
-        .applyRadialVelocityFromCenter(Vector3f(5.0f, -3.0f, 5.0f))
+        .applyRadialVelocityFromCenter(Vector3f(5.0f, 0f, 5.0f))
 
     private val stem: ParticleComponent = ParticleComponent(
         ParticleEmitter(
@@ -196,7 +192,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
 
         // Gradually increase the displayed height of the cone to simulate the nuke skirt
         if (neckCone.visible)
-            neckConeShape.maxY += deltaMovement/5
+            neckConeShape.maxY += deltaMovement / 5
 
         stemShape.height = (currentHeight - 70)
     }

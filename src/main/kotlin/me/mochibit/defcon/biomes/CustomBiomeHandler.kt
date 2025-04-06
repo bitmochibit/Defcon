@@ -1,9 +1,5 @@
 package me.mochibit.defcon.biomes
 
-import com.comphenix.protocol.PacketType
-import com.comphenix.protocol.ProtocolLibrary
-import com.comphenix.protocol.events.PacketContainer
-import com.comphenix.protocol.wrappers.ChunkCoordIntPair
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.threading.jobs.SimpleCompositionJob
 import me.mochibit.defcon.threading.runnables.ScheduledRunnable
@@ -46,7 +42,6 @@ class CustomBiomeHandler {
                 }
 
                 if (chunk.isLoaded) {
-                    refreshChunkAsync(chunk)
                 }
             })
 
@@ -55,33 +50,6 @@ class CustomBiomeHandler {
             }, 20L * 120L)
         }
 
-        private fun refreshChunkAsync(chunk: Chunk) {
-            val players = Bukkit.getOnlinePlayers()
-            val protocolManager = ProtocolLibrary.getProtocolManager()
-            val chunkCoord = ChunkCoordIntPair(chunk.x, chunk.z)
-
-            players.forEach { player ->
-                Bukkit.getScheduler().runTaskAsynchronously(
-                    Defcon.instance,
-                    Runnable { sendChunkDataPacket(protocolManager, player, chunkCoord) })
-            }
-        }
-
-        private fun sendChunkDataPacket(
-            protocolManager: com.comphenix.protocol.ProtocolManager,
-            player: Player,
-            chunkCoord: ChunkCoordIntPair
-        ) {
-            val packet = PacketContainer(PacketType.Play.Server.MAP_CHUNK)
-            packet.integers.write(0, chunkCoord.chunkX)
-            packet.integers.write(1, chunkCoord.chunkZ)
-
-            try {
-                protocolManager.sendServerPacket(player, packet)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
 
     }
 }
