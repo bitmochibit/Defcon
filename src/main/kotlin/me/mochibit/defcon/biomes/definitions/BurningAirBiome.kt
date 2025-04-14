@@ -28,7 +28,7 @@ import me.mochibit.defcon.biomes.enums.TemperatureModifier
 import org.bukkit.Particle
 
 @BiomeInfo("burning_air")
-class BurningAirBiome : CustomBiome() {
+object BurningAirBiome : CustomBiome() {
     init {
         precipitation = PrecipitationType.NONE
         temperature = 2.0f

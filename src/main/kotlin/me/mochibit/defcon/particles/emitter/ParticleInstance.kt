@@ -33,6 +33,8 @@ import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 import kotlin.math.sign
+import kotlin.reflect.KClass
+import kotlin.reflect.typeOf
 
 /**
  * Base particle instance that manages state and physics
@@ -69,7 +71,7 @@ abstract class ParticleInstance(
      * Apply a damping factor to the particle instance.
      * @param damping The damping factor to apply.
      */
-    fun applyDamping(damping: Vector3f) {
+    fun setDamping(damping: Vector3f) {
         this.damping.set(damping.x, damping.y, damping.z)
     }
 
@@ -77,22 +79,30 @@ abstract class ParticleInstance(
      * Apply a force to the particle instance (it's like applying an impulse)
      * @param acceleration The force to apply.
      */
-    fun applyAcceleration(acceleration: Vector3f) {
+    fun setAcceleration(acceleration: Vector3f) {
         this.acceleration.set(acceleration.x, acceleration.y, acceleration.z)
+    }
+
+    /**
+     * Increases the velocity of the particle instance.
+     * @param velocity The new velocity.
+     */
+    fun addVelocity(velocity: Vector3f) {
+        this.velocity.add(velocity.x, velocity.y, velocity.z)
     }
 
     /**
      * Set the velocity of the particle instance.
      * @param velocity The new velocity.
      */
-    fun applyVelocity(velocity: Vector3f) {
+    fun setVelocity(velocity: Vector3f) {
         this.velocity.set(velocity.x, velocity.y, velocity.z)
     }
 
     /**
      * Update particle physics state
      */
-    fun update(delta: Float): Boolean {
+    fun update(delta: Double): Boolean {
         if (isDead() || removed) return false
 
         // Initialize if needed
@@ -120,9 +130,9 @@ abstract class ParticleInstance(
 
             // Update position based on velocity with boost factor
             position.add(
-                (velocity.x.toDouble() * delta),
-                (velocity.y.toDouble() * delta),
-                (velocity.z.toDouble() * delta)
+                (velocity.x * delta),
+                (velocity.y * delta),
+                (velocity.z * delta)
             )
 
             // Check if movement has effectively stopped
@@ -187,9 +197,9 @@ abstract class ParticleInstance(
                 particleProperties as TextDisplayParticleProperties,
                 Vector3d(location.x.toDouble(), location.y.toDouble(), location.z.toDouble()),
             ).apply {
-                applyVelocity(particleTemplate.initialVelocity)
-                applyAcceleration(particleTemplate.initialAcceleration)
-                applyDamping(particleTemplate.initialDamping)
+                setVelocity(particleTemplate.initialVelocity)
+                setAcceleration(particleTemplate.initialAcceleration)
+                setDamping(particleTemplate.initialDamping)
             }
         }
 
@@ -199,6 +209,7 @@ abstract class ParticleInstance(
         private fun adjustColor(color: Color, template: AbstractParticle): Color {
             val baseColor = template.colorSupplier?.invoke() ?: color
             return if (template.randomizeColorBrightness) {
+
                 ColorUtils.randomizeColorBrightness(
                     baseColor,
                     template.colorDarkenFactorMax,
@@ -223,7 +234,3 @@ fun Vector3f.toPacketWrapper(): com.github.retrooper.packetevents.util.Vector3f 
 fun Quaternionf.toPacketWrapper(): com.github.retrooper.packetevents.util.Quaternion4f {
     return com.github.retrooper.packetevents.util.Quaternion4f(this.x, this.y, this.z, this.w)
 }
-
-
-
-

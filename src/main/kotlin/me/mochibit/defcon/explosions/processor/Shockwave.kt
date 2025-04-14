@@ -46,11 +46,12 @@ import kotlin.random.Random
 
 class Shockwave(
     private val center: Location,
-    private val shockwaveRadiusStart: Int,
+    private val radiusStart: Int,
     private val shockwaveRadius: Int,
     private val shockwaveHeight: Int,
     private val shockwaveSpeed: Long = 300L,
-    private val transformationRule: TransformationRule = TransformationRule()
+    private val transformationRule: TransformationRule = TransformationRule(),
+    val radiusDestroyStart: Int = 0
 ) {
     private val maximumDistanceForAction = 4.0
     private val maxDestructionPower = 5.0
@@ -70,7 +71,7 @@ class Shockwave(
     private val treeBurner = TreeBurner(world, center.toVector3i())
     private val chunkCache = ChunkCache.getInstance(world)
     private val rayCaster = RayCaster(world)
-    private val blockChanger = BlockChanger(world)
+    private val blockChanger = BlockChanger.getInstance(world)
 
     // Cache common calculations
     private val baseDirections = arrayOf(
@@ -93,7 +94,7 @@ class Shockwave(
         // First task: Calculate shockwave progression and queue destruction
         executorService.submit {
             try {
-                var lastProcessedRadius = shockwaveRadiusStart
+                var lastProcessedRadius = radiusStart
                 val visitedEntities: MutableSet<Entity> = ConcurrentHashMap.newKeySet()
 
                 while (lastProcessedRadius <= shockwaveRadius) {
@@ -101,7 +102,7 @@ class Shockwave(
                     val elapsedSeconds = (System.nanoTime() - startTime) / 1_000_000_000.0
 
                     // Determine the current radius based on shockwaveSpeed (blocks per second)
-                    val currentRadius = (shockwaveRadiusStart + elapsedSeconds * shockwaveSpeed).toInt()
+                    val currentRadius = (radiusStart + elapsedSeconds * shockwaveSpeed).toInt()
 
                     // Skip if the radius hasn't advanced yet
                     if (currentRadius <= lastProcessedRadius) {
@@ -121,7 +122,8 @@ class Shockwave(
 
                         val columns = generateShockwaveColumns(radius)
                         if (columns.isNotEmpty()) {
-                            destructionQueue.add(columns to normalizedExplosionPower)
+                            if (radius >= radiusDestroyStart)
+                                destructionQueue.add(columns to normalizedExplosionPower)
                             processEntityDamage(columns, normalizedExplosionPower, visitedEntities)
                         }
                     }

@@ -40,8 +40,8 @@ class BiomeRegister {
                 .filter { CustomBiome::class.java.isAssignableFrom(it) }
                 .forEach { clazz ->
                     try {
-                        val biome = clazz.getDeclaredConstructor().newInstance()
-                        biomeList.add(biome as CustomBiome)
+                        val biome = clazz.getField("INSTANCE").get(null) as CustomBiome
+                        biomeList.add(biome)
                     } catch (e: Exception) {
                         println("Failed to register biome: ${clazz.name}")
                         e.printStackTrace()

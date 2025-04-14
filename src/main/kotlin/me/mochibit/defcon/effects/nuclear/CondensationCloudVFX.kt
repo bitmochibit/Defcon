@@ -32,10 +32,10 @@ import org.joml.Vector3f
 
 
 class CondensationCloudVFX(private val nuclearComponent: ExplosionComponent, private val position: Location) :
-    AnimatedEffect(20 * 120) {
+    AnimatedEffect(20 * 40) {
     private var riseSpeed = 6.0f
     private var ringRiseSpeed = 3.0f
-    private var expandSpeed = 3.0f
+    private var expandSpeed = 10.0f
 
 
     private val condensationRing = ParticleComponent(
@@ -53,9 +53,6 @@ class CondensationCloudVFX(private val nuclearComponent: ExplosionComponent, pri
             .color(Color.WHITE)
     )
         .applyRadialVelocityFromCenter(Vector3f(6.0f, 0.0f, 6.0f))
-        .apply {
-            visible = false
-        }
         .translate(Vector3f(0.0f, 110.0f, 0.0f))
 
     private val condensationRingShape = condensationRing.shape as RingSurfaceShape
@@ -77,9 +74,6 @@ class CondensationCloudVFX(private val nuclearComponent: ExplosionComponent, pri
             .color(Color.WHITE)
     )
         .applyRadialVelocityFromCenter(Vector3f(6.0f, 0.0f, 6.0f))
-        .apply {
-            visible = false
-        }
         .translate(Vector3f(0.0f, 150.0f, 0.0f)
     )
 
@@ -93,33 +87,22 @@ class CondensationCloudVFX(private val nuclearComponent: ExplosionComponent, pri
     }
 
     override fun animate(delta: Float) {
-        if (tickAlive > 20 * 20) {
-            val deltaMovement = riseSpeed * delta
+        val deltaMovement = riseSpeed * delta
 
-            val deltaRingMovement = ringRiseSpeed * delta
-            val deltaExpansion = expandSpeed * delta
+        val deltaRingMovement = ringRiseSpeed * delta
+        val deltaExpansion = expandSpeed * delta
 
 
-            condensationRing.translate(Vector3f(0.0f, deltaRingMovement, 0.0f))
+        condensationRing.translate(Vector3f(0.0f, deltaRingMovement, 0.0f))
 
-            condensationRingShape.ringRadius += deltaExpansion
+        condensationRingShape.ringRadius += deltaExpansion
 
-            condensationDome.translate(Vector3f(0.0f, deltaMovement, 0.0f))
+        condensationDome.translate(Vector3f(0.0f, deltaMovement, 0.0f))
 
-            condensationDomeShape.apply {
-                xzRadius += deltaExpansion
-                yRadius = (yRadius + deltaExpansion).coerceIn(0.0f, 160.0f)
-            }
-
+        condensationDomeShape.apply {
+            xzRadius += deltaExpansion
+            yRadius = (yRadius + deltaExpansion).coerceIn(0.0f, 160.0f)
         }
     }
-
-    override fun start() {
-        super.start()
-        condensationRing.setVisibilityAfterDelay(true, 20 * 5)
-        condensationDome.setVisibilityAfterDelay(true, 20 * 10)
-
-    }
-
 
 }

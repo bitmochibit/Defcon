@@ -21,7 +21,7 @@ package me.mochibit.defcon
 
 import com.github.retrooper.packetevents.PacketEvents
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
-import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager
+import jdk.jfr.Event
 import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.events.customitems.GeigerDetectEvent
 import me.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
@@ -37,10 +37,11 @@ import org.bukkit.plugin.java.JavaPlugin
 
 class Defcon : JavaPlugin() {
     override fun onLoad() {
+        _instance = this
         PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this))
         PacketEvents.getAPI().load()
 
-        _instance = this
+        EventRegister.registerPacketListeners()
     }
 
     override fun onEnable() {
@@ -56,7 +57,7 @@ class Defcon : JavaPlugin() {
         NotificationManager.startBroadcastTask()
 
         /* Register all plugin's listeners */
-        EventRegister().registerEvents()
+        EventRegister.registerListeners()
 
         /* Register definitions items */
         if (!ItemRegister().registerItems()) {

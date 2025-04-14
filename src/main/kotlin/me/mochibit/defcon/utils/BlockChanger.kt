@@ -22,10 +22,12 @@ package me.mochibit.defcon.utils
 import me.mochibit.defcon.Defcon
 import org.bukkit.Material
 import org.bukkit.World
+import org.bukkit.block.Biome
 import org.bukkit.block.Block
 import org.bukkit.block.data.*
 import org.bukkit.scheduler.BukkitTask
 import org.joml.Vector3i
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
@@ -39,9 +41,10 @@ data class BlockChange(
     val x: Int,
     val y: Int,
     val z: Int,
-    val newMaterial: Material,
+    val newMaterial: Material? = null,
     val copyBlockData: Boolean = false,
-    val updateBlock: Boolean = false
+    val updateBlock: Boolean = false,
+    val newBiome: Biome? = null,
 )
 
 /**
@@ -201,7 +204,7 @@ class BlockChangeWorker(
         val oldBlockData = if (change.copyBlockData) block.blockData else null
 
         // Apply material change
-        block.setType(change.newMaterial, change.updateBlock)
+        change.newMaterial?.let { block.setType(it, change.updateBlock) }
 
         // Apply block data if needed
         if (change.copyBlockData && oldBlockData != null) {
@@ -213,6 +216,10 @@ class BlockChangeWorker(
                 // Log but continue processing
                 plugin.logger.fine("Failed to copy block data at (${change.x}, ${change.y}, ${change.z}): ${e.message}")
             }
+        }
+
+        change.newBiome?.let {
+            world.setBiome(change.x, change.y, change.z, it)
         }
     }
 
@@ -282,7 +289,7 @@ class BlockChangeWorker(
 /**
  * Optimized BlockChanger that manages block changes for a specific world
  */
-class BlockChanger(private val world: World) {
+class BlockChanger private constructor(private val world: World) {
     // Worker pool configuration
     private var workerCount = max(1, Runtime.getRuntime().availableProcessors() / 2)
     private var blocksPerWorkerTick = 250
@@ -300,10 +307,60 @@ class BlockChanger(private val world: World) {
     private var taskLoadBalancer: BukkitTask? = null
 
     private var nextWorkerIndex = 0
+    private val workerUsageStats = ArrayList<Double>() // Track worker efficiency
 
     init {
         initializeWorkers()
         startLoadBalancer()
+    }
+
+    /**
+     * Singleton pattern implementation
+     */
+    companion object {
+        private val instances = ConcurrentHashMap<String, BlockChanger>()
+        private val instanceLock = ReentrantLock()
+
+        /**
+         * Get or create a BlockChanger instance for the specified world
+         */
+        @JvmStatic
+        fun getInstance(world: World): BlockChanger {
+            val worldName = world.name
+            var instance = instances[worldName]
+
+            if (instance == null) {
+                instanceLock.lock()
+                try {
+                    // Double-check after acquiring lock
+                    instance = instances[worldName]
+                    if (instance == null) {
+                        instance = BlockChanger(world)
+                        instances[worldName] = instance
+                    }
+                } finally {
+                    instanceLock.unlock()
+                }
+            }
+
+            return instance!!
+        }
+
+        /**
+         * Cleanup all instances - call this on plugin disable
+         */
+        @JvmStatic
+        fun shutdownAll() {
+            instanceLock.lock()
+            try {
+                for (instance in instances.values) {
+                    instance.stopAll()
+                }
+                instances.clear()
+            } finally {
+                instanceLock.unlock()
+            }
+        }
     }
 
     /**
@@ -317,6 +374,7 @@ class BlockChanger(private val world: World) {
             workers.clear()
             queues.clear()
             queueSizes.clear()
+            workerUsageStats.clear()
 
             // Create new workers
             for (i in 0 until workerCount) {
@@ -324,6 +382,7 @@ class BlockChanger(private val world: World) {
                 val queueSize = AtomicInteger(0)
                 queues.add(queue)
                 queueSizes.add(queueSize)
+                workerUsageStats.add(0.0)
 
                 val worker = BlockChangeWorker(
                     world,
@@ -341,7 +400,7 @@ class BlockChanger(private val world: World) {
         }
     }
 
-    private fun stopAll() {
+    fun stopAll() {
         configLock.lock()
         try {
             // Stop all workers first
@@ -373,16 +432,31 @@ class BlockChanger(private val world: World) {
 
     /**
      * Find the queue with the least number of pending changes
+     * and update usage stats for adaptive balancing
      */
     private fun findBestWorkerIndex(): Int {
         var bestIndex = 0
-        var minSize = queueSizes[0].get()
+        var minSize = Int.MAX_VALUE
+        var totalWork = 0
 
-        for (i in 1 until workerCount) {
+        for (i in 0 until workerCount) {
             val size = queueSizes[i].get()
-            if (size < minSize) {
+            totalWork += size
+
+            // We also consider worker historical efficiency in our calculation
+            val adjustedSize = (size * (1.0 + workerUsageStats[i] * 0.2)).toInt()
+
+            if (adjustedSize < minSize) {
                 bestIndex = i
-                minSize = size
+                minSize = adjustedSize
+            }
+        }
+
+        // Update worker usage statistics (simple exponential moving average)
+        if (totalWork > 0) {
+            for (i in 0 until workerCount) {
+                val currentRatio = queueSizes[i].get().toDouble() / totalWork
+                workerUsageStats[i] = workerUsageStats[i] * 0.8 + currentRatio * 0.2
             }
         }
 
@@ -390,12 +464,20 @@ class BlockChanger(private val world: World) {
     }
 
     /**
-     * Round-robin worker selection for batch operations
+     * Improved worker selection for batch operations
+     * Uses a combination of round-robin and least-loaded strategies
      */
     private fun getNextWorkerIndex(): Int {
-        val index = (nextWorkerIndex++) % workerCount
-        if (nextWorkerIndex >= workerCount * 2) nextWorkerIndex = 0
-        return index
+        // For every 4th selection, use the least loaded worker instead of round-robin
+        return if (nextWorkerIndex % 4 == 0) {
+            val index = findBestWorkerIndex()
+            nextWorkerIndex++
+            index
+        } else {
+            val index = (nextWorkerIndex++) % workerCount
+            if (nextWorkerIndex >= workerCount * 2) nextWorkerIndex = 0
+            index
+        }
     }
 
     /**
@@ -405,15 +487,16 @@ class BlockChanger(private val world: World) {
         x: Int,
         y: Int,
         z: Int,
-        newMaterial: Material,
+        newMaterial: Material?,
         copyBlockData: Boolean = false,
-        updateBlock: Boolean = false
+        updateBlock: Boolean = false,
+        newBiome: Biome? = null
     ) {
         val workerIndex = findBestWorkerIndex()
         val queue = queues[workerIndex]
         val queueSize = queueSizes[workerIndex]
 
-        queue.add(BlockChange(x, y, z, newMaterial, copyBlockData, updateBlock))
+        queue.add(BlockChange(x, y, z, newMaterial, copyBlockData, updateBlock, newBiome))
         queueSize.incrementAndGet()
 
         // Start worker if not already running
@@ -430,7 +513,8 @@ class BlockChanger(private val world: World) {
         block: Block,
         newMaterial: Material,
         copyBlockData: Boolean = false,
-        updateBlock: Boolean = false
+        updateBlock: Boolean = false,
+        newBiome: Biome? = null
     ) {
         addBlockChange(
             block.x,
@@ -438,7 +522,8 @@ class BlockChanger(private val world: World) {
             block.z,
             newMaterial,
             copyBlockData,
-            updateBlock
+            updateBlock,
+            newBiome
         )
     }
 
@@ -446,7 +531,8 @@ class BlockChanger(private val world: World) {
         pos: Vector3i,
         newMaterial: Material,
         copyBlockData: Boolean = false,
-        updateBlock: Boolean = false
+        updateBlock: Boolean = false,
+        newBiome: Biome?
     ) {
         addBlockChange(
             pos.x,
@@ -454,30 +540,96 @@ class BlockChanger(private val world: World) {
             pos.z,
             newMaterial,
             copyBlockData,
-            updateBlock
+            updateBlock,
+            newBiome
+        )
+    }
+
+    fun changeBiome(
+        x: Int,
+        y: Int,
+        z: Int,
+        newBiome: Biome
+    ) {
+        addBlockChange(
+            x,
+            y,
+            z,
+            newMaterial = null,
+            copyBlockData = false,
+            updateBlock = false,
+            newBiome
         )
     }
 
     /**
      * Bulk add block changes - more efficient for large operations
+     * Now with smarter distribution based on change locality
      */
     fun addBlockChanges(changes: Collection<BlockChange>) {
-        // Distribute changes across workers evenly
-        val changesPerWorker = changes.size / workerCount + 1
-        val batches = changes.chunked(changesPerWorker)
+        if (changes.isEmpty()) return
 
-        for (batch in batches) {
+        // For small batches, distribute evenly
+        if (changes.size < 100) {
             val workerIndex = getNextWorkerIndex()
             val queue = queues[workerIndex]
             val queueSize = queueSizes[workerIndex]
 
-            queue.addAll(batch)
-            queueSize.addAndGet(batch.size)
+            queue.addAll(changes)
+            queueSize.addAndGet(changes.size)
 
             // Start worker if not already running
             val worker = workers[workerIndex]
             if (!(worker.getMetrics()["isRunning"] as Boolean)) {
                 worker.start()
+            }
+            return
+        }
+
+        // For large batches, distribute based on spatial locality when possible
+        // This improves chunk loading/caching efficiency
+        try {
+            // Group by chunk coordinates (simple division by 16)
+            val changesByChunk = changes.groupBy { Triple(it.x shr 4, it.y shr 4, it.z shr 4) }
+
+            // Distribute chunks across workers
+            val chunkBatches = changesByChunk.values.chunked(max(1, changesByChunk.size / workerCount))
+
+            for (chunkGroup in chunkBatches) {
+                val workerIndex = getNextWorkerIndex()
+                val queue = queues[workerIndex]
+                val queueSize = queueSizes[workerIndex]
+                val batchSize = chunkGroup.sumOf { it.size }
+
+                for (chunk in chunkGroup) {
+                    queue.addAll(chunk)
+                }
+                queueSize.addAndGet(batchSize)
+
+                // Start worker if not already running
+                val worker = workers[workerIndex]
+                if (!(worker.getMetrics()["isRunning"] as Boolean)) {
+                    worker.start()
+                }
+            }
+        } catch (e: Exception) {
+            // Fallback to simple distribution if spatial grouping fails
+            val changesPerWorker = changes.size / workerCount + 1
+            val batches = changes.chunked(changesPerWorker)
+
+            for (batch in batches) {
+                val workerIndex = getNextWorkerIndex()
+                val queue = queues[workerIndex]
+                val queueSize = queueSizes[workerIndex]
+
+                queue.addAll(batch)
+                queueSize.addAndGet(batch.size)
+
+                // Start worker if not already running
+                val worker = workers[workerIndex]
+                if (!(worker.getMetrics()["isRunning"] as Boolean)) {
+                    worker.start()
+                }
             }
         }
     }
@@ -496,6 +648,7 @@ class BlockChanger(private val world: World) {
 
     /**
      * Rebalance the queues to ensure even distribution of work
+     * More efficient implementation with better thresholds
      */
     private fun rebalanceQueues() {
         configLock.lock()
@@ -504,11 +657,18 @@ class BlockChanger(private val world: World) {
 
             // Calculate total and average work
             var totalWork = 0
+            var maxWork = 0
+            var minWork = Int.MAX_VALUE
+
             for (size in queueSizes) {
-                totalWork += size.get()
+                val work = size.get()
+                totalWork += work
+                maxWork = max(maxWork, work)
+                minWork = min(minWork, work)
             }
 
-            if (totalWork < 100) return // Not worth rebalancing for small queues
+            // Only rebalance if there's significant imbalance
+            if (totalWork < 200 || maxWork - minWork < 150) return
 
             val targetPerWorker = totalWork / workerCount
 
@@ -526,6 +686,10 @@ class BlockChanger(private val world: World) {
                     workersWithCapacity.add(Pair(i, -difference))
                 }
             }
+
+            // Sort by most excess and most capacity
+            workersWithExcess.sortByDescending { it.second }
+            workersWithCapacity.sortByDescending { it.second }
 
             // Redistribute work
             for ((excessWorkerIdx, excess) in workersWithExcess) {
@@ -562,11 +726,108 @@ class BlockChanger(private val world: World) {
         count: Int
     ): Int {
         var transferred = 0
+        val tempList = ArrayList<BlockChange>(count)
+
+        // Get blocks from source queue in batch
         repeat(count) {
             val change = sourceQueue.poll() ?: return transferred
-            targetQueue.add(change)
+            tempList.add(change)
             transferred++
         }
+
+        // Add to target queue in bulk
+        targetQueue.addAll(tempList)
         return transferred
+    }
+
+    /**
+     * Configure worker parameters
+     */
+    fun configure(
+        newWorkerCount: Int? = null,
+        newBlocksPerTick: Int? = null,
+        newTickInterval: Long? = null,
+        newPauseThreshold: Int? = null,
+        newAutoRestartDelay: Long? = null
+    ) {
+        configLock.lock()
+        try {
+            var needsReinit = false
+
+            newWorkerCount?.let {
+                if (it > 0 && it != workerCount) {
+                    workerCount = it
+                    needsReinit = true
+                }
+            }
+
+            newBlocksPerTick?.let {
+                if (it > 0) {
+                    blocksPerWorkerTick = it
+                    for (worker in workers) {
+                        worker.configure(blocksPerWorkerTick, pauseThreshold, autoRestartDelay)
+                    }
+                }
+            }
+
+            newTickInterval?.let {
+                if (it > 0 && it != tickInterval) {
+                    tickInterval = it
+                    needsReinit = true
+                }
+            }
+
+            newPauseThreshold?.let {
+                pauseThreshold = it
+                for (worker in workers) {
+                    worker.configure(blocksPerWorkerTick, pauseThreshold, autoRestartDelay)
+                }
+            }
+
+            newAutoRestartDelay?.let {
+                autoRestartDelay = it
+                for (worker in workers) {
+                    worker.configure(blocksPerWorkerTick, pauseThreshold, autoRestartDelay)
+                }
+            }
+
+            if (needsReinit) {
+                initializeWorkers()
+            }
+        } finally {
+            configLock.unlock()
+        }
+    }
+
+    /**
+     * Get metrics for all workers
+     */
+    fun getMetrics(): Map<String, Any> {
+        val metrics = mutableMapOf<String, Any>()
+        var totalQueueSize = 0
+        var totalProcessed = 0L
+
+        for (i in 0 until workers.size) {
+            val worker = workers[i]
+            val workerMetrics = worker.getMetrics()
+            val queueSize = queueSizes[i].get()
+
+            totalQueueSize += queueSize
+            totalProcessed += workerMetrics["totalProcessed"] as Long
+
+            metrics["worker_$i"] = mapOf(
+                "queueSize" to queueSize,
+                "isRunning" to workerMetrics["isRunning"] as Boolean,
+                "processed" to workerMetrics["totalProcessed"] as Long,
+                "usageRatio" to workerUsageStats[i]
+            )
+        }
+
+        metrics["totalQueueSize"] = totalQueueSize
+        metrics["totalProcessed"] = totalProcessed
+        metrics["priorityQueueSize"] = priorityQueueSize.get()
+        metrics["serverTPS"] = workers.firstOrNull()?.getMetrics()?.get("serverTPS") ?: 20.0
+
+        return metrics
     }
 }

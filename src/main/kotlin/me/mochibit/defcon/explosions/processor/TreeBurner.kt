@@ -60,7 +60,7 @@ class TreeBurner(
     }
 
     private val chunkCache = ChunkCache.getInstance(world)
-    private val blockChanger = BlockChanger(world)
+    private val blockChanger = BlockChanger.getInstance(world)
 
     // Cache for material lookups
     private val materialCache = HashMap<Vector3i, Material>()

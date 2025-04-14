@@ -17,19 +17,31 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+@file:Suppress("UnstableApiUsage", "removal")
+
 package me.mochibit.defcon.biomes
 
+import io.papermc.paper.registry.RegistryAccess
+import io.papermc.paper.registry.RegistryKey
 import me.mochibit.defcon.biomes.data.*
 import me.mochibit.defcon.biomes.enums.PrecipitationType
 import me.mochibit.defcon.biomes.enums.TemperatureModifier
-import me.mochibit.defcon.utils.MetaManager
 import org.bukkit.NamespacedKey
 
 
-open class CustomBiome {
+abstract class CustomBiome {
     // Get key from annotation
-    val biomeKey: NamespacedKey =
-        MetaManager.convertStringToNamespacedKey(this::class.java.getAnnotation(BiomeInfo::class.java)?.key ?: "minecraft:forest")
+    private val biomeKey: String = this::class.java.getAnnotation(BiomeInfo::class.java)?.let {
+        "defcon:" + it.key
+    }
+        ?: "minecraft:forest"
+
+    val key: NamespacedKey
+        get() {
+            return NamespacedKey.fromString(biomeKey) ?: NamespacedKey("minecraft", "forest")
+        }
+
+    val asBukkitBiome by lazy {RegistryAccess.registryAccess().getRegistry(RegistryKey.BIOME).getOrThrow(key)}
 
     // Default values from FOREST biome
     var temperature = 0.7f
@@ -69,5 +81,6 @@ open class CustomBiome {
 
     // Carvers
     val carvers: HashSet<BiomeCarver> = HashSet()
+
 
 }

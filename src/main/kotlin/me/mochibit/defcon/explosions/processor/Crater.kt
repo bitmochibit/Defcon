@@ -59,7 +59,7 @@ class Crater(
     private val processedBlocks = mutableListOf<BlockChange>()
     private val batchSize = 500 // Adjust based on server performance
 
-    private val blockChanger = BlockChanger(world)
+    private val blockChanger = BlockChanger.getInstance(world)
 
     /**
      * Creates an ellipsoidal crater with the specified dimensions.

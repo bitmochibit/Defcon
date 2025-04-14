@@ -1,22 +1,3 @@
-/*
- *
- * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2025 mochibit.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package me.mochibit.defcon.particles.emitter
 
 import com.github.retrooper.packetevents.PacketEvents
@@ -38,11 +19,12 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Optimized ParticleEmitter designed to handle 15,000+ particles efficiently
+ * with improved LOD performance and parallel processing
  */
 class ParticleEmitter(
     position: Location,
     range: Double,
-    private val maxParticles: Int = 5000,
+    private val maxParticles: Int = 2500,
     var emitterShape: EmitterShape = PointShape,
     val transform: Matrix4f = Matrix4f(),
     val spawnableParticles: MutableList<AbstractParticle> = mutableListOf(),
@@ -50,14 +32,16 @@ class ParticleEmitter(
 ) : Lifecycled {
 
     companion object {
-        // LOD settings
-        private const val LOD_CLOSE = 1    // Update every frame
-        private const val LOD_MEDIUM = 2   // Update every 2 frames
-        private const val LOD_FAR = 4      // Update every 4 frames
-
+        // LOD settings - inversed (higher = more frequent updates)
+        private const val LOD_CLOSE = 4    // Update every frame at 4x speed
+        private const val LOD_MEDIUM = 2   // Update every frame at 2x speed
+        private const val LOD_FAR = 1      // Update every frame at normal speed
 
         private const val LOD_CLOSE_DISTANCE_SQ = 100.0
         private const val LOD_MEDIUM_DISTANCE_SQ = 400.0
+
+        // Batch size for parallel processing
+        private const val BATCH_SIZE = 1000
     }
 
     // Core position data
@@ -65,28 +49,29 @@ class ParticleEmitter(
     val world: World = position.world
     private val rangeSquared = range * range
 
-    // Object pooling for vector reuse
-    private val vectorPool = ObjectPool(100) { Vector3f() }
+    // Object pooling for vector reuse with larger initial capacity
+    private val vectorPool = ObjectPool(1000) { Vector3f() }
 
     // Reusable vectors for particle creation
     private val positionCursor: Vector3f = Vector3f()
 
     // Thread-safe collections for particles and player tracking
-    private val particles = ArrayList<ParticleInstance>(maxParticles)
-    private val particlesToRemove = ObjectArrayList<ParticleInstance>(100)
-    private val visiblePlayers = ConcurrentHashMap<Player, Int>(16) // Player -> LOD level
+    private val particles = ConcurrentVectorList<ParticleInstance>(maxParticles)
+    private val particlesToRemove = ObjectArrayList<ParticleInstance>(200)
+    private val visiblePlayers = ConcurrentHashMap<Player, Int>(32) // Player -> LOD level
 
-    // Batched updates
-    private val batchedUpdates = HashMap<Player, ObjectArrayList<ClientSideParticleInstance>>()
+    // Batched updates with larger initial capacity
+    private val batchedUpdates = ConcurrentHashMap<Player, ObjectArrayList<ClientSideParticleInstance>>(32)
 
     // State tracking
     private val activeCount = AtomicInteger(0)
     private val dyingOut = AtomicBoolean(false)
     private val updateCounter = AtomicInteger(0)
+    private val lastUpdateTimes = ConcurrentHashMap<Int, Long>(maxParticles)
 
     // Settings
     val radialVelocity = Vector3f(0f, 0f, 0f)
-    private var particlesPerFrame = 10
+    private var particlesPerFrame = 15 // Increased from 10
     private var spawnProbability = 1.0f
     var visible = true
         set(value) {
@@ -96,15 +81,64 @@ class ParticleEmitter(
             if (!value) {
                 // Hide all particles if visibility turned off
                 val players = getPlayersInRange()
-                synchronized(particles) {
-                    particles.forEach {
-                        if (it is ClientSideParticleInstance) {
-                            players.forEach { player -> it.sendDespawnPacket(player) }
-                        }
+                particles.forEach {
+                    if (it is ClientSideParticleInstance) {
+                        players.forEach { player -> it.sendDespawnPacket(player) }
                     }
                 }
             }
         }
+
+    // Worker threads for parallel processing
+    private val workThreads = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
+
+    /**
+     * Thread-safe vector list implementation for concurrent access
+     */
+    private class ConcurrentVectorList<T>(initialCapacity: Int) {
+        private val backingList = ArrayList<T>(initialCapacity)
+        private val lock = Any()
+
+        fun add(element: T) {
+            synchronized(lock) {
+                backingList.add(element)
+            }
+        }
+
+        fun size(): Int {
+            synchronized(lock) {
+                return backingList.size
+            }
+        }
+
+        fun removeAll(elements: Collection<T>): Boolean {
+            synchronized(lock) {
+                return backingList.removeAll(elements.toSet())
+            }
+        }
+
+        fun forEach(action: (T) -> Unit) {
+            val snapshot: List<T>
+            synchronized(lock) {
+                snapshot = ArrayList(backingList)
+            }
+            snapshot.forEach(action)
+        }
+
+        fun getRange(start: Int, end: Int): List<T> {
+            synchronized(lock) {
+                val actualEnd = backingList.size.coerceAtMost(end)
+                if (start >= actualEnd) return emptyList()
+                return ArrayList(backingList.subList(start, actualEnd))
+            }
+        }
+
+        fun isEmpty(): Boolean {
+            synchronized(lock) {
+                return backingList.isEmpty()
+            }
+        }
+    }
 
     /**
      * Spawn a new particle with optimized position and velocity calculations
@@ -124,7 +158,7 @@ class ParticleEmitter(
             transform.transformPosition(positionCursor)
         }
 
-        // Create particle instance
+        // Create particle instance with more optimal allocation
         val newParticle = ParticleInstance.fromTemplate(particle, positionCursor)
 
         // Apply radial velocity if needed
@@ -135,66 +169,75 @@ class ParticleEmitter(
                 .normalize()
                 .mul(radialVelocity)
 
-            newParticle.applyVelocity(velocity)
+            newParticle.addVelocity(velocity)
             vectorPool.free(velocity)
         }
 
         // Add to particle collection
-        synchronized(particles) {
-            particles.add(newParticle)
-        }
-
+        particles.add(newParticle)
         activeCount.incrementAndGet()
 
         // Send spawn packets to players in range
         val playersInRange = getPlayersInRange()
-        synchronized(particles) {
-            playersInRange.forEach { player ->
-                newParticle.show(player)
-            }
+        playersInRange.forEach { player ->
+            newParticle.show(player)
         }
-
     }
 
-    override fun start() {}
+    override fun start() {
+        // Initialize counters
+        updateCounter.set(0)
+        activeCount.set(0)
+
+        // Pre-spawn some particles if needed
+        if (visible && spawnableParticles.isNotEmpty()) {
+            val initialParticles = maxParticles / 10 // Start with 10% of capacity
+            repeat(initialParticles.coerceAtMost(maxParticles)) {
+                spawnParticle(spawnableParticles[ThreadLocalRandom.current().nextInt(spawnableParticles.size)])
+            }
+        }
+    }
 
     /**
      * Update particles in a specific range (for parallel processing)
+     * with improved LOD factor application
      */
-    private fun updateParticleRange(start: Int, end: Int, delta: Float, players: List<Player>) {
+    private fun updateParticleRange(particleRange: List<ParticleInstance>, delta: Double, players: List<Player>) {
         val currentFrame = updateCounter.get()
-        for (i in start until end) {
-            if (i >= particles.size) break
 
-            val particle = particles[i]
+        for (particle in particleRange) {
             var needsPositionUpdate = false
+            val particleId = System.identityHashCode(particle)
 
-            // Update based on LOD
-//            if (i % 4 == currentFrame % 4) {  // Stagger updates across frames
-//            }
-            needsPositionUpdate = particle.update(delta)
-            // Handle client-side particles
-            if (needsPositionUpdate) {
-                if (particle is ClientSideParticleInstance) {
-                    for (player in players) {
-//                        val lodLevel = visiblePlayers[player] ?: continue
-//
-//                        // Apply LOD to packet sending
-//                        val playerCounter = playerUpdateCounters.compute(player) { _, count ->
-//                            if (count == null) 1 else count + 1
-//                        }!!
+            // Determine update factor based on closest player's LOD
+            var maxLodFactor = LOD_FAR // Default to far
+            for (player in players) {
+                val lod = visiblePlayers[player] ?: LOD_FAR
+                maxLodFactor = maxOf(maxLodFactor, lod)
+            }
 
-//                        if (playerCounter % lodLevel == 0) {
-                            synchronized(batchedUpdates) {
-                                batchedUpdates.computeIfAbsent(player) {
-                                    ObjectArrayList<ClientSideParticleInstance>()
-                                }.add(particle)
-                            }
-//                        }
+            // Apply LOD factor - higher values mean faster/more frequent updates
+            val currentTime = System.currentTimeMillis()
+            val lastUpdateTime = lastUpdateTimes.getOrDefault(particleId, 0L)
+
+            // Update at higher rate for closer particles
+            if (currentTime - lastUpdateTime >= (1000 / 20) / maxLodFactor) { // 20 ticks per second
+                // Apply multiple delta updates for close particles to make them move faster
+                val scaledDelta = delta * maxLodFactor
+                needsPositionUpdate = particle.update(scaledDelta)
+                lastUpdateTimes[particleId] = currentTime
+            }
+
+            // Handle client-side particles position updates
+            if (needsPositionUpdate && particle is ClientSideParticleInstance) {
+                for (player in players) {
+                    synchronized(batchedUpdates) {
+                        batchedUpdates.computeIfAbsent(player) {
+                            ObjectArrayList<ClientSideParticleInstance>()
+                        }.add(particle)
                     }
                 }
             }
-
 
             if (particle.isDead()) {
                 synchronized(particlesToRemove) {
@@ -205,14 +248,14 @@ class ParticleEmitter(
     }
 
     /**
-     * Update all particles with optimized processing for large numbers
+     * Update all particles with optimized parallel processing for large numbers
      */
     override fun update(delta: Float) {
         // Update visible players list with distance-based LOD
         updateVisiblePlayers()
         val players = visiblePlayers.keys.toList()
 
-        // Spawn new particles if needed
+        // Spawn new particles if needed with more efficient batching
         if (activeCount.get() < maxParticles &&
             !dyingOut.get() &&
             visible &&
@@ -220,9 +263,12 @@ class ParticleEmitter(
             ThreadLocalRandom.current().nextFloat() < spawnProbability
         ) {
             // Batch particle creation for better performance
-            val particlesToCreate = minOf(particlesPerFrame, maxParticles - activeCount.get())
-            repeat(particlesToCreate) {
-                spawnParticle(spawnableParticles[ThreadLocalRandom.current().nextInt(spawnableParticles.size)])
+            val availableCapacity = maxParticles - activeCount.get()
+            if (availableCapacity > 0) {
+                val particlesToCreate = minOf(particlesPerFrame, availableCapacity)
+                repeat(particlesToCreate) {
+                    spawnParticle(spawnableParticles[ThreadLocalRandom.current().nextInt(spawnableParticles.size)])
+                }
             }
         }
 
@@ -231,15 +277,45 @@ class ParticleEmitter(
             batchedUpdates.clear()
         }
 
-        // Update particle range
-        updateParticleRange(0, particles.size, delta, players)
+        // Process particles in parallel batches for large collections
+        val size = particles.size()
+        if (size > BATCH_SIZE && workThreads > 1) {
+            val batchSize = size / workThreads
+            val futures = ArrayList<java.util.concurrent.Future<*>>(workThreads)
 
-        // Send batched position updates
+            val executor = java.util.concurrent.Executors.newFixedThreadPool(workThreads)
+            for (i in 0 until workThreads) {
+                val start = i * batchSize
+                val end = if (i == workThreads - 1) size else (i + 1) * batchSize
+
+                val future = executor.submit {
+                    val particleBatch = particles.getRange(start, end)
+                    updateParticleRange(particleBatch, delta.toDouble(), players)
+                }
+                futures.add(future)
+            }
+
+            // Wait for all tasks to complete
+            for (future in futures) {
+                future.get()
+            }
+            executor.shutdown()
+        } else {
+            // For smaller collections, process in a single batch
+            val particleBatch = particles.getRange(0, size)
+            updateParticleRange(particleBatch, delta.toDouble(), players)
+        }
+
+        // Send batched position updates more efficiently
         synchronized(batchedUpdates) {
             for ((player, particleList) in batchedUpdates) {
-                // Send as batch packet if supported, otherwise send individually
-                for (particle in particleList) {
-                    particle.updatePosition(player)
+                // Process in smaller batches to avoid overwhelming the client
+                val batchSize = 128
+                for (i in 0 until particleList.size step batchSize) {
+                    val end = minOf(i + batchSize, particleList.size)
+                    for (j in i until end) {
+                        particleList[j].updatePosition(player)
+                    }
                 }
             }
             batchedUpdates.clear()
@@ -247,29 +323,44 @@ class ParticleEmitter(
 
         // Remove dead particles
         synchronized(particlesToRemove) {
-            val clientSideParticles = particlesToRemove.filterIsInstance<ClientSideParticleInstance>()
-            if (clientSideParticles.isNotEmpty()) {
-                val destroyPacket = WrapperPlayServerDestroyEntities(
-                    *(clientSideParticles.map { it.particleID }.toIntArray())
-                )
+            if (particlesToRemove.isNotEmpty()) {
+                val clientSideParticles = particlesToRemove.filterIsInstance<ClientSideParticleInstance>()
+                if (clientSideParticles.isNotEmpty()) {
+                    // Process in batches to avoid packet size limits
+                    val batchSize = 100
+                    for (i in clientSideParticles.indices step batchSize) {
+                        val end = minOf(i + batchSize, clientSideParticles.size)
+                        val batch = clientSideParticles.subList(i, end)
 
-                for (player in getPlayersInRange()) {
-                    PacketEvents.getAPI().playerManager.sendPacket(player, destroyPacket)
+                        val destroyPacket = WrapperPlayServerDestroyEntities(
+                            *(batch.map { it.particleID }.toIntArray())
+                        )
+
+                        for (player in getPlayersInRange()) {
+                            PacketEvents.getAPI().playerManager.sendPacket(player, destroyPacket)
+                        }
+                    }
+
+                    activeCount.addAndGet(-clientSideParticles.size)
+
+                    // Remove from tracking map
+                    clientSideParticles.forEach { particle ->
+                        val particleId = System.identityHashCode(particle)
+                        lastUpdateTimes.remove(particleId)
+                    }
                 }
+
+                particles.removeAll(particlesToRemove)
+                particlesToRemove.clear()
             }
-
-            activeCount.addAndGet(-clientSideParticles.size)
-
-            particles.removeAll(particlesToRemove)
-            particlesToRemove.clear()
         }
-
 
         updateCounter.incrementAndGet()
     }
 
     /**
-     * Get LOD level based on player distance
+     * Get LOD level based on player distance - inverted compared to original
+     * Higher values now mean more updates/faster particles
      */
     private fun getLodLevel(playerLocation: Location): Int {
         val distSq = origin.distanceSquared(
@@ -279,9 +370,9 @@ class ParticleEmitter(
         )
 
         return when {
-            distSq < LOD_CLOSE_DISTANCE_SQ -> LOD_CLOSE
-            distSq < LOD_MEDIUM_DISTANCE_SQ -> LOD_MEDIUM
-            else -> LOD_FAR
+            distSq < LOD_CLOSE_DISTANCE_SQ -> LOD_CLOSE  // 4x speed
+            distSq < LOD_MEDIUM_DISTANCE_SQ -> LOD_MEDIUM // 2x speed
+            else -> LOD_FAR  // 1x speed (normal)
         }
     }
 
@@ -310,21 +401,17 @@ class ParticleEmitter(
 
                 // If this is a new player in range, send spawn packets
                 if (!visiblePlayers.containsKey(player) && visible) {
-                    synchronized(particles) {
-                        particles.forEach {
-                            if (it is ClientSideParticleInstance) {
-                                it.sendSpawnPacket(player)
-                            }
+                    particles.forEach {
+                        if (it is ClientSideParticleInstance) {
+                            it.sendSpawnPacket(player)
                         }
                     }
                 }
             } else if (visiblePlayers.containsKey(player)) {
                 // Player went out of range, despawn particles
-                synchronized(particles) {
-                    particles.forEach {
-                        if (it is ClientSideParticleInstance) {
-                            it.sendDespawnPacket(player)
-                        }
+                particles.forEach {
+                    if (it is ClientSideParticleInstance) {
+                        it.sendDespawnPacket(player)
                     }
                 }
             }
@@ -362,6 +449,29 @@ class ParticleEmitter(
      * Get current particle count
      */
     fun getParticleCount(): Int = activeCount.get()
+
+    /**
+     * Reset the emitter
+     */
+    fun reset() {
+        // Despawn all particles
+        val players = getPlayersInRange()
+        particles.forEach {
+            if (it is ClientSideParticleInstance) {
+                players.forEach { player -> it.sendDespawnPacket(player) }
+            }
+        }
+
+        // Clear collections
+        synchronized(particlesToRemove) {
+            particlesToRemove.clear()
+        }
+
+        // Reset counters
+        activeCount.set(0)
+        updateCounter.set(0)
+        lastUpdateTimes.clear()
+    }
 }
 
 /**
@@ -369,6 +479,7 @@ class ParticleEmitter(
  */
 class ObjectPool<T>(capacity: Int, private val factory: () -> T) {
     private val pool = ArrayList<T>(capacity)
+    private val lock = Any()
 
     init {
         repeat(capacity) {
@@ -377,17 +488,17 @@ class ObjectPool<T>(capacity: Int, private val factory: () -> T) {
     }
 
     fun obtain(): T {
-        return if (pool.isEmpty()) {
-            factory()
-        } else {
-            synchronized(pool) {
-                if (pool.isNotEmpty()) pool.removeAt(pool.size - 1) else factory()
+        synchronized(lock) {
+            return if (pool.isEmpty()) {
+                factory()
+            } else {
+                pool.removeAt(pool.size - 1)
             }
         }
     }
 
     fun free(obj: T) {
-        synchronized(pool) {
+        synchronized(lock) {
             pool.add(obj)
         }
     }

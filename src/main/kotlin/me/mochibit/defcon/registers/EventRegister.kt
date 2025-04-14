@@ -19,32 +19,50 @@
 
 package me.mochibit.defcon.registers
 
+import com.github.retrooper.packetevents.PacketEvents
+import com.github.retrooper.packetevents.event.PacketEvent
+import com.github.retrooper.packetevents.event.PacketListener
+import com.github.retrooper.packetevents.event.PacketListenerPriority
 import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.listeners.packet.biome.ClientSideBiome
 import org.bukkit.event.Listener
 import org.bukkit.plugin.java.JavaPlugin
 import org.reflections.Reflections
 import java.lang.reflect.InvocationTargetException
 
-class EventRegister() {
+object EventRegister {
     private var packageName: String = Defcon.instance.javaClass.getPackage().name
     var plugin: JavaPlugin = JavaPlugin.getPlugin(Defcon::class.java)
 
 
-    fun registerEvents() : EventRegister {
-        plugin.getLogger().info("Registering listeners from $packageName.listeners")
-        for (listenerClass in Reflections("$packageName.listeners").getSubTypesOf(Listener::class.java)) {
+    fun registerPacketListeners(): EventRegister {
+        val packetListeners = Reflections("$packageName.listeners.packet").getSubTypesOf(PacketListener::class.java)
+        val packetManager = PacketEvents.getAPI().eventManager
+
+        for (listener in packetListeners) {
             try {
-                plugin.server.pluginManager.registerEvents(
-                    listenerClass.getDeclaredConstructor().newInstance(),
-                    plugin
-                )
-            } catch (e: InstantiationException) {
+                println("Registering packet listener: ${listener.name}")
+                val listenerObj = listener.getDeclaredConstructor().newInstance()
+                packetManager.registerListener(listenerObj, PacketListenerPriority.NORMAL)
+            } catch (e: Exception) {
                 throw RuntimeException(e)
-            } catch (e: IllegalAccessException) {
-                throw RuntimeException(e)
-            } catch (e: InvocationTargetException) {
-                throw RuntimeException(e)
-            } catch (e: NoSuchMethodException) {
+            }
+        }
+
+        return this;
+    }
+
+    fun registerListeners() : EventRegister {
+        plugin.logger.info("Registering listeners from $packageName.listeners")
+        val bukkitListeners = Reflections("$packageName.listeners").getSubTypesOf(Listener::class.java)
+        val bukkitManager = plugin.server.pluginManager
+
+        for (listener in bukkitListeners) {
+            try {
+                println("Registering bukkit listener: ${listener.name}")
+                val listenerObj = listener.getDeclaredConstructor().newInstance()
+                bukkitManager.registerEvents(listenerObj, plugin)
+            } catch (e: Exception) {
                 throw RuntimeException(e)
             }
         }

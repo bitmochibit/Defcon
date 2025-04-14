@@ -28,7 +28,7 @@ import me.mochibit.defcon.biomes.enums.TemperatureModifier
 import org.bukkit.Particle
 
 @BiomeInfo("nuclear_fallout")
-class NuclearFalloutBiome : CustomBiome() {
+object NuclearFalloutBiome : CustomBiome() {
     init {
         precipitation = PrecipitationType.RAIN
         temperature = 0.8f

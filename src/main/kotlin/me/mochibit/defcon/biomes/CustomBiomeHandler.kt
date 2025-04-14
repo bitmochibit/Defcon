@@ -1,58 +1,212 @@
 package me.mochibit.defcon.biomes
 
-import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.threading.jobs.SimpleCompositionJob
-import me.mochibit.defcon.threading.runnables.ScheduledRunnable
-import org.bukkit.Bukkit
-import org.bukkit.Chunk
+import me.mochibit.defcon.utils.BlockChanger
+import org.bukkit.Location
+import org.bukkit.NamespacedKey
+import org.bukkit.World
+import org.bukkit.block.Biome
 import org.bukkit.entity.Player
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
-class CustomBiomeHandler {
-    companion object {
-        private const val CHUNK_SIZE = 16
-        fun setCustomBiome(chunk: Chunk, biome: CustomBiome) {
-            val syncRunnable = ScheduledRunnable().maxMillisPerTick(2.5)
-            val task = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, syncRunnable, 0L, 20L)
-
-            Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
-                val minX = chunk.x shl 4
-                val maxX = minX + CHUNK_SIZE
-
-                val minZ = chunk.z shl 4
-                val maxZ = minZ + CHUNK_SIZE
-
-                val key = biome.biomeKey
-                val maxHeight = chunk.world.maxHeight
-
-
-
-                for (x in minX until maxX step 4) {
-                    for (z in minZ until maxZ step 4) {
-                        syncRunnable.addWorkload(SimpleCompositionJob(key) {
-                            for (offsetX in 0 until 4) {
-                                for (offsetZ in 0 until 4) {
-                                    for (y in 55 until maxHeight) {
-                                        // Set the biome of each block to the custom biome
-//                                        chunk.world.setBiome(chunk.world, x + offsetX, y, z + offsetZ, key)
-                                    }
-                                }
-                            }
-                        })
-                    }
-                }
-
-                if (chunk.isLoaded) {
-                }
-            })
-
-            Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
-                task.cancel()
-            }, 20L * 120L)
+/**
+ * Handles custom biome creation and manipulation for both client-side and server-side biomes.
+ */
+object CustomBiomeHandler {
+    /**
+     * Represents the boundary of a client-side biome area for a specific player.
+     */
+    data class ClientSideBiomeBoundary(
+        val biome: NamespacedKey,
+        val minX: Int,
+        val maxX: Int,
+        val minY: Int,
+        val maxY: Int,
+        val minZ: Int,
+        val maxZ: Int
+    ) {
+        /**
+         * Checks if a specific location is within this biome boundary.
+         */
+        fun isInBounds(x: Int, y: Int, z: Int): Boolean {
+            return x in minX..maxX && y in minY..maxY && z in minZ..maxZ
         }
 
+        /**
+         * Checks if a chunk intersects with this biome boundary.
+         */
+        fun intersectsChunk(chunkX: Int, chunkZ: Int): Boolean {
+            val chunkMinX = chunkX * 16
+            val chunkMaxX = chunkMinX + 15
+            val chunkMinZ = chunkZ * 16
+            val chunkMaxZ = chunkMinZ + 15
 
+            return !(chunkMaxX < minX || chunkMinX > maxX ||
+                    chunkMaxZ < minZ || chunkMinZ > maxZ)
+        }
+    }
+
+    // Thread-safe map to store player-specific biome boundaries
+    private val clientSideBiome = ConcurrentHashMap<UUID, ClientSideBiomeBoundary>()
+
+    /**
+     * Gets the biome area boundaries for a specific player.
+     *
+     * @param playerId UUID of the player
+     * @return ClientSideBiomeBoundary or null if none exists
+     */
+    fun getBiomeAreaBoundaries(playerId: UUID): ClientSideBiomeBoundary? {
+        return clientSideBiome[playerId]
+    }
+
+    /**
+     * Sets a client-side biome for a specific player.
+     * This only affects what the player sees, not the actual world biome.
+     */
+    fun setBiomeClientSide(
+        playerId: UUID,
+        center: Location,
+        biome: Biome,
+        lengthPositiveY: Int,
+        lengthNegativeY: Int,
+        lengthPositiveX: Int,
+        lengthNegativeX: Int,
+        lengthPositiveZ: Int,
+        lengthNegativeZ: Int,
+    ) {
+        // Validate input parameters
+        require(lengthPositiveY >= 0) { "Positive Y length must be non-negative" }
+        require(lengthNegativeY >= 0) { "Negative Y length must be non-negative" }
+        require(lengthPositiveX >= 0) { "Positive X length must be non-negative" }
+        require(lengthNegativeX >= 0) { "Negative X length must be non-negative" }
+        require(lengthPositiveZ >= 0) { "Positive Z length must be non-negative" }
+        require(lengthNegativeZ >= 0) { "Negative Z length must be non-negative" }
+
+        val centerX = center.blockX
+        val centerY = center.blockY
+        val centerZ = center.blockZ
+
+        // Get the world's min and max height
+        val worldMinY = center.world.minHeight
+        val worldMaxY = center.world.maxHeight
+
+        // Calculate the bounds
+        val minX = centerX - lengthNegativeX
+        val maxX = centerX + lengthPositiveX
+        val minZ = centerZ - lengthNegativeZ
+        val maxZ = centerZ + lengthPositiveZ
+        val minY = (centerY - lengthNegativeY).coerceAtLeast(worldMinY)
+        val maxY = (centerY + lengthPositiveY).coerceAtMost(worldMaxY)
+
+        // Create and store the biome boundary
+        val boundary = ClientSideBiomeBoundary(
+            biome.key,
+            minX, maxX, minY, maxY, minZ, maxZ
+        )
+
+        clientSideBiome[playerId] = boundary
+    }
+
+    /**
+     * Removes the client-side biome effect for a player.
+     */
+    fun removeBiomeClientSide(playerId: UUID) {
+        clientSideBiome.remove(playerId)
+    }
+
+    /**
+     * Sets a custom biome for a range of blocks in the world.
+     * This changes the actual world biome for all players.
+     */
+    fun setCustomBiomeRange(
+        center: Location,
+        biome: CustomBiome,
+        lengthPositiveY: Int,
+        lengthNegativeY: Int,
+        lengthPositiveX: Int,
+        lengthNegativeX: Int,
+        lengthPositiveZ: Int,
+        lengthNegativeZ: Int,
+    ) {
+        // Validate input parameters
+        require(lengthPositiveY >= 0) { "Positive Y length must be non-negative" }
+        require(lengthNegativeY >= 0) { "Negative Y length must be non-negative" }
+        require(lengthPositiveX >= 0) { "Positive X length must be non-negative" }
+        require(lengthNegativeX >= 0) { "Negative X length must be non-negative" }
+        require(lengthPositiveZ >= 0) { "Positive Z length must be non-negative" }
+        require(lengthNegativeZ >= 0) { "Negative Z length must be non-negative" }
+
+        val world = center.world
+        val centerX = center.blockX
+        val centerY = center.blockY
+        val centerZ = center.blockZ
+
+        // Get the Bukkit biome representation
+        val bukkitBiome = biome.asBukkitBiome
+
+        // Get block changer for this world
+        val blockChanger = BlockChanger.getInstance(world)
+
+        // Calculate the bounds
+        val minX = centerX - lengthNegativeX
+        val maxX = centerX + lengthPositiveX
+        val minZ = centerZ - lengthNegativeZ
+        val maxZ = centerZ + lengthPositiveZ
+
+        // Make sure to respect world height limits
+        val worldMinY = world.minHeight
+        val worldMaxY = world.maxHeight
+        val minY = (centerY - lengthNegativeY).coerceAtLeast(worldMinY)
+        val maxY = (centerY + lengthPositiveY).coerceAtMost(worldMaxY)
+
+        // Optimize by pre-calculating the total volume
+        val totalBlocks = (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1)
+
+        // Add logging for large operations
+        if (totalBlocks > 100000) {
+            println("Setting biome for a large area with $totalBlocks blocks. This may take some time.")
+        }
+
+        // Change the biome for each block in the range
+        for (y in minY..maxY) {
+            for (x in minX..maxX) {
+                for (z in minZ..maxZ) {
+                    blockChanger.changeBiome(x, y, z, bukkitBiome)
+                }
+            }
+        }
+    }
+
+    fun refreshChunksAroundPlayer(player: Player) {
+        val viewDistance = player.viewDistance
+        val world = player.world
+        val (playerChunkX, playerChunkZ) = player.location.let {
+            Pair(it.blockX shr 4, it.blockZ shr 4)
+        }
+
+        for (x in -viewDistance .. viewDistance ) {
+            for (z in -viewDistance .. viewDistance ) {
+                val relX = playerChunkX + x
+                val relZ = playerChunkZ + z
+                refreshChunk(world, relX, relZ)
+            }
+        }
+    }
+
+    private fun refreshChunk(world: World, chunkX: Int, chunkZ: Int) {
+        if (world.isChunkLoaded(chunkX, chunkZ)) {
+            world.refreshChunk(chunkX, chunkZ)
+        }
+    }
+
+    /**
+     * Checks if a player is within their assigned client-side biome boundary.
+     */
+    fun isPlayerInBiomeBoundary(player: Player): Boolean {
+        val boundary = getBiomeAreaBoundaries(player.uniqueId) ?: return false
+        val loc = player.location
+        return boundary.isInBounds(loc.blockX, loc.blockY, loc.blockZ)
     }
 }
-
 
 

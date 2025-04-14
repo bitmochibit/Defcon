@@ -19,6 +19,8 @@
 
 package me.mochibit.defcon.explosions.types
 
+import me.mochibit.defcon.biomes.CustomBiomeHandler
+import me.mochibit.defcon.biomes.definitions.BurningAirBiome
 import me.mochibit.defcon.effects.nuclear.CondensationCloudVFX
 import me.mochibit.defcon.effects.nuclear.NuclearExplosionVFX
 import me.mochibit.defcon.effects.nuclear.NuclearFogVFX
@@ -30,7 +32,8 @@ import org.bukkit.Location
 import kotlin.math.roundToInt
 
 
-class NuclearExplosion(center: Location, private val nuclearComponent: ExplosionComponent = ExplosionComponent()) : Explosion(center) {
+class NuclearExplosion(center: Location, private val nuclearComponent: ExplosionComponent = ExplosionComponent()) :
+    Explosion(center) {
     override fun explode() {
 //        // Send to a nearby player the flash of the explosion (radius)
 //        center.world.getNearbyPlayers(center, 300.0).forEach { player ->
@@ -134,17 +137,17 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
 
         val shockwaveRadius = nuclearComponent.blastPower * 650
         val shockwaveHeight = (nuclearComponent.blastPower * 100 * 3).roundToInt()
-        val craterRadius = (shockwaveRadius/2.5).roundToInt().coerceIn(20, 150)
+        val craterRadius = (shockwaveRadius / 2.5).roundToInt().coerceIn(20, 150)
 
-        val falloutRadius = shockwaveRadius / 16
+        val falloutRadius = (shockwaveRadius * 2).roundToInt()
 
-//        Shockwave(center, craterRadius, shockwaveRadius.toInt(), shockwaveHeight).apply {
-//            explode()
-//        }
-//
-//        Crater(center, craterRadius, craterRadius/6, craterRadius, TransformationRule(), shockwaveHeight).apply {
-//            create()
-//        }
+        Shockwave(center, craterRadius/2, shockwaveRadius.toInt(), shockwaveHeight, radiusDestroyStart = craterRadius).apply {
+            explode()
+        }
+
+        Crater(center, craterRadius, craterRadius/6, craterRadius, TransformationRule(), shockwaveHeight).apply {
+            create()
+        }
 
         // VFX
         val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
@@ -155,6 +158,22 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
         nuclearFog.instantiate(async = true, useThreadPool = true)
         condensationCloud.instantiate(async = true, useThreadPool = true)
 
+
+        for (player in center.world.players) {
+            CustomBiomeHandler.setBiomeClientSide(
+                player.uniqueId,
+                center,
+                BurningAirBiome.asBukkitBiome,
+                falloutRadius,
+                20,
+                falloutRadius,
+                falloutRadius,
+                falloutRadius,
+                falloutRadius
+            )
+
+            CustomBiomeHandler.refreshChunksAroundPlayer(player)
+        }
 
 
 //        center.world.getNearbyPlayers(center, 300.0).forEach { player ->

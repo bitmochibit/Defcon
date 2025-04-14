@@ -90,7 +90,7 @@ object DatapackRegister : PackRegister() {
             val biomes = BiomeRegister().getBiomes()
 
             for (biome in biomes) {
-                val biomePath = Paths.get("$tempBiomesPath/${biome.biomeKey.value()}.json")
+                val biomePath = Paths.get("$tempBiomesPath/${biome.key.value()}.json")
                 val biomeJson = createBiomeJson(biome)
 
                 Files.write(biomePath, biomeJson.toJSONString().toByteArray())
