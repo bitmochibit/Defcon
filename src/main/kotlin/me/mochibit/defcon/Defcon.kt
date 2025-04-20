@@ -21,19 +21,21 @@ package me.mochibit.defcon
 
 import com.github.retrooper.packetevents.PacketEvents
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
-import jdk.jfr.Event
-import me.mochibit.defcon.Defcon.Companion.Logger.info
+import me.mochibit.defcon.Defcon.Logger.PluginLogger
+import me.mochibit.defcon.Defcon.Logger.info
+import me.mochibit.defcon.classes.PluginConfiguration
 import me.mochibit.defcon.events.customitems.GeigerDetectEvent
 import me.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
 import me.mochibit.defcon.extensions.getRadiationLevel
 import me.mochibit.defcon.extensions.increaseRadiationLevel
+import me.mochibit.defcon.notification.NotificationManager
 import me.mochibit.defcon.radiation.RadiationArea
 import me.mochibit.defcon.registers.*
-import me.mochibit.defcon.classes.PluginConfiguration
-import me.mochibit.defcon.notification.NotificationManager
+import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Bukkit
 import org.bukkit.GameMode
 import org.bukkit.plugin.java.JavaPlugin
+
 
 class Defcon : JavaPlugin() {
     override fun onLoad() {
@@ -42,12 +44,12 @@ class Defcon : JavaPlugin() {
         PacketEvents.getAPI().load()
 
         EventRegister.registerPacketListeners()
+        info("Defcon is starting up ☢️")
     }
 
     override fun onEnable() {
         PacketEvents.getAPI().init()
-
-        logger.info("[Defcon] has been enabled!")
+        info("Plugin is enabled! Configuring...")
         PluginConfiguration.initializeAll()
 
         info("Registering resource pack and datapack")
@@ -61,7 +63,7 @@ class Defcon : JavaPlugin() {
 
         /* Register definitions items */
         if (!ItemRegister().registerItems()) {
-            logger.warning("[Defcon] Some items were not registered!")
+            info("Some items were not registered!")
         }
 
         /* Register definitions blocks */
@@ -80,7 +82,7 @@ class Defcon : JavaPlugin() {
                 for (player in Bukkit.getOnlinePlayers()) {
                     if (player.gameMode == GameMode.CREATIVE || player.gameMode == GameMode.SPECTATOR) continue
 
-                    val radiationAreas = RadiationArea.getAtLocation( player.location.add(0.0, 1.0, 0.0))
+                    val radiationAreas = RadiationArea.getAtLocation(player.location.add(0.0, 1.0, 0.0))
                     if (radiationAreas.isEmpty()) continue
 
                     val totalRadiation = radiationAreas.sumOf { it.radiationLevel } / radiationAreas.size
@@ -112,21 +114,46 @@ class Defcon : JavaPlugin() {
                     if (radLevel <= 0.0) continue
 
                     // Decrease max health
-                    player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)?.baseValue = 20.0 - radLevel.coerceAtMost(20.0)
+                    player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)?.baseValue =
+                        20.0 - radLevel.coerceAtMost(20.0)
 
                     if (radLevel > 5.0) {
                         // Give nausea effect
-                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.GLOWING, 100, 1))
+                        player.addPotionEffect(
+                            org.bukkit.potion.PotionEffect(
+                                org.bukkit.potion.PotionEffectType.GLOWING,
+                                100,
+                                1
+                            )
+                        )
                     }
                     if (radLevel > 10.0) {
                         // Give poison effect
-                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.NAUSEA, 100, 1))
+                        player.addPotionEffect(
+                            org.bukkit.potion.PotionEffect(
+                                org.bukkit.potion.PotionEffectType.NAUSEA,
+                                100,
+                                1
+                            )
+                        )
                     }
 
                     if (radLevel > 15.0) {
                         // Give poison effect
-                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.SLOWNESS, 100, 1))
-                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.MINING_FATIGUE, 100, 1))
+                        player.addPotionEffect(
+                            org.bukkit.potion.PotionEffect(
+                                org.bukkit.potion.PotionEffectType.SLOWNESS,
+                                100,
+                                1
+                            )
+                        )
+                        player.addPotionEffect(
+                            org.bukkit.potion.PotionEffect(
+                                org.bukkit.potion.PotionEffectType.MINING_FATIGUE,
+                                100,
+                                1
+                            )
+                        )
                     }
                 }
             },
@@ -136,32 +163,66 @@ class Defcon : JavaPlugin() {
     }
 
     override fun onDisable() {
-        logger.info("[Defcon] has been disabled!")
         PluginConfiguration.saveAll()
         NotificationManager.saveNotifications()
         PacketEvents.getAPI().terminate()
+        info("Plugin disabled!")
     }
 
     companion object {
         private lateinit var _instance: Defcon
         val instance get() = _instance
-
         var namespace = "defcon"
-
         val minecraftVersion = Bukkit.getServer().bukkitVersion.split("-")[0]
 
-        object Logger {
-            fun info(message: String) {
-                _instance.logger.info(message)
-            }
+    }
 
-            fun warning(message: String) {
-                _instance.logger.warning(message)
-            }
+    object Logger {
+        fun interface PluginLogger {
+            fun log(message: String)
+        }
 
-            fun severe(message: String) {
-                _instance.logger.severe(message)
+        private fun PluginLogger.withPrefix(level: LogLevel) = PluginLogger {
+            val prefix = level.getPrefix()
+            log("$prefix $it")
+        }
+
+        enum class LogLevel {
+            INFO,
+            WARNING,
+            ERROR,
+            DEBUG;
+
+            fun getPrefix(): String {
+                return when (this) {
+                    INFO -> "<blue><b>INFO</b></blue> "
+                    WARNING -> "<yellow><b>WARN</b></yellow> "
+                    ERROR -> "<red><b>ERROR</b></red> "
+                    DEBUG -> "<light_purple><b>DEBUG</b></light_purple> "
+                }
             }
+        }
+
+        private val miniMessage = MiniMessage.miniMessage()
+
+        private val pluginLogger = PluginLogger {
+            instance.componentLogger.info(miniMessage.deserialize(it))
+        }
+
+        fun info(message: String) {
+            pluginLogger.withPrefix(LogLevel.INFO).log(message)
+        }
+
+        fun warn(message: String) {
+            pluginLogger.withPrefix(LogLevel.WARNING).log(message)
+        }
+
+        fun err(message: String) {
+            pluginLogger.withPrefix(LogLevel.ERROR).log(message)
+        }
+
+        fun debug(message: String) {
+            pluginLogger.withPrefix(LogLevel.DEBUG).log(message)
         }
     }
 }

@@ -19,7 +19,6 @@
 
 package me.mochibit.defcon.save.savedata
 
-import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.radiation.RadiationArea
 import me.mochibit.defcon.save.AbstractSaveData
 import me.mochibit.defcon.save.schemas.RadiationAreaSchema

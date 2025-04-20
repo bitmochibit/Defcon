@@ -39,7 +39,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
 
     private val coreCloud: ParticleComponent = ParticleComponent(
         ParticleEmitter(
-            center, 3000.0,
+            center, 8000.0,
             emitterShape = SphereShape(
                 xzRadius = 30.0f,
                 yRadius = 50.0f
@@ -55,7 +55,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
 
     private val secondaryCloud: ParticleComponent = ParticleComponent(
         ParticleEmitter(
-            center, 3000.0,
+            center, 8000.0,
             emitterShape = SphereSurfaceShape(
                 xzRadius = 50.0f,
                 yRadius = 50.0f,
@@ -70,7 +70,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
 
     private val tertiaryCloud: ParticleComponent = ParticleComponent(
         ParticleEmitter(
-            center, 3000.0,
+            center, 8000.0,
             emitterShape = SphereSurfaceShape(
                 xzRadius = 70.0f,
                 yRadius = 70.0f,
@@ -86,7 +86,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
 
     private val quaterniaryCloud: ParticleComponent = ParticleComponent(
         ParticleEmitter(
-            center, 3000.0,
+            center, 8000.0,
             emitterShape = SphereSurfaceShape(
                 xzRadius = 90.0f,
                 yRadius = 60.0f,
@@ -103,7 +103,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
 
     private val coreNeck: ParticleComponent = ParticleComponent(
         ParticleEmitter(
-            center, 3000.0,
+            center, 8000.0,
             emitterShape = CylinderShape(
                 radiusX = 30.0f,
                 radiusZ = 30.0f,
@@ -118,7 +118,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
 
     private val neckCone: ParticleComponent = ParticleComponent(
         ParticleEmitter(
-            center, 3000.0,
+            center, 8000.0,
             emitterShape = SphereShape(
                 xzRadius = 40.0f,
                 yRadius = 70.0f,
@@ -139,7 +139,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
 
     private val stem: ParticleComponent = ParticleComponent(
         ParticleEmitter(
-            center, 3000.0,
+            center, 8000.0,
             emitterShape = CylinderShape(
                 radiusX = 15.0f,
                 radiusZ = 15.0f,

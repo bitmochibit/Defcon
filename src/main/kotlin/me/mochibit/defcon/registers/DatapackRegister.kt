@@ -10,11 +10,10 @@
 
 package me.mochibit.defcon.registers
 
-import me.mochibit.defcon.Defcon.Companion.Logger.info
+import me.mochibit.defcon.Defcon.Logger.info
 import me.mochibit.defcon.biomes.BiomeRegister
 import me.mochibit.defcon.biomes.CustomBiome
 import me.mochibit.defcon.biomes.data.BiomeEffects
-import me.mochibit.defcon.notification.Notification
 import me.mochibit.defcon.notification.NotificationManager
 import me.mochibit.defcon.notification.NotificationType
 import me.mochibit.defcon.registers.packformat.FormatReader

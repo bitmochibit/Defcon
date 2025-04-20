@@ -20,7 +20,6 @@
 package me.mochibit.defcon.classes
 
 import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.Defcon.Companion.Logger
 import me.mochibit.defcon.enums.ConfigurationStorage
 import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.configuration.file.YamlConfiguration
@@ -42,7 +41,7 @@ class PluginConfiguration(private val storage: ConfigurationStorage) {
 
     private fun ensureDirectories() {
         if (!configDir.exists() && !configDir.mkdirs()) {
-            Logger.severe("Could not create directory: $configDir")
+            error("Could not create directory: $configDir")
         }
     }
 
@@ -60,7 +59,7 @@ class PluginConfiguration(private val storage: ConfigurationStorage) {
         try {
             configuration?.save(configFile)
         } catch (e: IOException) {
-            Logger.severe("Could not save config to $configFile: ${e.message}")
+            error("Could not save config to $configFile: ${e.message}")
         }
     }
 
@@ -69,7 +68,7 @@ class PluginConfiguration(private val storage: ConfigurationStorage) {
         try {
             Defcon.instance.saveResource("${storage.storagePath}${storage.storageFileName}.yml", false)
         } catch (e: Exception) {
-            Logger.severe("Error while saving default config! ${e.message}")
+            error("Error while saving default config! ${e.message}")
         }
     }
 

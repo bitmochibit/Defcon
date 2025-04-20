@@ -10,8 +10,7 @@
 
 package me.mochibit.defcon.registers
 
-import me.mochibit.defcon.Defcon.Companion.Logger.info
-import me.mochibit.defcon.observer.Observable
+import me.mochibit.defcon.Defcon.Logger.info
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream

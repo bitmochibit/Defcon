@@ -19,7 +19,6 @@
 
 package me.mochibit.defcon.listeners.items
 
-import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.enums.ItemBehaviour
 import me.mochibit.defcon.events.customitems.CustomItemEquipEvent
 import me.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent

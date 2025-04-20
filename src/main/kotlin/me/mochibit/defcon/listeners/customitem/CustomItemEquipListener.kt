@@ -19,7 +19,6 @@
 
 package me.mochibit.defcon.listeners.customitem
 
-import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.enums.ItemBehaviour
 import me.mochibit.defcon.events.customitems.CustomItemEquipEvent
 import me.mochibit.defcon.extensions.equipSlotNumber
@@ -81,13 +80,10 @@ open class CustomItemEquipListener : Listener {
         if (event.slotType == InventoryType.SlotType.CRAFTING) return
         if (event.slotType == InventoryType.SlotType.ARMOR) return
 
-        info("SHIFT CLICKED AN EQUIPABLE ITEM")
-        info("Current item: $currentItem")
 
         val equipmentSlot = rawSlotToEquipmentSlot(currentItem.equipSlotNumber())
         val oldItem = player.inventory.getItem(equipmentSlot)
 
-        info ("Old item: $oldItem")
         if (oldItem != null && oldItem.type != Material.AIR) {
             event.isCancelled = true
             event.result = Event.Result.DENY

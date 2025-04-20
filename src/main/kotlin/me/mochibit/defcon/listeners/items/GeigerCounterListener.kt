@@ -20,7 +20,6 @@
 package me.mochibit.defcon.listeners.items
 
 import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.enums.ItemBehaviour
 import me.mochibit.defcon.events.customitems.GeigerDetectEvent
 import me.mochibit.defcon.extensions.getBehaviour
@@ -39,8 +38,6 @@ class GeigerCounterListener : Listener {
         // Check if the item on the player's hand is a Geiger Counter
         if (player.inventory.itemInMainHand.getBehaviour() != ItemBehaviour.GEIGER_COUNTER &&
             player.inventory.itemInOffHand.getBehaviour() != ItemBehaviour.GEIGER_COUNTER) return;
-
-        info(event.radiationLevel.toString())
 
         // Player a ticking sound randomly, to simulate the Geiger Counter, and with a density based on the radiation level, repeating a random number of times
         val ticks = (1.. event.radiationLevel.toInt() * 6).random()

@@ -19,7 +19,6 @@
 
 package me.mochibit.defcon.radiation
 
-import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.enums.BlockDataKey
 import me.mochibit.defcon.extensions.toChunkCoordinate
 import me.mochibit.defcon.save.savedata.RadiationAreaSave

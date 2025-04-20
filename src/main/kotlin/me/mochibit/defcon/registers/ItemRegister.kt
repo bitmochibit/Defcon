@@ -20,6 +20,7 @@
 package me.mochibit.defcon.registers
 
 import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.Defcon.Logger.info
 import me.mochibit.defcon.classes.CustomItemDefinition
 import me.mochibit.defcon.classes.PluginConfiguration
 import me.mochibit.defcon.enums.ConfigurationStorage
@@ -91,7 +92,7 @@ class ItemRegister() {
                     isDroppable = itemDroppable,
                     behaviour = behaviourValue
             )
-            Defcon.Companion.Logger.info("Registered item $itemId")
+            info("Registered item $itemId")
             registeredItems[customItem.id] = customItem
         }
         return true

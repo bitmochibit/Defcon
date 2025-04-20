@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class ParticleEmitter(
     position: Location,
     range: Double,
-    private val maxParticles: Int = 2500,
+    private val maxParticles: Int = 1500,
     var emitterShape: EmitterShape = PointShape,
     val transform: Matrix4f = Matrix4f(),
     val spawnableParticles: MutableList<AbstractParticle> = mutableListOf(),

@@ -19,12 +19,9 @@
 
 package me.mochibit.defcon.save.savedata
 
-import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.save.AbstractSaveData
 import me.mochibit.defcon.save.schemas.PlayerDataSchema
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.function.Supplier
 
 @SaveDataInfo("player_data", "/player_data/")
 class PlayerDataSave(val uuid: String) :

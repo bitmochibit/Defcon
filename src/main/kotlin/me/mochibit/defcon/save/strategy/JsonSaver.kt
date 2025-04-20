@@ -22,7 +22,6 @@ package me.mochibit.defcon.save.strategy
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.save.savedata.SaveDataInfo
 import me.mochibit.defcon.save.schemas.SaveSchema
 import java.nio.file.Files

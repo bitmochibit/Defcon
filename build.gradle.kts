@@ -64,7 +64,6 @@ paper {
     description = project.description
     authors = listOf("MochiBit")
     website = "https://github.com/mochibit/defcon"
-
 //    serverDependencies {
 //        register("packetevents") {
 //            load = PaperPluginDescription.RelativeLoadOrder.BEFORE

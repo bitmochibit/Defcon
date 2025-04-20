@@ -34,7 +34,7 @@ import org.joml.Vector3f
  * @property scale The scale of the particle.
  */
 abstract class GenericParticleProperties(
-    var maxLife: Long = 130,
+    var maxLife: Long = 60,
     var color: Color? = null,
     var scale: Vector3f = Vector3f(1.0f, 1.0f, 1.0f)
 ) : Cloneable {

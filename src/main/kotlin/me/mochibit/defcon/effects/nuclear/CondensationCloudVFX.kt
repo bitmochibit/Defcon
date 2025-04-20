@@ -60,7 +60,7 @@ class CondensationCloudVFX(private val nuclearComponent: ExplosionComponent, pri
     private val condensationDome = ParticleComponent(
         particleEmitter = ParticleEmitter(
             position = position,
-            3000.0,
+            500.0,
             emitterShape = SphereSurfaceShape(
                 xzRadius = 110.0f,
                 yRadius = 110.0f,

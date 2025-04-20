@@ -177,27 +177,6 @@ object CustomBiomeHandler {
         }
     }
 
-    fun refreshChunksAroundPlayer(player: Player) {
-        val viewDistance = player.viewDistance
-        val world = player.world
-        val (playerChunkX, playerChunkZ) = player.location.let {
-            Pair(it.blockX shr 4, it.blockZ shr 4)
-        }
-
-        for (x in -viewDistance .. viewDistance ) {
-            for (z in -viewDistance .. viewDistance ) {
-                val relX = playerChunkX + x
-                val relZ = playerChunkZ + z
-                refreshChunk(world, relX, relZ)
-            }
-        }
-    }
-
-    private fun refreshChunk(world: World, chunkX: Int, chunkZ: Int) {
-        if (world.isChunkLoaded(chunkX, chunkZ)) {
-            world.refreshChunk(chunkX, chunkZ)
-        }
-    }
 
     /**
      * Checks if a player is within their assigned client-side biome boundary.

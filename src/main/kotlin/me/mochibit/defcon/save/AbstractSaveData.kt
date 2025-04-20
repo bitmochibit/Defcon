@@ -19,7 +19,6 @@
 
 package me.mochibit.defcon.save
 
-import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.save.savedata.SaveDataInfo
 import me.mochibit.defcon.save.schemas.SaveSchema
 import me.mochibit.defcon.save.strategy.JsonSaver

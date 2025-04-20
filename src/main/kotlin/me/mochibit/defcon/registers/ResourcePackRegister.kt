@@ -11,7 +11,7 @@
 package me.mochibit.defcon.registers
 
 import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.Defcon.Companion.Logger.info
+import me.mochibit.defcon.Defcon.Logger.info
 import me.mochibit.defcon.customassets.fonts.AbstractCustomFont
 import me.mochibit.defcon.customassets.items.AbstractCustomItemModel
 import me.mochibit.defcon.customassets.sounds.AbstractCustomSound

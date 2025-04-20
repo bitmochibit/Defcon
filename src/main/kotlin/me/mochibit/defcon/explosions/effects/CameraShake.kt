@@ -19,12 +19,15 @@
 
 package me.mochibit.defcon.explosions.effects
 
-import io.papermc.paper.entity.TeleportFlag
+import com.github.retrooper.packetevents.PacketEvents
+import com.github.retrooper.packetevents.protocol.teleport.RelativeFlag
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook
 import me.mochibit.defcon.threading.scheduling.interval
 import org.bukkit.entity.Player
 import java.io.Closeable
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.random.Random.Default.nextInt
 
 data class CameraShakeOptions(
     val magnitude: Float,
@@ -33,24 +36,30 @@ data class CameraShakeOptions(
     val yawPeriod: Float,
 )
 
-class CameraShake(player: Player, options: CameraShakeOptions) : Closeable {
+class CameraShake(private val player: Player, options: CameraShakeOptions) : Closeable {
     private var time = 0
+    private var magnitude = options.magnitude
     private var prevPitch = .0
     private var prevYaw = .0
 
-    private var magnitude = options.magnitude
+    private val relativeFlag = RelativeFlag.X
+        .or(RelativeFlag.Y)
+        .or(RelativeFlag.Z)
+        .or(RelativeFlag.DELTA_X)
+        .or(RelativeFlag.DELTA_Y)
+        .or(RelativeFlag.DELTA_Z)
+        .or(RelativeFlag.PITCH)
+        .or(RelativeFlag.YAW)
+        .or(RelativeFlag.ROTATE_DELTA)
+
 
     private val repeat: Closeable = interval(1, 1) {
         time += 1
-
         magnitude -= options.decay
-
         if (magnitude < 0) {
             close()
             return@interval
         }
-
-
         val pitch = sin(time.toDouble() / options.pitchPeriod * 2 * Math.PI) * magnitude
         val yaw = cos(time.toDouble() / options.yawPeriod * 2 * Math.PI) * magnitude
 
@@ -60,10 +69,17 @@ class CameraShake(player: Player, options: CameraShakeOptions) : Closeable {
         prevPitch = pitch
         prevYaw = yaw
 
-        player.teleport(player.location.apply {
-            setPitch(player.location.pitch + relativePitch.toFloat())
-            setYaw(player.location.yaw + relativeYaw.toFloat())
-        }, TeleportFlag.Relative.X, TeleportFlag.Relative.Y, TeleportFlag.Relative.Z, TeleportFlag.Relative.PITCH, TeleportFlag.Relative.YAW)
+        val packet = WrapperPlayServerPlayerPositionAndLook(
+            .0, .0, .0,
+            relativeYaw.toFloat(),
+            relativePitch.toFloat(),
+            relativeFlag.mask,
+            nextInt(),
+            true
+        )
+
+        PacketEvents.getAPI().playerManager.sendPacket(player, packet)
+
     }
 
     override fun close() {

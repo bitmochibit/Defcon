@@ -141,11 +141,19 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
 
         val falloutRadius = (shockwaveRadius * 2).roundToInt()
 
-        Shockwave(center, craterRadius/2, shockwaveRadius.toInt(), shockwaveHeight, radiusDestroyStart = craterRadius).apply {
-            explode()
-        }
 
-        Crater(center, craterRadius, craterRadius/6, craterRadius, TransformationRule(), shockwaveHeight).apply {
+        val shockwave = Shockwave(
+            center,
+            craterRadius / 2,
+            shockwaveRadius.toInt(),
+            shockwaveHeight,
+            radiusDestroyStart = craterRadius - 2
+        )
+
+        Crater(center, craterRadius, craterRadius / 6, craterRadius, TransformationRule(), shockwaveHeight).apply {
+            onComplete {
+                shockwave.explode()
+            }
             create()
         }
 
@@ -171,8 +179,6 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                 falloutRadius,
                 falloutRadius
             )
-
-            CustomBiomeHandler.refreshChunksAroundPlayer(player)
         }
 
 

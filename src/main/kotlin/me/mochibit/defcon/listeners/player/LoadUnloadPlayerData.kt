@@ -20,7 +20,6 @@
 package me.mochibit.defcon.listeners.player
 
 import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.Defcon.Companion.Logger.info
 import me.mochibit.defcon.save.savedata.PlayerDataSave
 import org.bukkit.Bukkit
 import org.bukkit.event.EventHandler
