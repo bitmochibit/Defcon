@@ -26,11 +26,8 @@ import me.mochibit.defcon.extensions.toVector3i
 import me.mochibit.defcon.observer.Completable
 import me.mochibit.defcon.observer.CompletionDispatcher
 import me.mochibit.defcon.threading.scheduling.runLater
-import me.mochibit.defcon.utils.BlockChanger
-import me.mochibit.defcon.utils.ChunkCache
-import me.mochibit.defcon.utils.MathFunctions
+import me.mochibit.defcon.utils.*
 import me.mochibit.defcon.utils.MathFunctions.remap
-import me.mochibit.defcon.utils.RayCaster
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.Particle
@@ -76,13 +73,9 @@ class Shockwave(
     private val blockChanger = BlockChanger.getInstance(world)
 
     private val processedBlocks = ConcurrentHashMap.newKeySet<Long>()
-    private fun packCoordinates(x: Int, y: Int, z: Int): Long {
-        return (x.toLong() and 0x1FFFFF) or
-                ((y.toLong() and 0x1FFFFF) shl 21) or
-                ((z.toLong() and 0x1FFFFF) shl 42)
-    }
+
     private fun isBlockProcessed(x: Int, y: Int, z: Int): Boolean {
-        return !processedBlocks.add(packCoordinates(x,y,z))
+        return !processedBlocks.add(Geometry.packIntegerCoordinates(x,y,z))
     }
 
     // Cache common calculations
@@ -259,7 +252,7 @@ class Shockwave(
         }
 
         // Process normal blocks in chunks to avoid overwhelming the server
-        nonTreeBlocks.chunked(500).forEach { chunk ->
+        nonTreeBlocks.chunked(1000).forEach { chunk ->
             chunk.parallelStream().forEach { location ->
                 processBlock(location, explosionPower)
             }

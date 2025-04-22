@@ -69,7 +69,7 @@ object Geometry {
         hull.push(sortedPoints[1])
         for (i in 2 until sortedPoints.size) {
             var top = hull.pop()
-            while (hull.size > 0 && me.mochibit.defcon.utils.Geometry.ccw(
+            while (hull.size > 0 && ccw(
                     hull.peek(),
                     top,
                     sortedPoints[i]
@@ -122,7 +122,7 @@ object Geometry {
     fun getMinY(position: Location, maxDepth: Double? = null): Location {
         val clonedPosition = position.clone()
         // Coerce the Y coordinate to the world height limit
-        clonedPosition.y = clonedPosition.y.coerceAtMost((clonedPosition.world.maxHeight - 1).toDouble());
+        clonedPosition.y = clonedPosition.y.coerceAtMost((clonedPosition.world.maxHeight - 1).toDouble())
         var depth = 0
         while (clonedPosition.world.getBlockAt(clonedPosition).type == Material.AIR && (maxDepth == null || depth < maxDepth) && clonedPosition.y >= position.world.minHeight) {
             clonedPosition.subtract(0.0, 1.0, 0.0)
@@ -131,12 +131,25 @@ object Geometry {
         return clonedPosition
     }
 
-    fun getMinYUsingSnapshotFromCache(world: World, position: Vector3d, maxDepth: Double?, chunkSnapshotCache: MutableMap<Pair<Int, Int>, ChunkSnapshot>): Vector3d {
-        position.y = getMinYUsingSnapshotFromCache(Location(world, position.x, position.y, position.z), maxDepth, chunkSnapshotCache).y
+    fun getMinYUsingSnapshotFromCache(
+        world: World,
+        position: Vector3d,
+        maxDepth: Double?,
+        chunkSnapshotCache: MutableMap<Pair<Int, Int>, ChunkSnapshot>
+    ): Vector3d {
+        position.y = getMinYUsingSnapshotFromCache(
+            Location(world, position.x, position.y, position.z),
+            maxDepth,
+            chunkSnapshotCache
+        ).y
         return position
     }
 
-    fun getMinYUsingSnapshotFromCache(position: Location, maxDepth: Double?, chunkSnapshotCache: MutableMap<Pair<Int, Int>, ChunkSnapshot>): Location {
+    fun getMinYUsingSnapshotFromCache(
+        position: Location,
+        maxDepth: Double?,
+        chunkSnapshotCache: MutableMap<Pair<Int, Int>, ChunkSnapshot>
+    ): Location {
         val blockX = position.blockX
         val blockZ = position.blockZ
         return if (chunkSnapshotCache.containsKey(Pair(blockX shr 4, blockZ shr 4)))
@@ -145,7 +158,11 @@ object Geometry {
             getMinYUsingSnapshot(position, maxDepth)
     }
 
-    fun getMinYUsingSnapshot(position: Location, maxDepth: Double?, givenChunkSnapshot: ChunkSnapshot? = null): Location {
+    fun getMinYUsingSnapshot(
+        position: Location,
+        maxDepth: Double?,
+        givenChunkSnapshot: ChunkSnapshot? = null
+    ): Location {
         val clonedPosition = position.clone()
         val chunkSnapshot = givenChunkSnapshot ?: position.chunk.chunkSnapshot
 
@@ -159,18 +176,22 @@ object Geometry {
 
 
     fun lengthSq(x: Double, y: Double, z: Double): Double {
-        return (x * x) + (y * y) + (z * z);
+        return (x * x) + (y * y) + (z * z)
     }
 
     fun lengthSq(x: Double, z: Double): Double {
-        return (x * x) + (z * z);
+        return (x * x) + (z * z)
     }
 
     fun lengthSq(loc: Location): Double {
-        return lengthSq(loc.x, loc.y, loc.z);
+        return lengthSq(loc.x, loc.y, loc.z)
     }
 
     private fun ccw(p1: Location, p2: Location, p3: Location): Int {
         return (p2.blockX - p1.blockX) * (p3.blockZ - p1.blockZ) - (p2.blockZ - p1.blockZ) * (p3.blockX - p1.blockX)
+    }
+
+    fun packIntegerCoordinates(x: Int, y: Int, z: Int): Long {
+        return(x.toLong() and 0x1FFFFF) or ((y.toLong() and 0x1FFFFF) shl 21) or ((z.toLong() and 0x1FFFFF) shl 42)
     }
 }

@@ -6,8 +6,10 @@ import me.mochibit.defcon.observer.CompletionDispatcher
 import me.mochibit.defcon.utils.BlockChange
 import me.mochibit.defcon.utils.BlockChanger
 import me.mochibit.defcon.utils.ChunkCache
+import me.mochibit.defcon.utils.Geometry
 import org.bukkit.Location
 import org.bukkit.Material
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -15,6 +17,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.PI
 import kotlin.math.max
+import kotlin.math.min
 
 class Crater(
     val center: Location,
@@ -22,7 +25,8 @@ class Crater(
     private val radiusY: Int,
     private val radiusZ: Int,
     private val transformationRule: TransformationRule,
-    private val destructionHeight: Int? = null
+    private val destructionHeight: Int, // Made non-nullable as it's required for shock wave effect
+    private val scorchRadius: Int = max(radiusX, radiusZ) + 5 // Extra radius for scorch marks
 ): Completable by CompletionDispatcher() {
     private val world = center.world
     private val chunkCache = ChunkCache.getInstance(world)
@@ -32,7 +36,7 @@ class Crater(
     private val tolerance = 0.5
 
     // Calculate the maximum radius for iteration bounds
-    private val maxRadius = maxOf(radiusX, radiusY, radiusZ)
+    private val maxRadius = maxOf(radiusX, radiusY, radiusZ, scorchRadius)
 
     // Pre-compute inner and outer radius squared values for each axis
     private val innerRadiusXSquared = ((radiusX - tolerance).pow(2)).toInt()
@@ -43,24 +47,48 @@ class Crater(
     private val outerRadiusYSquared = ((radiusY + tolerance).pow(2)).toInt()
     private val outerRadiusZSquared = ((radiusZ + tolerance).pow(2)).toInt()
 
+    // Scorch radius squared (for ground effect calculations)
+    private val scorchRadiusSquared = (scorchRadius * scorchRadius).toDouble()
+
+    // Materials for scorch marks (from darkest to lightest)
+    private val scorchMaterials = listOf(
+        Material.BLACK_CONCRETE_POWDER,
+        Material.BLACK_CONCRETE,
+        Material.COAL_BLOCK,
+        Material.BLACKSTONE,
+        Material.BASALT,
+        Material.DEEPSLATE,
+        Material.TUFF
+    )
+
     // Batch processing for block changes
     private val processedBlocks = mutableListOf<BlockChange>()
     private val batchSize = 500 // Adjust based on server performance
 
+    // Track which blocks have been processed
+    private val processedPositions = ConcurrentHashMap.newKeySet<Long>()
+
+    private fun isBlockProcessed(x: Int, y: Int, z: Int): Boolean {
+        return !processedPositions.add(Geometry.packIntegerCoordinates(x,y,z))
+    }
+
     private val blockChanger = BlockChanger.getInstance(world)
 
     /**
-     * Creates an ellipsoidal crater with the specified dimensions.
-     * The crater has an inner part that is completely empty and an outer
-     * ring that contains transformed blocks.
+     * Creates an ellipsoidal crater with the specified dimensions and applies
+     * a shock wave effect that destroys blocks from the crater up to the destruction height.
      */
     fun create() {
         try {
-            // Clear any previous blocks
+            // Clear any previous data
             processedBlocks.clear()
+            processedPositions.clear()
 
-            // Using a volume-based approach for better coverage
-            createVolumetricCrater()
+            // First pass: Create the complete destructive effect (crater + shock wave)
+            createDestructiveEffect()
+
+            // Second pass: Add scorch marks around the crater
+            createScorchMarks()
 
             // Process any remaining blocks
             if (processedBlocks.isNotEmpty()) {
@@ -82,18 +110,20 @@ class Crater(
     }
 
     /**
-     * Creates the ellipsoidal crater using a volumetric processing approach.
-     * Processes every block in the bounding box and determines if it's inside the ellipsoid.
+     * Creates the complete destructive effect: crater + vertical shock wave
      */
-    private fun createVolumetricCrater() {
-        // Create a bounding box around the ellipsoid
+    private fun createDestructiveEffect() {
+        // First create a 2D horizontal map of the crater's intersection points at different heights
+        val craterHeightMap = HashMap<Pair<Int, Int>, Int>()
+
+        // Process the entire area
         for (x in -radiusX - 1..radiusX + 1) {
             val xPos = x + centerX
 
             for (z in -radiusZ - 1..radiusZ + 1) {
                 val zPos = z + centerZ
 
-                // Calculate normalized position for horizontal check - used for both crater and destruction height
+                // Calculate normalized horizontal position
                 val normalizedX = (x * x).toDouble() / outerRadiusXSquared
                 val normalizedZ = (z * z).toDouble() / outerRadiusZSquared
                 val horizontalEllipsoidValue = normalizedX + normalizedZ
@@ -101,33 +131,26 @@ class Crater(
                 // Skip if this x,z position is outside the horizontal projection of the ellipsoid
                 if (horizontalEllipsoidValue > 1.0) continue
 
-                // Process the crater part first (from bottom to centerY + radiusY)
-                for (y in -radiusY - 1..radiusY + 1) {
-                    val yPos = y + centerY
+                // Find the highest Y position of the crater at this x,z coordinate
+                val craterTopY = findCraterTopY(x, z)
 
-                    // Calculate normalized position within inner ellipsoid
-                    val normalizedY = (y * y).toDouble() / innerRadiusYSquared
-                    val normalizedInnerY = (y * y).toDouble() / outerRadiusYSquared
+                // Store the height in our map
+                craterHeightMap[Pair(xPos, zPos)] = craterTopY
 
-                    val innerEllipsoidValue = normalizedX * (innerRadiusXSquared.toDouble() / outerRadiusXSquared) +
-                                             normalizedY +
-                                             normalizedZ * (innerRadiusZSquared.toDouble() / outerRadiusZSquared)
+                // Process blocks inside the crater ellipsoid
+                processCraterEllipsoid(xPos, zPos, x, z)
 
-                    val outerEllipsoidValue = normalizedX + normalizedInnerY + normalizedZ
+                // Now process the vertical shock wave column from crater top to destruction height
+                for (y in craterTopY + 1..destructionHeight) {
+                    val yPos = y
 
-                    // Skip if definitely outside our ellipsoid
-                    if (outerEllipsoidValue > 1.0) continue
+                    // Skip if we've already processed this position
+                    if (isBlockProcessed(xPos, yPos, zPos)) continue
 
-                    val type = chunkCache.getBlockMaterial(xPos, yPos, zPos)
+                    val blockType = chunkCache.getBlockMaterial(xPos, yPos, zPos)
 
                     // Skip air blocks and blacklisted materials
-                    if (type.isAir || type in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST) {
-                        continue
-                    }
-
-                    // Handle blocks based on whether they're in the inner or outer ellipsoid
-                    if (innerEllipsoidValue <= 1.0) {
-                        // Inside inner ellipsoid - completely empty
+                    if (!blockType.isAir && blockType !in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST) {
                         processedBlocks.add(
                             BlockChange(
                                 xPos,
@@ -136,63 +159,201 @@ class Crater(
                                 Material.AIR
                             )
                         )
-                    } else {
-                        // Skip liquids in the outer shell
-                        if (type in TransformationRule.LIQUID_MATERIALS) continue
-
-                        // Between inner and outer ellipsoid - transform blocks
-                        // Calculate transformation intensity based on distance from center
-                        val transformationIntensity = calculateTransformationIntensity(innerEllipsoidValue, outerEllipsoidValue)
-
-                        processedBlocks.add(
-                            BlockChange(
-                                xPos,
-                                yPos,
-                                zPos,
-                                transformationRule.transformMaterial(type, transformationIntensity),
-                                updateBlock = true
-                            )
-                        )
-                    }
-
-                    // Process blocks in batches to reduce server load
-                    if (processedBlocks.size >= batchSize) {
-                        applyBlockChanges(processedBlocks)
-                        processedBlocks.clear()
                     }
                 }
 
-                // Now process the destruction height column if specified
-                // This will create a column of air from centerY up to destructionHeight
-                if (destructionHeight != null) {
-                    // Only process destruction height if the horizontal position is within the ellipsoid
-                    if (horizontalEllipsoidValue <= 1.0) {
-                        // Process from center Y (where the crater starts) up to the destruction height
-                        for (y in centerY + 1..destructionHeight) {
-                            val type = chunkCache.getBlockMaterial(xPos, y, zPos)
-
-                            // Only replace non-air blocks
-                            if (!type.isAir && type !in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST) {
-                                processedBlocks.add(
-                                    BlockChange(
-                                        xPos,
-                                        y,
-                                        zPos,
-                                        Material.AIR
-                                    )
-                                )
-                            }
-
-                            // Process blocks in batches to reduce server load
-                            if (processedBlocks.size >= batchSize) {
-                                applyBlockChanges(processedBlocks)
-                                processedBlocks.clear()
-                            }
-                        }
-                    }
+                // Process blocks in batches to reduce server load
+                if (processedBlocks.size >= batchSize) {
+                    applyBlockChanges(processedBlocks)
+                    processedBlocks.clear()
                 }
             }
         }
+    }
+
+    /**
+     * Finds the highest Y position where the crater ellipsoid intersects with the given x,z coordinate
+     */
+    private fun findCraterTopY(x: Int, z: Int): Int {
+        val normalizedX = (x * x).toDouble() / outerRadiusXSquared
+        val normalizedZ = (z * z).toDouble() / outerRadiusZSquared
+
+        // If we're at or beyond the edge of the ellipsoid horizontally, return centerY
+        if (normalizedX + normalizedZ > 1.0) return centerY
+
+        // Calculate how much "budget" we have for the Y component
+        val remainingComponent = 1.0 - (normalizedX + normalizedZ)
+
+        // Convert this to a Y value using the Y radius
+        val yComponent = sqrt(remainingComponent * outerRadiusYSquared)
+
+        return (centerY + yComponent).toInt()
+    }
+
+    /**
+     * Process all blocks inside the crater ellipsoid at the given x,z coordinate
+     */
+    private fun processCraterEllipsoid(xPos: Int, zPos: Int, xOffset: Int, zOffset: Int) {
+        // Calculate normalized position for horizontal check
+        val normalizedX = (xOffset * xOffset).toDouble() / outerRadiusXSquared
+        val normalizedZ = (zOffset * zOffset).toDouble() / outerRadiusZSquared
+
+        // Find lowest and highest Y positions of the ellipsoid at this x,z
+        val lowestY = max(0, centerY - radiusY)
+        val highestY = min(world.maxHeight - 1, centerY + radiusY)
+
+        // Process the entire Y column from lowest to highest
+        for (y in lowestY..highestY) {
+            // Calculate normalized Y position
+            val yOffset = y - centerY
+            val normalizedY = (yOffset * yOffset).toDouble() / outerRadiusYSquared
+
+            // Calculate inner ellipsoid values
+            val normalizedInnerY = (yOffset * yOffset).toDouble() / innerRadiusYSquared
+
+            val innerEllipsoidValue = normalizedX * (innerRadiusXSquared.toDouble() / outerRadiusXSquared) +
+                                     normalizedInnerY +
+                                     normalizedZ * (innerRadiusZSquared.toDouble() / outerRadiusZSquared)
+
+            val outerEllipsoidValue = normalizedX + normalizedY + normalizedZ
+
+            // Skip if outside the ellipsoid
+            if (outerEllipsoidValue > 1.0) continue
+
+            // Skip if we've already processed this position
+            if (isBlockProcessed(xPos, y, zPos)) continue
+
+            // Get block type
+            val blockType = chunkCache.getBlockMaterial(xPos, y, zPos)
+
+            // Skip air blocks and blacklisted materials
+            if (blockType.isAir || blockType in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST) {
+                continue
+            }
+
+            // Handle blocks based on whether they're in the inner or outer ellipsoid
+            if (innerEllipsoidValue <= 1.0) {
+                // Inside inner ellipsoid - completely empty
+                processedBlocks.add(
+                    BlockChange(
+                        xPos,
+                        y,
+                        zPos,
+                        Material.AIR
+                    )
+                )
+            } else {
+                // Skip liquids in the outer shell
+                if (blockType in TransformationRule.LIQUID_MATERIALS) {
+                    continue
+                }
+
+                // Between inner and outer ellipsoid - transform blocks
+                // Calculate transformation intensity based on distance from center
+                val transformationIntensity = calculateTransformationIntensity(innerEllipsoidValue, outerEllipsoidValue)
+
+                processedBlocks.add(
+                    BlockChange(
+                        xPos,
+                        y,
+                        zPos,
+                        transformationRule.transformMaterial(blockType, transformationIntensity),
+                        updateBlock = true
+                    )
+                )
+            }
+        }
+    }
+
+    /**
+     * Create scorch marks around the crater that gradually fade from black to grey
+     */
+    private fun createScorchMarks() {
+        // Process a wider area for scorch marks
+        for (x in -scorchRadius..scorchRadius) {
+            val xPos = x + centerX
+
+            for (z in -scorchRadius..scorchRadius) {
+                val zPos = z + centerZ
+
+                // Calculate distance from crater center (horizontal only)
+                val distSquared = (x * x + z * z).toDouble()
+
+                // Skip if outside scorch radius
+                if (distSquared > scorchRadiusSquared) continue
+
+                // Calculate normalized horizontal position for crater bounds check
+                val normalizedX = (x * x).toDouble() / outerRadiusXSquared
+                val normalizedZ = (z * z).toDouble() / outerRadiusZSquared
+                val horizontalEllipsoidValue = normalizedX + normalizedZ
+
+                // Skip if inside the crater
+                if (horizontalEllipsoidValue <= 1.0) continue
+
+                // Find highest non-air block (the ground surface)
+                var surfaceY = -1
+                for (y in destructionHeight downTo 0) {
+                    // Skip if this position has been processed already
+                    if (isBlockProcessed(xPos, y, zPos)) continue
+
+                    if (!chunkCache.getBlockMaterial(xPos, y, zPos).isAir &&
+                        chunkCache.getBlockMaterial(xPos, y + 1, zPos).isAir) {
+                        surfaceY = y
+                        break
+                    }
+                }
+
+                // Skip if no surface found
+                if (surfaceY == -1) continue
+
+                // Get the surface block
+                val surfaceBlock = chunkCache.getBlockMaterial(xPos, surfaceY, zPos)
+
+                // Skip liquids and blacklisted blocks
+                if (surfaceBlock in TransformationRule.LIQUID_MATERIALS ||
+                    surfaceBlock in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST) {
+                    continue
+                }
+
+                // Calculate intensity based on distance from crater edge
+                // 0.0 = crater edge (darkest), 1.0 = scorch radius edge (lightest)
+                val craterEdgeDist = sqrt(horizontalEllipsoidValue)
+                val normalizedDist = sqrt(distSquared) / scorchRadius
+                val scorchIntensity = (normalizedDist - craterEdgeDist) / (1.0 - min(craterEdgeDist, 1.0))
+
+                // Select appropriate scorch material based on intensity
+                val scorchMaterial = selectScorchMaterial(scorchIntensity)
+
+                // Skip if already processed
+                if (isBlockProcessed(xPos, surfaceY, zPos)) continue
+
+                // Apply scorch mark
+                processedBlocks.add(
+                    BlockChange(
+                        xPos,
+                        surfaceY,
+                        zPos,
+                        scorchMaterial
+                    )
+                )
+
+                // Process blocks in batches
+                if (processedBlocks.size >= batchSize) {
+                    applyBlockChanges(processedBlocks)
+                    processedBlocks.clear()
+                }
+            }
+        }
+    }
+
+    /**
+     * Selects an appropriate scorch material based on intensity
+     * 0.0 = darkest (closest to crater), 1.0 = lightest (furthest from crater)
+     */
+    private fun selectScorchMaterial(intensity: Double): Material {
+        val clampedIntensity = intensity.coerceIn(0.0, 1.0)
+        val index = min((clampedIntensity * scorchMaterials.size).toInt(), scorchMaterials.size - 1)
+        return scorchMaterials[index]
     }
 
     /**

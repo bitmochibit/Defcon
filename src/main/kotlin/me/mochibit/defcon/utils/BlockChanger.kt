@@ -27,6 +27,7 @@ import org.bukkit.block.Block
 import org.bukkit.block.data.*
 import org.bukkit.scheduler.BukkitTask
 import org.joml.Vector3i
+import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
@@ -66,7 +67,9 @@ class BlockChangeWorker(
     private var pauseThreshold = 100 // Auto-pause if server TPS drops
     private var autoRestartDelay = 60L // Ticks to wait before auto-restart
     private var consecutiveEmptyTicks = 0
-    private val maxConsecutiveEmptyTicks = 5 // Stop after this many empty ticks
+    private val maxConsecutiveEmptyTicks = 5 // Stop after this many empty tick
+
+    val isRunning get() = running
 
     /**
      * Start processing the queue
@@ -167,16 +170,7 @@ class BlockChangeWorker(
      * Get server TPS (Transactions Per Second)
      */
     private fun getServerTPS(): Double {
-        return try {
-            // Try to get TPS from Spigot/Paper API
-            val server = plugin.server
-            val getTPSMethod = server.javaClass.getMethod("getTPS")
-            val tpsArray = getTPSMethod.invoke(server) as DoubleArray
-            tpsArray[0] // Get the 1-minute average TPS
-        } catch (e: Exception) {
-            // Default to assuming good TPS if we can't measure
-            20.0
-        }
+        return 20.0
     }
 
     /**
@@ -223,6 +217,7 @@ class BlockChangeWorker(
         }
     }
 
+
     /**
      * Copy only the relevant block data properties
      */
@@ -266,18 +261,6 @@ class BlockChangeWorker(
     }
 
     /**
-     * Get performance metrics
-     */
-    fun getMetrics(): Map<String, Any> {
-        return mapOf(
-            "queueSize" to queueSize.get(),
-            "totalProcessed" to totalProcessed.get(),
-            "isRunning" to running,
-            "serverTPS" to getServerTPS()
-        )
-    }
-
-    /**
      * Configure worker parameters
      */
     fun configure(newBlocksPerTick: Int, newPauseThreshold: Int, newAutoRestartDelay: Long) {
@@ -289,10 +272,10 @@ class BlockChangeWorker(
 /**
  * Optimized BlockChanger that manages block changes for a specific world
  */
-class BlockChanger private constructor(private val world: World) {
+class BlockChanger(private val world: World) {
     // Worker pool configuration
     private var workerCount = max(1, Runtime.getRuntime().availableProcessors() / 2)
-    private var blocksPerWorkerTick = 250
+    private var blocksPerWorkerTick = 500
     private var tickInterval = 1L
     private var pauseThreshold = 10000
     private var autoRestartDelay = 60L
@@ -501,9 +484,8 @@ class BlockChanger private constructor(private val world: World) {
 
         // Start worker if not already running
         val worker = workers[workerIndex]
-        if (!(worker.getMetrics()["isRunning"] as Boolean)) {
+        if (!worker.isRunning)
             worker.start()
-        }
     }
 
     /**
@@ -580,9 +562,8 @@ class BlockChanger private constructor(private val world: World) {
 
             // Start worker if not already running
             val worker = workers[workerIndex]
-            if (!(worker.getMetrics()["isRunning"] as Boolean)) {
+            if (!worker.isRunning)
                 worker.start()
-            }
             return
         }
 
@@ -608,9 +589,8 @@ class BlockChanger private constructor(private val world: World) {
 
                 // Start worker if not already running
                 val worker = workers[workerIndex]
-                if (!(worker.getMetrics()["isRunning"] as Boolean)) {
+                if (!worker.isRunning)
                     worker.start()
-                }
             }
         } catch (e: Exception) {
             // Fallback to simple distribution if spatial grouping fails
@@ -627,9 +607,8 @@ class BlockChanger private constructor(private val world: World) {
 
                 // Start worker if not already running
                 val worker = workers[workerIndex]
-                if (!(worker.getMetrics()["isRunning"] as Boolean)) {
+                if (!worker.isRunning)
                     worker.start()
-                }
             }
         }
     }
@@ -797,37 +776,5 @@ class BlockChanger private constructor(private val world: World) {
         } finally {
             configLock.unlock()
         }
-    }
-
-    /**
-     * Get metrics for all workers
-     */
-    fun getMetrics(): Map<String, Any> {
-        val metrics = mutableMapOf<String, Any>()
-        var totalQueueSize = 0
-        var totalProcessed = 0L
-
-        for (i in 0 until workers.size) {
-            val worker = workers[i]
-            val workerMetrics = worker.getMetrics()
-            val queueSize = queueSizes[i].get()
-
-            totalQueueSize += queueSize
-            totalProcessed += workerMetrics["totalProcessed"] as Long
-
-            metrics["worker_$i"] = mapOf(
-                "queueSize" to queueSize,
-                "isRunning" to workerMetrics["isRunning"] as Boolean,
-                "processed" to workerMetrics["totalProcessed"] as Long,
-                "usageRatio" to workerUsageStats[i]
-            )
-        }
-
-        metrics["totalQueueSize"] = totalQueueSize
-        metrics["totalProcessed"] = totalProcessed
-        metrics["priorityQueueSize"] = priorityQueueSize.get()
-        metrics["serverTPS"] = workers.firstOrNull()?.getMetrics()?.get("serverTPS") ?: 20.0
-
-        return metrics
     }
 }

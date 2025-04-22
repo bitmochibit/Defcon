@@ -141,6 +141,14 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
 
         val falloutRadius = (shockwaveRadius * 2).roundToInt()
 
+        // VFX
+        val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
+        val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
+        val nuclearFog = NuclearFogVFX(nuclearComponent, center)
+
+        nuclearExplosion.instantiate(async = true, useThreadPool = true)
+        nuclearFog.instantiate(async = true, useThreadPool = true)
+        condensationCloud.instantiate(async = true, useThreadPool = true)
 
         val shockwave = Shockwave(
             center,
@@ -156,16 +164,6 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
             }
             create()
         }
-
-        // VFX
-        val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
-        val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
-        val nuclearFog = NuclearFogVFX(nuclearComponent, center)
-
-        nuclearExplosion.instantiate(async = true, useThreadPool = true)
-        nuclearFog.instantiate(async = true, useThreadPool = true)
-        condensationCloud.instantiate(async = true, useThreadPool = true)
-
 
         for (player in center.world.players) {
             CustomBiomeHandler.setBiomeClientSide(

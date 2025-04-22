@@ -1,11 +1,12 @@
 package me.mochibit.defcon.biomes
 
+import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.Defcon.Logger
+import me.mochibit.defcon.threading.scheduling.runLater
 import me.mochibit.defcon.utils.BlockChanger
 import org.bukkit.Location
 import org.bukkit.NamespacedKey
-import org.bukkit.World
 import org.bukkit.block.Biome
-import org.bukkit.entity.Player
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -105,7 +106,102 @@ object CustomBiomeHandler {
         )
 
         clientSideBiome[playerId] = boundary
+        updateClientSideBiomeChunks(playerId)
     }
+
+
+    /**
+     * Updates chunks to reflect client-side biome changes.
+     * Optimized to refresh only affected chunks in an efficient manner.
+     */
+    fun updateClientSideBiomeChunks(playerId: UUID) {
+        val boundary = clientSideBiome[playerId] ?: return
+        val player = Defcon.instance.server.getPlayer(playerId) ?: return
+        val world = player.world
+
+        // Calculate which chunks are affected by the biome change
+        val minChunkX = boundary.minX shr 4
+        val maxChunkX = boundary.maxX shr 4
+        val minChunkZ = boundary.minZ shr 4
+        val maxChunkZ = boundary.maxZ shr 4
+
+        // Get player's view distance, but ensure it's capped to reduce lag
+        val viewDistance = player.viewDistance.coerceAtMost(10)
+        val playerChunkX = player.location.blockX shr 4
+        val playerChunkZ = player.location.blockZ shr 4
+
+        // Collect chunks that need updating and are within view distance
+        val chunksToUpdate = mutableListOf<Pair<Int, Int>>()
+
+        for (chunkX in minChunkX..maxChunkX) {
+            for (chunkZ in minChunkZ..maxChunkZ) {
+                // Check if chunk is within player's view distance
+                val distanceSquared = (chunkX - playerChunkX) * (chunkX - playerChunkX) +
+                        (chunkZ - playerChunkZ) * (chunkZ - playerChunkZ)
+
+                if (distanceSquared <= viewDistance * viewDistance) {
+                    // Check if chunk is loaded before adding
+                    if (world.isChunkLoaded(chunkX, chunkZ)) {
+                        chunksToUpdate.add(Pair(chunkX, chunkZ))
+                    }
+                }
+            }
+        }
+
+        // Sort chunks by distance to player for better visual experience
+        chunksToUpdate.sortBy { (x, z) ->
+            (x - playerChunkX) * (x - playerChunkX) + (z - playerChunkZ) * (z - playerChunkZ)
+        }
+
+        var delay = 1L
+        for ((chunkX, chunkZ) in chunksToUpdate) {
+            runLater(delay) {
+                try {
+                    world.refreshChunk(chunkX, chunkZ)
+                } catch (e: Exception) {
+                    // Log error but continue with other chunks
+                    Logger.warn("Failed to refresh chunk at $chunkX, $chunkZ: ${e.message}")
+                }
+            }
+            // Increase delay between chunk updates to prevent overwhelming the client
+            delay += 2L
+        }
+    }
+
+    /**
+     * Optimized spiral coordinate generator.
+     * This generates coordinates in a spiral pattern starting from center.
+     * This is kept as a utility but no longer used in the main implementation.
+     */
+    private fun spiralCoords(radius: Int): List<Pair<Int, Int>> {
+        val coords = mutableListOf<Pair<Int, Int>>()
+        var x = 0
+        var z = 0
+        var dx = 0
+        var dz = -1
+
+        // Calculate exact number of points needed based on radius
+        val maxI = (2 * radius + 1) * (2 * radius + 1)
+
+        for (i in 0 until maxI) {
+            if (-radius <= x && x <= radius && -radius <= z && z <= radius) {
+                coords.add(Pair(x, z))
+            }
+
+            // Logic to generate spiral pattern
+            if (x == z || (x < 0 && x == -z) || (x > 0 && x == 1 - z)) {
+                val tmp = dx
+                dx = -dz
+                dz = tmp
+            }
+
+            x += dx
+            z += dz
+        }
+
+        return coords
+    }
+
 
     /**
      * Removes the client-side biome effect for a player.
@@ -175,16 +271,6 @@ object CustomBiomeHandler {
                 }
             }
         }
-    }
-
-
-    /**
-     * Checks if a player is within their assigned client-side biome boundary.
-     */
-    fun isPlayerInBiomeBoundary(player: Player): Boolean {
-        val boundary = getBiomeAreaBoundaries(player.uniqueId) ?: return false
-        val loc = player.location
-        return boundary.isInBounds(loc.blockX, loc.blockY, loc.blockZ)
     }
 }
 

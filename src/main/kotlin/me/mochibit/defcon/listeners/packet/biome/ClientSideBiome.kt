@@ -44,15 +44,13 @@ class ClientSideBiome : PacketListener {
         // Check if this chunk is even within the biome boundary area
         // Each chunk is 16x16 blocks, so calculate chunk boundaries
         val chunkMinX = chunkX * 16
-        val chunkMaxX = chunkMinX + 15
         val chunkMinZ = chunkZ * 16
-        val chunkMaxZ = chunkMinZ + 15
 
 
         // Get the biome element from registry
         val element = user.getRegistry(ResourceLocation.minecraft("worldgen/biome"))
             ?.getByName(biomeBoundary.biome.toString()) ?: return
-        val biomeId = element.getId(user.clientVersion) ?: return
+        val biomeId = element.getId(user.clientVersion)
 
         val minSection = user.minWorldHeight / 16 // Minimum section Y index
 

@@ -69,6 +69,7 @@ class CameraShake(private val player: Player, options: CameraShakeOptions) : Clo
         prevPitch = pitch
         prevYaw = yaw
 
+        // Packet api since Paper relative TP stopped working
         val packet = WrapperPlayServerPlayerPositionAndLook(
             .0, .0, .0,
             relativeYaw.toFloat(),
