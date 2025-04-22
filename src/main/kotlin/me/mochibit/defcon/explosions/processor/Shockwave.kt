@@ -500,6 +500,7 @@ class Shockwave(
             }
 
             // Process the current block
+
             processRoofBlock(
                 currentX, currentY, currentZ, blockType, currentPower, penetrationCount, maxPenetration, random
             )
