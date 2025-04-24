@@ -12,30 +12,111 @@ package me.mochibit.defcon.registers
 
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.Defcon.Logger.info
+import me.mochibit.defcon.Defcon.Logger.warn
 import me.mochibit.defcon.customassets.fonts.AbstractCustomFont
 import me.mochibit.defcon.customassets.items.AbstractCustomItemModel
 import me.mochibit.defcon.customassets.sounds.AbstractCustomSound
 import me.mochibit.defcon.registers.packformat.FormatReader
+import me.mochibit.defcon.server.ResourcePackServer
+import net.kyori.adventure.resource.ResourcePackInfo
 import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import org.json.simple.parser.JSONParser
 import org.reflections.Reflections
+import java.io.BufferedInputStream
+import java.io.FileInputStream
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import java.util.jar.JarFile
+import kotlin.io.path.pathString
 
 /**
  * Handles registration and generation of the resource pack.
  */
 object ResourcePackRegister : PackRegister(true) {
 
-    override val tempPath: Path = Paths.get("./defcon_temp_resourcepack")
-    override val destinationPath: Path? = Paths.get("./defcon_resourcepack")
+    private val pluginResourcePackPath = Defcon.instance.dataFolder.toPath().resolve("resourcepack")
+
+    override val tempPath: Path = Paths.get(pluginResourcePackPath.pathString, "defcon_temp_resourcepack")
+    override val destinationPath: Path? = Paths.get(pluginResourcePackPath.pathString, "defcon_resourcepack")
 
     private val jsonParser = JSONParser()
     private val packageName = Defcon::class.java.`package`.name
+
+    private var resourcePackHash: String? = null
+    private var resourcePackInfo: ResourcePackInfo? = null
+    private var localResourcePackInfo: ResourcePackInfo? = null
+
+
+    private fun generateResourcePackHash(path: Path): String {
+        BufferedInputStream(FileInputStream(path.toFile())).use { bis ->
+            val digest = MessageDigest.getInstance("SHA-1")
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+
+            while (bis.read(buffer).also { bytesRead = it } != -1) {
+                digest.update(buffer, 0, bytesRead)
+            }
+
+            return digest.digest().joinToString("") { "%02x".format(it) }
+        }
+    }
+
+    val packInfo: ResourcePackInfo
+        get() {
+            resourcePackInfo?.let {
+                return it
+            }
+
+            val hash = resourcePackHash ?: run {
+                warn("Resource pack hash is null !")
+                "0"
+            }
+
+            return ResourcePackInfo.resourcePackInfo()
+                .uri(URI.create("http://${Defcon.instance.server.ip}:${ResourcePackServer.port}/resourcepack.zip"))
+                .hash(hash)
+                .build()
+                .also {
+                    resourcePackInfo = it
+                }
+        }
+
+    val localPackInfo: ResourcePackInfo
+        get() {
+            localResourcePackInfo?.let {
+                return it
+            }
+
+            val hash = resourcePackHash ?: run {
+                warn("Resource pack hash is null !")
+                "0"
+            }
+
+            return ResourcePackInfo.resourcePackInfo()
+                .uri(URI.create("http://127.0.0.1:${ResourcePackServer.port}/resourcepack.zip"))
+                .hash(resourcePackHash ?: "0")
+                .build()
+                .also {
+                    localResourcePackInfo = it
+                }
+        }
+
+    override fun onPackCreated(finalPath: Path) {
+        if (!Files.exists(finalPath) || Files.size(finalPath) == 0L) {
+            warn("Resource pack creation failed, file does not exist or is empty at $finalPath")
+            return
+        }
+        info("Resource pack created at $finalPath")
+        resourcePackHash = generateResourcePackHash(finalPath)
+        resourcePackInfo = null
+        localResourcePackInfo = null
+        ResourcePackServer.updatePackPath(finalPath)
+    }
 
     /**
      * Writes the resource pack content to the temp directory.
@@ -43,28 +124,35 @@ object ResourcePackRegister : PackRegister(true) {
     override fun write() {
         info("Creating resource pack for Defcon")
 
-        // Create necessary directories
-        val localAssetsPath = Paths.get("$tempPath/assets")
-        val minecraftPath = Paths.get("$localAssetsPath/minecraft")
-        val fontPath = Paths.get("$minecraftPath/font")
+        try {
+            // Create necessary directories
+            val localAssetsPath = Paths.get("$tempPath/assets")
+            val minecraftPath = Paths.get("$localAssetsPath/minecraft")
+            val fontPath = Paths.get("$minecraftPath/font")
 
-        Files.createDirectories(localAssetsPath)
-        Files.createDirectories(minecraftPath)
-        Files.createDirectories(fontPath)
+            Files.createDirectories(localAssetsPath)
+            Files.createDirectories(minecraftPath)
+            Files.createDirectories(fontPath)
 
-        // Create .mcmeta file
-        val mcmetaContent = createMcmetaJson(
-            FormatReader.packFormat.resourceVersion,
-            "Defcon auto-generated resource pack"
-        )
-        Files.write(Paths.get("$tempPath/pack.mcmeta"), mcmetaContent.toByteArray())
+            // Create .mcmeta file
+            val mcmetaContent = createMcmetaJson(
+                FormatReader.packFormat.resourceVersion,
+                "Defcon auto-generated resource pack"
+            )
+            Files.write(Paths.get("$tempPath/pack.mcmeta"), mcmetaContent.toByteArray())
 
-        // Copy static assets and process dynamic assets
-        copyStaticAssets(localAssetsPath, minecraftPath, fontPath)
-        processCustomFonts(fontPath)
-        processCustomSounds(minecraftPath)
-        processCustomItemModels(minecraftPath)
+            // Copy static assets and process dynamic assets
+            copyStaticAssets(localAssetsPath, minecraftPath, fontPath)
+            processCustomFonts(fontPath)
+            processCustomSounds(minecraftPath)
+            processCustomItemModels(minecraftPath)
+        } catch (e: Exception) {
+            warn("Error creating resource pack: ${e.message}")
+            e.printStackTrace()
+        }
+
     }
+
 
     /**
      * Copies static assets from the plugin JAR to the resource pack.

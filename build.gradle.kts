@@ -1,8 +1,27 @@
-import net.minecrell.pluginyml.paper.PaperPluginDescription
 import java.time.Instant
+
+// Dependency versions - centralized for easier management
+object Versions {
+    const val KOTLIN = "2.1.20"
+    const val KTOR = "3.1.2"
+    const val PAPER_API = "1.21.4-R0.1-SNAPSHOT"
+    const val PACKET_EVENTS = "2.7.0"
+    const val CUSTOM_BLOCK_DATA = "2.2.4"
+    const val GSON = "2.10.1"
+    const val JUNIT = "5.10.1"
+    const val MOCKITO = "5.8.0"
+    const val JVM = 21
+    const val MOCKBUKKIT = "4.0.0"
+    val JAVA_VERSION = JavaVersion.VERSION_21
+}
+
+application {
+    mainClass.set("me.mochibit.defcon.Defcon")
+}
 
 plugins {
     kotlin("jvm") version "2.1.20"
+    id("io.ktor.plugin") version "3.1.2"
     id("com.gradleup.shadow") version "9.0.0-beta12"
     id("xyz.jpenilla.run-paper") version "2.3.1"
     id("de.eldoria.plugin-yml.paper") version "0.7.1"
@@ -14,22 +33,9 @@ version = "1.3.5-SNAPSHOT"
 // Project metadata
 description = "A plugin that adds nuclear energy, along with its advantages and dangers"
 
-// Dependency versions - centralized for easier management
-object Versions {
-    const val KOTLIN = "2.1.20"
-    const val PAPER_API = "1.21.4-R0.1-SNAPSHOT"
-    const val PACKET_EVENTS = "2.7.0"
-    const val CUSTOM_BLOCK_DATA = "2.2.4"
-    const val GSON = "2.10.1"
-    const val JUNIT = "5.10.1"
-    const val MOCKITO = "5.8.0"
-    const val JVM = 21
-    val JAVA_VERSION = JavaVersion.VERSION_21
-}
 
 object PacketEvents {
     const val PLATFORM = "spigot"
-
 }
 
 
@@ -105,6 +111,12 @@ dependencies {
         exclude(group = "org.slf4j")
         exclude(group = "com.google.code.findbugs")
     }
+
+    // Ktor
+    implementation("io.ktor", "ktor-server-core", Versions.KTOR)
+    implementation("io.ktor","ktor-server-host-common", Versions.KTOR)
+    implementation("io.ktor", "ktor-server-netty", Versions.KTOR)
+
     implementation(kotlin("stdlib-jdk8", Versions.KOTLIN))
     implementation(kotlin("reflect", Versions.KOTLIN))
     implementation("com.google.code.gson:gson:${Versions.GSON}")
@@ -112,6 +124,7 @@ dependencies {
     // Testing
     testImplementation(kotlin("test", Versions.KOTLIN))
     testImplementation("org.junit.jupiter:junit-jupiter:${Versions.JUNIT}")
+    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:${Versions.MOCKBUKKIT}")
     testImplementation("org.mockito:mockito-core:${Versions.MOCKITO}")
     testImplementation("io.papermc.paper:paper-api:${Versions.PAPER_API}")
 }
@@ -147,7 +160,12 @@ tasks.runServer {
     minecraftVersion("1.20.2")
 
     downloadPlugins {
-        github("retrooper", "packetevents", "v${Versions.PACKET_EVENTS}", "packetevents-${PacketEvents.PLATFORM}-${Versions.PACKET_EVENTS}.jar")
+        github(
+            "retrooper",
+            "packetevents",
+            "v${Versions.PACKET_EVENTS}",
+            "packetevents-${PacketEvents.PLATFORM}-${Versions.PACKET_EVENTS}.jar"
+        )
     }
 }
 
@@ -161,15 +179,14 @@ tasks.jar {
 // Shadow JAR configuration
 tasks.shadowJar {
     archiveBaseName.set("Defcon")
+    archiveFileName.set("Defcon-${version}.jar")
     archiveClassifier.set("")
     archiveVersion.set(project.version.toString())
+    name
 
 //  Relocate dependencies
     relocate("com.github.retrooper.packetevents", "me.mochibit.defcon.lib.packetevents")
     relocate("com.jeff_media.customblockdata", "me.mochibit.defcon.lib.customblockdata")
-//    relocate("org.reflections", "me.mochibit.defcon.lib.reflections")
-//    relocate("com.google.gson", "me.mochibit.defcon.lib.gson")
-//    relocate("javassist", "me.mochibit.defcon.lib.javassist")
 
 //  Minimize JAR size
     minimize {

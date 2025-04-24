@@ -29,12 +29,11 @@ enum class StructureBehaviour(name: String) {
     val structureClass: Class<out StructureDefinition?>?
         get() = when (this) {
             BOMB -> NuclearWarhead::class.java
-            else -> null
         }
 
     companion object {
         fun fromString(text: String?): StructureBehaviour? {
-            for (b in values()) {
+            for (b in entries) {
                 if (b.name.equals(text, ignoreCase = true)) {
                     return b
                 }

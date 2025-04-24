@@ -3,3 +3,6 @@
 pack_format_fallback:
   resource_pack: 46
   data_pack: 71
+
+# Resource pack server port, this is the port that the server will use to serve the resource pack
+resource_pack_server_port: 8000

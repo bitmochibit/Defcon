@@ -31,6 +31,8 @@ abstract class PackRegister(private val zipDestination: Boolean = false) {
     abstract val tempPath: Path
     abstract val destinationPath: Path?
 
+    private var packRegistered = false
+    val isPackRegistered get() = packRegistered
     /**
      * Creates the pack and moves it to its destination.
      */
@@ -71,17 +73,24 @@ abstract class PackRegister(private val zipDestination: Boolean = false) {
         // Create zip file if requested
         if (zipDestination) {
             destinationPath?.let {
-                val zipPath = Paths.get("${it.nameWithoutExtension}.zip")
+                val zipPath = Paths.get("${it}.zip")
                 if (Files.exists(zipPath)) {
                     Files.delete(zipPath)
                 }
                 zipFolder(it, zipPath, true)
 
+                onPackCreated(zipPath)
+
                 it.toFile().deleteRecursively()
+            }
+        } else {
+            destinationPath?.let {
+                onPackCreated(it)
             }
         }
 
         tempPath.toFile().deleteRecursively()
+        packRegistered = true
     }
 
     /**
@@ -102,6 +111,8 @@ abstract class PackRegister(private val zipDestination: Boolean = false) {
      * Writes the pack content to the temp directory.
      */
     protected abstract fun write()
+
+    open fun onPackCreated(finalPath: Path) {}
 
     open fun onMove() {}
 

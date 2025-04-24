@@ -19,17 +19,37 @@
 
 package me.mochibit.defcon.listeners.player
 
+import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.registers.ResourcePackRegister
+import net.kyori.adventure.resource.ResourcePackRequest
+import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
-import java.nio.file.Paths
 
-class LoadResourcePack: Listener {
+class LoadResourcePack : Listener {
     @EventHandler
     fun onPlayerJoin(event: PlayerJoinEvent) {
+        if (!ResourcePackRegister.isPackRegistered) {
+            Defcon.Logger.warn("Resource pack is not registered, check for errors in the console")
+            return
+        }
         val player = event.player
-        // The URL of the resource pack is located in the folder name "defconResourcePack
-        val resourcePackUrl = Paths.get("defconResourcePack").toUri().toString()
-        player.setResourcePack(resourcePackUrl, )
+        val resourcePackInfo = if (player.address.hostString == "127.0.0.1") {
+            ResourcePackRegister.localPackInfo
+        } else {
+            ResourcePackRegister.packInfo
+        }
+
+        val miniMessage = MiniMessage.miniMessage()
+        val message = miniMessage.deserialize(
+            "You must install <gradient:#FF0000:#FFFB00:#FF6A00>DEFCON</gradient> resource pack to experience all the plugin's features"
+        )
+        val request = ResourcePackRequest.resourcePackRequest()
+            .packs(resourcePackInfo)
+            .prompt(message)
+            .required(false)
+            .build()
+        player.sendResourcePacks(request)
     }
 }

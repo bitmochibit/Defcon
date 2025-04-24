@@ -31,6 +31,7 @@ import me.mochibit.defcon.extensions.increaseRadiationLevel
 import me.mochibit.defcon.notification.NotificationManager
 import me.mochibit.defcon.radiation.RadiationArea
 import me.mochibit.defcon.registers.*
+import me.mochibit.defcon.server.ResourcePackServer
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Bukkit
 import org.bukkit.GameMode
@@ -48,6 +49,7 @@ class Defcon : JavaPlugin() {
     }
 
     override fun onEnable() {
+        ResourcePackServer.startServer()
         PacketEvents.getAPI().init()
         info("Plugin is enabled! Configuring...")
         PluginConfiguration.initializeAll()
@@ -166,6 +168,7 @@ class Defcon : JavaPlugin() {
         PluginConfiguration.saveAll()
         NotificationManager.saveNotifications()
         PacketEvents.getAPI().terminate()
+        ResourcePackServer.stopServer()
         info("Plugin disabled!")
     }
 
