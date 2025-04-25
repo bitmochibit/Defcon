@@ -142,48 +142,50 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
 
         val falloutRadius = (shockwaveRadius * 2).roundToInt()
 
-        // VFX
-//        val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
-//        val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
-//        val nuclearFog = NuclearFogVFX(nuclearComponent, center)
-//
-//        nuclearExplosion.instantiate(async = true, useThreadPool = true)
-//        nuclearFog.instantiate(async = true, useThreadPool = true)
-//        condensationCloud.instantiate(async = true, useThreadPool = true)
+        val flashReach = (nuclearComponent.thermalPower * 1000).roundToInt()
 
-        val duration = 60L * 20
-        val blindEffect = BlindFlashEffect(center, 100, 200, duration)
+        // VFX
+        val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
+        val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
+        val nuclearFog = NuclearFogVFX(nuclearComponent, center)
+
+        nuclearExplosion.instantiate(async = true, useThreadPool = true)
+        nuclearFog.instantiate(async = true, useThreadPool = true)
+        condensationCloud.instantiate(async = true, useThreadPool = true)
+
+        val duration = 10L * 20
+        val blindEffect = BlindFlashEffect(center, flashReach, 200, duration)
         blindEffect.start(duration)
 
-//        val shockwave = Shockwave(
-//            center,
-//            craterRadius / 2,
-//            shockwaveRadius.toInt(),
-//            shockwaveHeight,
-//            radiusDestroyStart = craterRadius - 2
-//        )
-//
-//        Crater(center, craterRadius, craterRadius / 6, craterRadius, TransformationRule(), shockwaveHeight).apply {
-//            onComplete {
-//                shockwave.explode()
-//            }
-//            create()
-//        }
-//
-//
-//        for (player in center.world.players) {
-//            CustomBiomeHandler.setBiomeClientSide(
-//                player.uniqueId,
-//                center,
-//                BurningAirBiome.asBukkitBiome,
-//                falloutRadius,
-//                20,
-//                falloutRadius,
-//                falloutRadius,
-//                falloutRadius,
-//                falloutRadius
-//            )
-//        }
+        val shockwave = Shockwave(
+            center,
+            craterRadius / 2,
+            shockwaveRadius.toInt(),
+            shockwaveHeight,
+            radiusDestroyStart = craterRadius - 2
+        )
+
+        Crater(center, craterRadius, craterRadius / 6, craterRadius, TransformationRule(), shockwaveHeight).apply {
+            onComplete {
+                shockwave.explode()
+            }
+            create()
+        }
+
+
+        for (player in center.world.players) {
+            CustomBiomeHandler.setBiomeClientSide(
+                player.uniqueId,
+                center,
+                BurningAirBiome.asBukkitBiome,
+                falloutRadius,
+                20,
+                falloutRadius,
+                falloutRadius,
+                falloutRadius,
+                falloutRadius
+            )
+        }
     }
 
 }
