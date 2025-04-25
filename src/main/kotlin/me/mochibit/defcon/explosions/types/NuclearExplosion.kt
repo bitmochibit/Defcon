@@ -26,6 +26,7 @@ import me.mochibit.defcon.effects.nuclear.NuclearExplosionVFX
 import me.mochibit.defcon.effects.nuclear.NuclearFogVFX
 import me.mochibit.defcon.explosions.ExplosionComponent
 import me.mochibit.defcon.explosions.TransformationRule
+import me.mochibit.defcon.explosions.effects.BlindFlashEffect
 import me.mochibit.defcon.explosions.processor.Crater
 import me.mochibit.defcon.explosions.processor.Shockwave
 import org.bukkit.Location
@@ -142,121 +143,47 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
         val falloutRadius = (shockwaveRadius * 2).roundToInt()
 
         // VFX
-        val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
-        val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
-        val nuclearFog = NuclearFogVFX(nuclearComponent, center)
-
-        nuclearExplosion.instantiate(async = true, useThreadPool = true)
-        nuclearFog.instantiate(async = true, useThreadPool = true)
-        condensationCloud.instantiate(async = true, useThreadPool = true)
-
-        val shockwave = Shockwave(
-            center,
-            craterRadius / 2,
-            shockwaveRadius.toInt(),
-            shockwaveHeight,
-            radiusDestroyStart = craterRadius - 2
-        )
-
-        Crater(center, craterRadius, craterRadius / 6, craterRadius, TransformationRule(), shockwaveHeight).apply {
-            onComplete {
-                shockwave.explode()
-            }
-            create()
-        }
-
-        for (player in center.world.players) {
-            CustomBiomeHandler.setBiomeClientSide(
-                player.uniqueId,
-                center,
-                BurningAirBiome.asBukkitBiome,
-                falloutRadius,
-                20,
-                falloutRadius,
-                falloutRadius,
-                falloutRadius,
-                falloutRadius
-            )
-        }
-
-
-//        center.world.getNearbyPlayers(center, 300.0).forEach { player ->
-//            val task = Bukkit.getScheduler().runTaskTimerAsynchronously(Defcon.instance, Runnable
-//            {
-//                val playerEyeLocation = player.eyeLocation.clone()
-//                // Get the direction of the player face
-//                //val playerEyesDirection = player.facing.direction
-//                val playerNukeDirection = center.clone().subtract(playerEyeLocation).toVector().normalize()
-//                // Get 3 blocks away from the player in the direction of the nuke
-//                val directionBlock = playerEyeLocation.add(playerNukeDirection.multiply(1.1))
-//                val angle = playerEyeLocation.direction.angle(playerNukeDirection)
-//                if (!player.hasPotionEffect(org.bukkit.potion.PotionEffectType.NIGHT_VISION)) {
-//                    Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable{
-//                        player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.NIGHT_VISION, 20*20, 255))
-//                    }, 1L)
-//                }
+//        val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
+//        val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
+//        val nuclearFog = NuclearFogVFX(nuclearComponent, center)
 //
+//        nuclearExplosion.instantiate(async = true, useThreadPool = true)
+//        nuclearFog.instantiate(async = true, useThreadPool = true)
+//        condensationCloud.instantiate(async = true, useThreadPool = true)
+
+        val duration = 60L * 20
+        val blindEffect = BlindFlashEffect(center, 100, 200, duration)
+        blindEffect.start(duration)
+
+//        val shockwave = Shockwave(
+//            center,
+//            craterRadius / 2,
+//            shockwaveRadius.toInt(),
+//            shockwaveHeight,
+//            radiusDestroyStart = craterRadius - 2
+//        )
 //
-//                if (angle < 0.5) {
-//                    if (!player.hasPotionEffect(org.bukkit.potion.PotionEffectType.BLINDNESS)) {
-//                        Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable{
-//                            player.addPotionEffect(org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.BLINDNESS, 20*5, 255))
-//                        }, 1L)
-//                    }
-//
-//                }
-//
-//                // Spawn the particle flash
-//                player.spawnParticle(
-//                    org.bukkit.Particle.FLASH,
-//                    directionBlock,
-//                    60,
-//                    0.0,
-//                    0.0,
-//                    0.0,
-//                    0.0
-//                )
-//            }, 0, 2L)
-//            Bukkit.getScheduler().runTaskLater(Defcon.instance, Runnable {task.cancel() }, 20*20)
-//
+//        Crater(center, craterRadius, craterRadius / 6, craterRadius, TransformationRule(), shockwaveHeight).apply {
+//            onComplete {
+//                shockwave.explode()
+//            }
+//            create()
 //        }
 //
 //
-//         //Get area of 10 chunks around the center
-//        //Set the biomes to "burning_air" (a custom biome that will be used to simulate the thermal radiation
-//
-//        Bukkit.getScheduler().runTaskLaterAsynchronously(Defcon.instance, Runnable {
-//            RadiationAreaFactory.fromCenter(
+//        for (player in center.world.players) {
+//            CustomBiomeHandler.setBiomeClientSide(
+//                player.uniqueId,
 //                center,
-//                radLevel = 3.0,
-//                20000
-//            ).join()
-//        }, 40 * 20)
-
-//        val scheduledRunnable = ScheduledRunnable().maxMillisPerTick(2.5)
-//        Bukkit.getScheduler().runTaskTimer(Defcon.instance, scheduledRunnable, 0L, 1L)
-//
-//        Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
-//            // Create a sphere of air blocks
-//            val obliterationRadius = nuclearComponent.blastPower * 50
-//            for (x in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
-//                for (y in -obliterationRadius.toInt()/2..obliterationRadius.toInt()/2) {
-//                    for (z in -obliterationRadius.toInt()..obliterationRadius.toInt()) {
-//                        val distance = (x * x + y * y + z * z)
-//                        if (distance <= obliterationRadius * obliterationRadius) {
-//                            scheduledRunnable.addWorkload(SimpleSchedulable{
-//                                val block = center.clone().add(x.toDouble(), y.toDouble(), z.toDouble()).block
-//                                if (block.type != Material.AIR)
-//                                    block.type = Material.AIR
-//                            })
-//
-//                        }
-//                    }
-//                }
-//            }
-//        })
-
-
+//                BurningAirBiome.asBukkitBiome,
+//                falloutRadius,
+//                20,
+//                falloutRadius,
+//                falloutRadius,
+//                falloutRadius,
+//                falloutRadius
+//            )
+//        }
     }
 
 }

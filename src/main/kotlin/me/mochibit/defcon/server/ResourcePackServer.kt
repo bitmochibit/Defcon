@@ -20,7 +20,6 @@
 package me.mochibit.defcon.server
 
 import io.ktor.http.*
-import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.response.*
@@ -29,14 +28,12 @@ import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.Defcon.Logger.info
 import me.mochibit.defcon.classes.PluginConfiguration
 import me.mochibit.defcon.enums.ConfigurationStorage
-import net.kyori.adventure.resource.ResourcePackInfo
 import java.nio.file.Files
 import java.nio.file.Path
 
 object ResourcePackServer {
     private var resourcePackPath: Path? = null
     private var server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
-    private var _packInfo: ResourcePackInfo? = null
 
     val port: Int
         get() = try {
