@@ -29,6 +29,7 @@ import me.mochibit.defcon.explosions.TransformationRule
 import me.mochibit.defcon.explosions.effects.BlindFlashEffect
 import me.mochibit.defcon.explosions.processor.Crater
 import me.mochibit.defcon.explosions.processor.Shockwave
+import me.mochibit.defcon.explosions.processor.ThermalRadiationBurn
 import org.bukkit.Location
 import kotlin.math.roundToInt
 
@@ -156,6 +157,10 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
         val duration = 10L * 20
         val blindEffect = BlindFlashEffect(center, flashReach, 200, duration)
         blindEffect.start(duration)
+
+        val thermalRadius = (nuclearComponent.thermalPower * 1000).roundToInt()
+        val thermalRadiationBurn = ThermalRadiationBurn(center, thermalRadius, duration = 30L * 20)
+        thermalRadiationBurn.start(20L * 20)
 
         val shockwave = Shockwave(
             center,

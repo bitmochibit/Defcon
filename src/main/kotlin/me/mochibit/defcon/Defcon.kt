@@ -21,6 +21,10 @@ package me.mochibit.defcon
 
 import com.github.retrooper.packetevents.PacketEvents
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import me.mochibit.defcon.Defcon.Logger.PluginLogger
 import me.mochibit.defcon.Defcon.Logger.info
 import me.mochibit.defcon.classes.PluginConfiguration

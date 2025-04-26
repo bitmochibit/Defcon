@@ -12,6 +12,7 @@ object Versions {
     const val MOCKITO = "5.8.0"
     const val JVM = 21
     const val MOCKBUKKIT = "4.0.0"
+    const val MCCOROUTINE = "2.22.0"
     val JAVA_VERSION = JavaVersion.VERSION_21
 }
 
@@ -77,6 +78,7 @@ paper {
 //        }
 //    }
 
+
     permissions {
         register("defcon.admin") {
             description = "Gives access to all Defcon admin commands"
@@ -116,6 +118,10 @@ dependencies {
     implementation("io.ktor", "ktor-server-core", Versions.KTOR)
     implementation("io.ktor","ktor-server-host-common", Versions.KTOR)
     implementation("io.ktor", "ktor-server-netty", Versions.KTOR)
+
+    // Coroutines
+    implementation("com.github.shynixn.mccoroutine", "mccoroutine-bukkit-api", Versions.MCCOROUTINE)
+    implementation("com.github.shynixn.mccoroutine", "mccoroutine-bukkit-core",Versions.MCCOROUTINE)
 
     implementation(kotlin("stdlib-jdk8", Versions.KOTLIN))
     implementation(kotlin("reflect", Versions.KOTLIN))
@@ -182,15 +188,16 @@ tasks.shadowJar {
     archiveFileName.set("Defcon-${version}.jar")
     archiveClassifier.set("")
     archiveVersion.set(project.version.toString())
-    name
 
 //  Relocate dependencies
-    relocate("com.github.retrooper.packetevents", "me.mochibit.defcon.lib.packetevents")
-    relocate("com.jeff_media.customblockdata", "me.mochibit.defcon.lib.customblockdata")
+    relocate("com.github.retrooper.packetevents", "me.mochibit.lib.packetevents")
+    relocate("com.jeff_media.customblockdata", "me.mochibit.lib.customblockdata")
+    relocate("com.github.shynixn.mccoroutine", "me.mochibit.lib.mccoroutine")
 
 //  Minimize JAR size
     minimize {
         exclude(dependency("org.jetbrains.kotlin:.*"))
+        exclude(dependency("com.github.shynixn.mccoroutine:.*"))
     }
 
     // Exclude unnecessary files

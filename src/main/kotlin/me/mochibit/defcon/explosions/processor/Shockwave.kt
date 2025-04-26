@@ -19,6 +19,14 @@
 
 package me.mochibit.defcon.explosions.processor
 
+import com.github.retrooper.packetevents.protocol.packettype.PacketType.Play
+import com.github.shynixn.mccoroutine.bukkit.launch
+import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.explosions.TransformationRule
 import me.mochibit.defcon.explosions.effects.CameraShake
 import me.mochibit.defcon.explosions.effects.CameraShakeOptions
@@ -58,15 +66,10 @@ class Shockwave(
 
     private val world = center.world
 
-    // Use a dedicated thread pool with a fixed size to avoid overloading the system
-    private val executorService = ForkJoinPool(
-        Runtime.getRuntime().availableProcessors(), ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true
-    )
 
     private val circleCache = mutableMapOf<Int, List<Pair<Double, Double>>>()
 
     private val completedExplosion = AtomicBoolean(false)
-    private val destructionQueue = ConcurrentLinkedQueue<Pair<List<Vector3i>, Double>>()
     private val treeBurner = TreeBurner(world, center.toVector3i())
     private val chunkCache = ChunkCache.getInstance(world)
     private val rayCaster = RayCaster(world)
@@ -89,8 +92,7 @@ class Shockwave(
     fun explode() {
         val startTime = System.nanoTime()
 
-        // First task: Calculate shockwave progression and queue destruction
-        executorService.submit {
+        Defcon.instance.launch {
             try {
                 var lastProcessedRadius = radiusStart
                 val visitedEntities: MutableSet<Entity> = ConcurrentHashMap.newKeySet()
@@ -118,8 +120,15 @@ class Shockwave(
 
                         val columns = generateShockwaveColumns(radius)
                         if (columns.isNotEmpty()) {
-                            if (radius >= radiusDestroyStart) destructionQueue.add(columns to normalizedExplosionPower)
-                            processEntityDamage(columns, normalizedExplosionPower, visitedEntities)
+                            if (radius >= radiusDestroyStart){
+                                withContext(Dispatchers.Default) {
+                                   processDestruction(columns, normalizedExplosionPower)
+                                }
+                            }
+
+                            withContext(Defcon.instance.minecraftDispatcher) {
+                                processEntityDamage(columns, normalizedExplosionPower, visitedEntities)
+                            }
                         }
                     }
 
@@ -132,55 +141,29 @@ class Shockwave(
                 }
             } finally {
                 completedExplosion.set(true)
+                cleanup()
             }
         }
 
-        // Second task: Process the destruction queue
-        executorService.submit {
-            try {
-                while (!completedExplosion.get() || destructionQueue.isNotEmpty()) {
-                    val explosionData = destructionQueue.poll()
-
-                    if (explosionData == null) {
-                        // If queue is empty but explosion isn't complete, wait a bit
-                        if (!completedExplosion.get()) {
-                            Thread.sleep(10)
-                        }
-                    } else {
-                        processDestruction(explosionData.first, explosionData.second)
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                if (completedExplosion.get() && destructionQueue.isEmpty()) {
-                    cleanup()
-                }
-            }
-        }
     }
 
-    private fun processEntityDamage(
+    private suspend fun processEntityDamage(
         columns: List<Vector3i>, explosionPower: Double, visitedEntities: MutableSet<Entity>
     ) {
         if (columns.isEmpty()) return
 
-        // Batch particle spawning for better performance
-        val particleLocations = columns.map {
-            Location(world, it.x.toDouble(), (it.y + 1).toDouble(), it.z.toDouble())
-        }
-
-        runLater(1L) {
-            // Spawn particles in batches
-            particleLocations.forEach { loc ->
+        withContext(Defcon.instance.minecraftDispatcher) {
+            columns.forEach { col ->
+                val loc = Location(world, col.x.toDouble(), (col.y + 1).toDouble(), col.z.toDouble())
                 world.spawnParticle(Particle.EXPLOSION, loc, 0)
             }
+        }
 
-            val locationCursor = Location(world, 0.0, 0.0, 0.0)
-            val halfShockwaveHeight = (shockwaveHeight / 2).toDouble()
+        val locationCursor = Location(world, 0.0, 0.0, 0.0)
+        val halfShockwaveHeight = (shockwaveHeight / 2).toDouble()
 
-            // Process entity damage in batches to reduce server load
-            columns.chunked(10).forEach { columnChunk ->
+        columns.chunked(10).forEach { columnChunk ->
+            withContext(Defcon.instance.minecraftDispatcher) {
                 columnChunk.forEach { column ->
                     locationCursor.set(
                         column.x.toDouble(), column.y.toDouble(), column.z.toDouble()
@@ -211,13 +194,24 @@ class Shockwave(
         // Avoid division by zero
         if (distance < 0.1) return
 
-        val multiplier = explosionPower * 30.0 / distance
-        val knockback = Vector(dx * multiplier, dy * multiplier, dz * multiplier)
+        val baseDamage = 20.0  // Higher base damage
+        val adjustedDistance = max(distance, 1.0)
+        val falloffFactor = min(1.0, 15.0 / (adjustedDistance * adjustedDistance))
+        val finalDamage = baseDamage * explosionPower * falloffFactor
+
+        // Improved knockback calculation
+        val knockbackPower = explosionPower * 40.0 / adjustedDistance
+        val knockback = Vector(dx * knockbackPower / distance,
+            dy * knockbackPower / distance + 0.2, // Slight upward push
+            dz * knockbackPower / distance)
+
         entity.velocity = knockback
 
         if (entity !is LivingEntity) return
 
-        entity.damage(explosionPower * 15.0)
+        // Apply the improved damage
+        entity.damage(finalDamage)
+
         if (entity !is Player) return
 
         val inv = (1 / explosionPower) * 3
@@ -228,33 +222,39 @@ class Shockwave(
         }
     }
 
-    private fun processDestruction(locations: List<Vector3i>, explosionPower: Double) {
-        // Pre-allocate collections with estimated size
-        val treeBlocks = ArrayList<Vector3i>(locations.size / 10)
-        val nonTreeBlocks = ArrayList<Vector3i>(locations.size)
+    private suspend fun processDestruction(locations: List<Vector3i>, explosionPower: Double) {
+        coroutineScope {
+            // Pre-allocate collections with estimated size
+            val treeBlocks = ArrayList<Vector3i>(locations.size / 10)
+            val nonTreeBlocks = ArrayList<Vector3i>(locations.size)
 
-        locations.chunked(500).forEach { batch ->
-            batch.forEach { location ->
-                if (treeBurner.isTreeBlock(location)) {
-                    treeBlocks.add(location)
-                    nonTreeBlocks.add(treeBurner.getTreeTerrain(location))
-                } else {
-                    nonTreeBlocks.add(location)
+            locations.chunked(500).forEach { batch ->
+                batch.forEach { location ->
+                    if (treeBurner.isTreeBlock(location)) {
+                        treeBlocks.add(location)
+                        nonTreeBlocks.add(treeBurner.getTreeTerrain(location))
+                    } else {
+                        nonTreeBlocks.add(location)
+                    }
                 }
             }
-        }
 
-        // Process trees first as they might be more complex
-        treeBlocks.chunked(100).forEach { chunk ->
-            chunk.forEach { treeBlock ->
-                treeBurner.processTreeBurn(treeBlock, explosionPower)
+            // Process trees first as they might be more complex
+            treeBlocks.chunked(100).forEach { chunk ->
+                launch {
+                    chunk.forEach { treeBlock ->
+                        treeBurner.processTreeBurn(treeBlock, explosionPower)
+                    }
+                }
             }
-        }
 
-        // Process normal blocks in chunks to avoid overwhelming the server
-        nonTreeBlocks.chunked(1000).forEach { chunk ->
-            chunk.parallelStream().forEach { location ->
-                processBlock(location, explosionPower)
+            // Process normal blocks in chunks to avoid overwhelming the server
+            nonTreeBlocks.chunked(1000).forEach { chunk ->
+                launch {
+                    chunk.forEach { location ->
+                        processBlock(location, explosionPower)
+                    }
+                }
             }
         }
     }
@@ -612,7 +612,6 @@ class Shockwave(
     private fun cleanup() {
         circleCache.clear()
         chunkCache.cleanupCache()
-        executorService.shutdown()
         processedBlocks.clear()
         complete()
     }

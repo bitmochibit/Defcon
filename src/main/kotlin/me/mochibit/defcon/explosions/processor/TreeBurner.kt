@@ -27,6 +27,7 @@ import org.bukkit.World
 import org.joml.Vector3f
 import org.joml.Vector3i
 import java.util.*
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.math.roundToInt
 
 class TreeBurner(
@@ -66,7 +67,7 @@ class TreeBurner(
     private val materialCache = HashMap<Vector3i, Material>()
 
     // Batch processing for block changes
-    private val blockChanges = mutableListOf<BlockChange>()
+    private val blockChanges = ConcurrentLinkedQueue<BlockChange>()
 
     fun processTreeBurn(initialBlock: Vector3i, normalizedExplosionPower: Double) {
         try {

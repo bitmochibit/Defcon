@@ -1,16 +1,15 @@
 package me.mochibit.defcon.explosions.effects
 
 import io.ktor.utils.io.core.*
+import me.mochibit.defcon.explosions.processor.RaycastedEffector
 import me.mochibit.defcon.threading.scheduling.intervalAsync
 import me.mochibit.defcon.threading.scheduling.runLater
-import org.bukkit.FluidCollisionMode
 import org.bukkit.Location
-import org.bukkit.World
 import org.bukkit.entity.Display
+import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
-import org.bukkit.util.Vector
 import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
@@ -30,37 +29,19 @@ import kotlin.math.sqrt
  * @param skyVisibilityRequired Percentage of sky that must be visible for distant explosions to be seen (0.0-1.0)
  */
 class BlindFlashEffect(
-    private val center: Location,
-    private val reach: Int,
-    private val raycastHeight: Int = 100,
-    private val duration: Long = 10 * 20L, // Default duration of 10 seconds
-    private val skyVisibilityRequired: Float = 0.3f // At least 30% of sky must be visible for distant explosions
-) {
-    private val world: World = center.world
-    private val reachSquared: Int = reach * reach
+    center: Location,
+    reach: Int,
+    raycastHeight: Int = 100,
+    duration: Long = 10 * 20L,
+    skyVisibilityRequired: Float = 0.3f
+) : RaycastedEffector(center, reach, raycastHeight, duration, skyVisibilityRequired) {
 
-    // Distance thresholds for effect variations
-    private val closeRangeThreshold: Int = reach / 3
-    private val closeRangeThresholdSquared: Int = closeRangeThreshold * closeRangeThreshold
-    private val farRangeThreshold: Int = reach * 2 / 3
-    private val farRangeThresholdSquared: Int = farRangeThreshold * farRangeThreshold
-
-    // Improved cast position calculation
-    private val relativeCastPos = Location(world, center.x, center.y + raycastHeight, center.z)
-
-    // Use ConcurrentHashMap for thread safety
-    private val affectedPlayers = ConcurrentHashMap<UUID, EffectData>()
-
-    // Tracking task for checking players entering the reach area
-    private var trackingTask: Closeable? = null
-
-    // Cache for sky visibility checks (player UUID to last check time and result)
-    private val skyVisibilityCache = ConcurrentHashMap<UUID, Pair<Long, Float>>()
-
+    // Use a specialized map for the text displays
+    private val playerDisplays = ConcurrentHashMap<UUID, MutableMap<CubeFace, ClientSideTextDisplay>>()
 
     // Data for cube display effect
     private val textureScale = Vector3f(8f, 4f, 1f)
-    private val cubeSize = 30f
+    private val cubeSize = 50f
     private val transforms = mapOf(
         CubeFace.BACK to Matrix4f() // Back
             .rotate(Quaternionf())
@@ -102,240 +83,31 @@ class BlindFlashEffect(
             .translate(-0.1f + .5f, -.5f + .5f, 0f)
             .scale(textureScale.x, textureScale.y, textureScale.y * cubeSize)
     )
+
+    /**
+     * Enum for cube faces used in the close-range effect
+     */
     private enum class CubeFace {
         FRONT, RIGHT, BACK, LEFT, TOP, BOTTOM;
     }
 
-    // Effect types based on distance
-    private enum class EffectType {
-        CLOSE_RANGE, // Inside closeRangeThreshold - full cube effect
-        MID_RANGE,   // Between closeRangeThreshold and farRangeThreshold - particles with high intensity
-        FAR_RANGE    // Beyond farRangeThreshold - distant glow effect and reduced particles
-    }
-
     /**
-     * Data class to store effect-related information for each player
+     * Only target players for blind flash effect
      */
-    private data class EffectData(
-        val task: Closeable,
-        val textDisplays: MutableMap<CubeFace, ClientSideTextDisplay> = EnumMap(CubeFace::class.java),
-        val startTime: Long = System.currentTimeMillis(),
-        val effectDuration: Long = 0, // Duration in milliseconds
-        var currentEffectType: EffectType = EffectType.MID_RANGE // Track current effect type to detect changes
-    )
-
-    /**
-     * Starts tracking players who might come into the range of the flash effect
-     * @param trackingDuration How long to track players (in ticks)
-     */
-    fun start(trackingDuration: Long = duration) {
-        // Check all players in the world initially
-        world.players.forEach { player ->
-            if (!affectedPlayers.containsKey(player.uniqueId)) {
-                checkAndApplyEffect(player)
-            }
-        }
-
-        // Set up a tracking task to check for players entering the range
-        trackingTask = intervalAsync(0L, 5L) { // Check every 5 ticks (1/4 second)
-            world.players.forEach { player ->
-                if (!affectedPlayers.containsKey(player.uniqueId)) {
-                    checkAndApplyEffect(player)
-                }
-            }
-        }
-
-        // Stop tracking after the specified duration
-        runLater(trackingDuration) {
-            stop()
+    override suspend fun getTargetEntities(): List<Entity> {
+        return world.players.filter { player ->
+            player.location.distanceSquared(center) <= reachSquared
         }
     }
 
     /**
-     * Stops tracking new players and cleans up resources
+     * Apply flash effect to an entity (which will be a player)
      */
-    fun stop() {
-        trackingTask?.close()
-        trackingTask = null
+    override fun applyEffect(entity: Entity, effectType: EffectType) {
+        if (entity !is Player) return
 
-        // Cancel all remaining effect tasks and remove displays
-        affectedPlayers.forEach { (_, effectData) ->
-            effectData.task.close()
-            effectData.textDisplays.values.forEach { it.remove() }
-        }
-        affectedPlayers.clear()
-
-        // Clear cache
-        skyVisibilityCache.clear()
-    }
-
-    /**
-     * Checks if a player should see the effect and applies it if so
-     */
-    private fun checkAndApplyEffect(player: Player) {
-        // Quick distance check first for performance
-        val distanceSquared = player.location.distanceSquared(center)
-        if (player.world != world || distanceSquared > reachSquared) {
-            return
-        }
-
-        // Determine effect type based on distance
-        val effectType = determineEffectType(distanceSquared)
-
-        // For far range explosions, check if player is in open air
-        if (effectType == EffectType.FAR_RANGE && !isPlayerInOpenAir(player)) {
-            return
-        }
-
-        // Check if the player has line of sight to the explosion
-        if (!hasLineOfSightToExplosion(player)) {
-            return
-        }
-
-        // Apply the effect
-        applyFlashEffect(player, effectType)
-    }
-
-    /**
-     * Determines the effect type based on distance from explosion
-     */
-    private fun determineEffectType(distanceSquared: Double): EffectType {
-        return when {
-            distanceSquared <= closeRangeThresholdSquared -> EffectType.CLOSE_RANGE
-            distanceSquared <= farRangeThresholdSquared -> EffectType.MID_RANGE
-            else -> EffectType.FAR_RANGE
-        }
-    }
-
-    /**
-     * Checks if a player is in the open air with sufficient sky visibility
-     * Use caching to improve performance
-     */
-    private fun isPlayerInOpenAir(player: Player): Boolean {
-        val now = System.currentTimeMillis()
-        val cached = skyVisibilityCache[player.uniqueId]
-
-        // Use cached value if it's recent enough
-        if (cached != null && (now - cached.first) < Companion.SKY_VISIBILITY_CACHE_DURATION) {
-            return cached.second >= skyVisibilityRequired
-        }
-
-        // Calculate sky visibility
-        val skyVisibility = calculateSkyVisibility(player)
-        skyVisibilityCache[player.uniqueId] = Pair(now, skyVisibility)
-
-        return skyVisibility >= skyVisibilityRequired
-    }
-
-    /**
-     * Calculates how much sky is visible to a player (0.0-1.0)
-     */
-    private fun calculateSkyVisibility(player: Player): Float {
-        val location = player.eyeLocation
-        val samples = 9 // Number of sample rays to cast upward
-        var visibleSky = 0
-
-        // Cast rays in a 3x3 grid pattern above the player
-        for (x in -1..1) {
-            for (z in -1..1) {
-                val rayVector = Vector(x * 0.5, 1.0, z * 0.5).normalize()
-                val result = world.rayTraceBlocks(
-                    location,
-                    rayVector,
-                    256.0, // Check up to world height
-                    FluidCollisionMode.NEVER,
-                    true
-                )
-
-                if (result == null) {
-                    // Ray reached the sky
-                    visibleSky++
-                }
-            }
-        }
-
-        return visibleSky.toFloat() / samples
-    }
-
-    /**
-     * Determines if the player has line of sight to the explosion
-     * Using improved detection with additional checks
-     */
-    private fun hasLineOfSightToExplosion(player: Player): Boolean {
-        val playerEyes = player.eyeLocation
-        val directionToExplosion = relativeCastPos.clone().subtract(playerEyes).toVector().normalize()
-
-        // Check if player is looking somewhat towards the explosion
-        val lookingAngle = playerEyes.direction.angle(directionToExplosion)
-
-        // Use different angle thresholds based on distance
-        val distanceSquared = playerEyes.distanceSquared(center)
-        val maxAngle = when {
-            distanceSquared <= closeRangeThresholdSquared -> Math.PI // Close range: can see in any direction
-            distanceSquared <= farRangeThresholdSquared -> Math.PI * 0.75 // Mid range: wider angle
-            else -> Math.PI / 2 // Far range: must be somewhat facing it
-        }
-
-        if (lookingAngle > maxAngle) {
-            // Player is facing away from explosion
-            // For close range, we'll still check from explosion to player
-            return distanceSquared <= closeRangeThresholdSquared &&
-                    checkRaycastFromExplosion(player.eyeLocation.toVector())
-        }
-
-        // Player is facing towards explosion, check if there are blocks in the way
-        val result = world.rayTraceBlocks(
-            playerEyes,
-            directionToExplosion,
-            reach.toDouble(),
-            FluidCollisionMode.NEVER,
-            true
-        )
-
-        // If no hit or hit is very close to center, player can see the explosion
-        return result == null ||
-                result.hitPosition.distanceSquared(center.toVector()) < 4.0
-    }
-
-    /**
-     * Secondary check using raycasting from above the explosion down to player
-     * Improved to handle multiple ray angles
-     */
-    private fun checkRaycastFromExplosion(playerPos: Vector): Boolean {
-        // Cast multiple rays to improve detection
-        val directions = listOf(
-            center.toVector().subtract(relativeCastPos.toVector()).normalize(),
-            Vector(0.0, -1.0, 0.0), // Straight down
-            center.toVector().subtract(playerPos).normalize() // Directly towards player
-        )
-
-        for (direction in directions) {
-            val result = world.rayTraceBlocks(
-                relativeCastPos,
-                direction,
-                reach.toDouble(),
-                FluidCollisionMode.NEVER,
-                true
-            ) ?: return true  // No obstacles means player can be affected
-
-            val hitBlock = result.hitBlock ?: return true
-            val distanceToPlayer = playerPos.distanceSquared(hitBlock.location.toVector())
-
-            // If player is close to where the ray hit, they're probably visible
-            if (distanceToPlayer < 9.0) {
-                return true
-            }
-        }
-
-        return false
-    }
-
-    /**
-     * Applies the flash effect to a player with the appropriate effect type
-     */
-    private fun applyFlashEffect(player: Player, effectType: EffectType) {
         // Apply night vision effect with intensity based on distance
-        if (!player.hasPotionEffect(PotionEffectType.NIGHT_VISION)) {
+        if (!entity.hasPotionEffect(PotionEffectType.NIGHT_VISION)) {
             runLater(1L) {
                 // Lower amplifier for distant effects
                 val amplifier = when (effectType) {
@@ -344,7 +116,7 @@ class BlindFlashEffect(
                     EffectType.FAR_RANGE -> 150
                 }
 
-                player.addPotionEffect(
+                entity.addPotionEffect(
                     PotionEffect(
                         PotionEffectType.NIGHT_VISION,
                         duration.toInt(),
@@ -355,23 +127,27 @@ class BlindFlashEffect(
         }
 
         val effectDurationMs = duration * 50 // Convert ticks to milliseconds
-        val effectData = EffectData(
-            createEffectTask(player, effectType),
-            EnumMap(CubeFace::class.java),
+        val effectTask = createEffectTask(entity, effectType)
+
+        // Store reference to effect task
+        val effectData = EffectorData(
+            effectTask,
             System.currentTimeMillis(),
             effectDurationMs,
             effectType
         )
 
-        // Store reference to created objects
-        affectedPlayers[player.uniqueId] = effectData
+        // Store effect data
+        affectedEntities[entity.uniqueId] = effectData
+
+        // Initialize display map for this player
+        playerDisplays[entity.uniqueId] = EnumMap(CubeFace::class.java)
 
         // Stop the effect after duration
         runLater(duration) {
-            cleanup(player)
+            cleanup(entity)
         }
     }
-
     /**
      * Creates the appropriate visual effect task based on distance and effect type
      */
@@ -384,20 +160,32 @@ class BlindFlashEffect(
             }
 
             val playerUUID = player.uniqueId
-            val effectData = affectedPlayers[playerUUID] ?: return@intervalAsync
+            val effectData = affectedEntities[playerUUID] ?: return@intervalAsync
+            val displays = playerDisplays[playerUUID] ?: EnumMap(CubeFace::class.java)
 
             // Calculate time-based parameters
             val elapsed = System.currentTimeMillis() - effectData.startTime
             val progressFactor = elapsed.toDouble() / effectData.effectDuration
 
-            // Calculate fade factor (1.0 at start, 0.0 at end)
-            val fadeFactor = max(0.0, min(1.0, 1.0 - progressFactor)).toFloat()
-
-            // Check if we should stop the effect (no visibility or too faded)
-            if (fadeFactor < 0.05 || !hasLineOfSightToExplosion(player)) {
+            if (progressFactor >= 1.0 || !hasLineOfSightToSource(player)) {
                 cleanup(player)
                 return@intervalAsync
             }
+
+            val fadeFactor = (1.0 - progressFactor).toFloat()
+
+            val smoothFadeFactor = if (progressFactor > 0.7) {
+                val normalizedProgress = (progressFactor - 0.7) / 0.3
+                (1.0 - normalizedProgress * normalizedProgress * normalizedProgress).toFloat() * 0.3f
+            } else {
+                fadeFactor
+            }
+
+            if (smoothFadeFactor < 0.05) {
+                cleanup(player)
+                return@intervalAsync
+            }
+
 
             val distanceSquared = player.location.distanceSquared(center)
             val currentEffectType = determineEffectType(distanceSquared)
@@ -405,8 +193,8 @@ class BlindFlashEffect(
             // Update effect type if changed (player moved closer/further)
             if (currentEffectType != effectData.currentEffectType) {
                 // Clean up previous effect visuals
-                effectData.textDisplays.values.forEach { it.remove() }
-                effectData.textDisplays.clear()
+                displays.values.forEach { it.remove() }
+                displays.clear()
                 effectData.currentEffectType = currentEffectType
             }
 
@@ -414,16 +202,16 @@ class BlindFlashEffect(
             when (currentEffectType) {
                 EffectType.CLOSE_RANGE -> {
                     // Close range: Use cubic text display with fading opacity
-                    updateCubeDisplayEffect(player, fadeFactor)
+                    updateCubeDisplayEffect(player, displays, smoothFadeFactor)
                 }
                 EffectType.MID_RANGE -> {
                     // Mid range: Use particles with perspective and moderate count
-                    updateMidRangeEffect(player, distanceSquared, fadeFactor)
+                    updateMidRangeEffect(player, distanceSquared, smoothFadeFactor)
                 }
                 EffectType.FAR_RANGE -> {
                     // Far range: Distant flash effect
                     if (isPlayerInOpenAir(player)) {
-                        updateFarRangeEffect(player, distanceSquared, fadeFactor)
+                        updateFarRangeEffect(player, distanceSquared, smoothFadeFactor)
                     }
                 }
             }
@@ -434,11 +222,7 @@ class BlindFlashEffect(
      * Updates the cube display effect with 6 faces surrounding the player, properly oriented
      * @param fadeFactor Factor from 1.0 (full effect) to 0.0 (no effect)
      */
-    private fun updateCubeDisplayEffect(player: Player, fadeFactor: Float) {
-        val playerUUID = player.uniqueId
-        val effectData = affectedPlayers[playerUUID] ?: return
-        val displays = effectData.textDisplays
-
+    private fun updateCubeDisplayEffect(player: Player, displays: MutableMap<CubeFace, ClientSideTextDisplay>, fadeFactor: Float) {
         // Create display faces if they don't exist
         if (displays.isEmpty()) {
             CubeFace.entries.forEach { face ->
@@ -474,15 +258,6 @@ class BlindFlashEffect(
      * @param fadeFactor Factor from 1.0 (full effect) to 0.0 (no effect)
      */
     private fun updateMidRangeEffect(player: Player, distanceSquared: Double, fadeFactor: Float) {
-        val playerUUID = player.uniqueId
-        val effectData = affectedPlayers[playerUUID] ?: return
-
-        // Remove text displays if they exist
-        if (effectData.textDisplays.isNotEmpty()) {
-            effectData.textDisplays.values.forEach { it.remove() }
-            effectData.textDisplays.clear()
-        }
-
         // Skip particle spawning if fade factor is too low
         if (fadeFactor < 0.05) return
 
@@ -523,9 +298,6 @@ class BlindFlashEffect(
      * @param fadeFactor Factor from 1.0 (full effect) to 0.0 (no effect)
      */
     private fun updateFarRangeEffect(player: Player, distanceSquared: Double, fadeFactor: Float) {
-        val playerUUID = player.uniqueId
-        val effectData = affectedPlayers[playerUUID] ?: return
-
         // Calculate distance factor (0-1)
         val distanceFactor = 1.0 - ((distanceSquared - farRangeThresholdSquared) /
                 (reachSquared - farRangeThresholdSquared))
@@ -572,24 +344,17 @@ class BlindFlashEffect(
     }
 
     /**
-     * Cleans up resources for a player
+     * Override the cleanup method to also handle text displays
      */
-    private fun cleanup(player: Player) {
-        // Get and remove the effect data
-        val playerUUID = player.uniqueId
-        val effectData = affectedPlayers.remove(playerUUID) ?: return
+    override fun cleanup(entity: Entity) {
+        // Clean up text displays if it's a player
+        if (entity is Player) {
+            val playerUUID = entity.uniqueId
+            val displays = playerDisplays.remove(playerUUID)
+            displays?.values?.forEach { it.remove() }
+        }
 
-        // Cancel the task
-        effectData.task.close()
-
-        // Remove all text displays
-        effectData.textDisplays.values.forEach { it.remove() }
-
-        // Clear cached sky visibility
-        skyVisibilityCache.remove(playerUUID)
-    }
-
-    companion object {
-        private const val SKY_VISIBILITY_CACHE_DURATION = 5000L // 5 seconds cache
+        // Perform the standard cleanup
+        super.cleanup(entity)
     }
 }
