@@ -37,6 +37,8 @@ import java.io.FileWriter
 import java.nio.file.Paths
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.io.path.createDirectories
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Manages plugin notifications for the DEFCON plugin.
@@ -45,7 +47,7 @@ import kotlin.io.path.createDirectories
 object NotificationManager {
     // Configuration
     private const val CONFIG_FILENAME = "notifications.json"
-    private const val DEFAULT_BROADCAST_INTERVAL_SECONDS = 60
+    private val DEFAULT_BROADCAST_INTERVAL_SECONDS = 60.seconds
 
     // File management
     private val notificationFile: File by lazy {
@@ -66,7 +68,7 @@ object NotificationManager {
     private var broadcastTask: Closeable? = null
     private val notifications = CopyOnWriteArrayList<Notification>() // Thread-safe collection
     private var notificationIndex: Int = 0
-    private var broadcastIntervalSeconds: Int = DEFAULT_BROADCAST_INTERVAL_SECONDS
+    private var broadcastIntervalSeconds: Duration = DEFAULT_BROADCAST_INTERVAL_SECONDS
 
     init {
         try {
@@ -82,11 +84,11 @@ object NotificationManager {
      * Starts the notification broadcast task.
      * @param intervalSeconds The interval between broadcasts in seconds.
      */
-    fun startBroadcastTask(intervalSeconds: Int = DEFAULT_BROADCAST_INTERVAL_SECONDS) {
+    fun startBroadcastTask(intervalSeconds: Duration = DEFAULT_BROADCAST_INTERVAL_SECONDS) {
         stopBroadcastTask()
         this.broadcastIntervalSeconds = intervalSeconds
 
-        broadcastTask = interval(20L, 20L * broadcastIntervalSeconds.toLong()) {
+        broadcastTask = interval(broadcastIntervalSeconds) {
             if (notifications.isEmpty()) return@interval
 
             val notification = notifications[notificationIndex]
@@ -296,24 +298,24 @@ object NotificationManager {
      * Gets the current broadcast interval in seconds.
      * @return The broadcast interval.
      */
-    fun getBroadcastInterval(): Int {
+    fun getBroadcastInterval(): Duration {
         return broadcastIntervalSeconds
     }
 
     /**
      * Sets the broadcast interval in seconds.
-     * @param seconds The new broadcast interval.
+     * @param duration The new broadcast interval.
      */
-    fun setBroadcastInterval(seconds: Int) {
-        if (seconds < 1) {
+    fun setBroadcastInterval(duration: Duration) {
+        if (duration.inWholeSeconds < 1) {
             throw IllegalArgumentException("Broadcast interval must be at least 1 second")
         }
 
-        this.broadcastIntervalSeconds = seconds
+        this.broadcastIntervalSeconds = duration
 
         // Restart broadcast task if it's running
         if (broadcastTask != null) {
-            startBroadcastTask(seconds)
+            startBroadcastTask(duration)
         }
     }
 }

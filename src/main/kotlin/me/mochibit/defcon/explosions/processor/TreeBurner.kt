@@ -69,7 +69,7 @@ class TreeBurner(
     // Batch processing for block changes
     private val blockChanges = ConcurrentLinkedQueue<BlockChange>()
 
-    fun processTreeBurn(initialBlock: Vector3i, normalizedExplosionPower: Double) {
+    suspend fun processTreeBurn(initialBlock: Vector3i, normalizedExplosionPower: Double) {
         try {
             // Reset state for this tree processing
             materialCache.clear()
@@ -175,7 +175,7 @@ class TreeBurner(
         return isTreeBlock(block.x, block.y, block.z)
     }
 
-    private fun processLogBlock(
+    private suspend fun processLogBlock(
         x: Int, y: Int, z: Int,
         treeMinHeight: Int,
         heightRange: Int,
@@ -215,7 +215,7 @@ class TreeBurner(
     }
 
     // Add a block change to our batch
-    private fun addBlockChange(x: Int, y: Int, z: Int, material: Material) {
+    private suspend fun addBlockChange(x: Int, y: Int, z: Int, material: Material) {
         blockChanges.add(
             BlockChange(
                 x,
@@ -232,7 +232,7 @@ class TreeBurner(
     }
 
     // Apply all pending block changes
-    private fun applyBlockChanges() {
+    private suspend fun applyBlockChanges() {
         blockChanger.addBlockChanges(blockChanges)
         blockChanges.clear()
     }

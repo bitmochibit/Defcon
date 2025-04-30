@@ -28,6 +28,7 @@ import java.io.Closeable
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random.Default.nextInt
+import kotlin.time.Duration.Companion.milliseconds
 
 data class CameraShakeOptions(
     val magnitude: Float,
@@ -53,7 +54,7 @@ class CameraShake(private val player: Player, options: CameraShakeOptions) : Clo
         .or(RelativeFlag.ROTATE_DELTA)
 
 
-    private val repeat: Closeable = interval(1, 1) {
+    private val repeat: Closeable = interval(50.milliseconds) {
         time += 1
         magnitude -= options.decay
         if (magnitude < 0) {

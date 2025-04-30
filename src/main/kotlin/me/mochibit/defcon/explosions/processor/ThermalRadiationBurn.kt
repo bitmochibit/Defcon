@@ -19,7 +19,12 @@
 
 package me.mochibit.defcon.explosions.processor
 
+import com.github.shynixn.mccoroutine.bukkit.launch
+import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
 import io.ktor.utils.io.core.*
+import kotlinx.coroutines.withContext
+import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.extensions.toTicks
 import me.mochibit.defcon.threading.scheduling.intervalAsync
 import me.mochibit.defcon.threading.scheduling.runLater
 import org.bukkit.Location
@@ -36,6 +41,8 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * This class handles the thermal radiation burn effect of a nuclear explosion.
@@ -50,7 +57,7 @@ class ThermalRadiationBurn(
     center: Location,
     radius: Int,
     effectorHeight: Int = 100,
-    duration: Long = 10 * 20L
+    duration: Duration
 ) : RaycastedEffector(center, radius, effectorHeight, duration) {
 
     // Map to store burn levels for entities
@@ -65,10 +72,11 @@ class ThermalRadiationBurn(
      * Filter entities to only get living entities that can be damaged
      */
     override suspend fun getTargetEntities(): List<Entity> {
-        val entities = world.entities.filter { entity ->
-            entity is LivingEntity && entity.isValid && !entity.isDead
+        val entities = withContext(Defcon.instance.minecraftDispatcher) {
+            world.entities.filter { entity ->
+                entity is LivingEntity && entity.isValid && !entity.isDead
+            }
         }
-
         return entities
     }
 
@@ -129,18 +137,19 @@ class ThermalRadiationBurn(
         val effectTask = createBurnEffectTask(entity, burnLevel)
 
         // Store in affected entities
-        val effectDurationMs = duration * 50 // Convert ticks to milliseconds
         val effectData = EffectorData(
             effectTask,
             System.currentTimeMillis(),
-            effectDurationMs,
+            duration.inWholeMilliseconds,
             effectType
         )
 
         affectedEntities[entity.uniqueId] = effectData
 
         // Apply immediate effects
-        applyImmediateBurnEffects(entity, burnLevel, fireTicks)
+        Defcon.instance.launch {
+            applyImmediateBurnEffects(entity, burnLevel, fireTicks)
+        }
 
         // Stop the continuous effect after duration
         runLater(duration) {
@@ -165,18 +174,18 @@ class ThermalRadiationBurn(
         if (entity is Player) {
             when (burnLevel) {
                 3 -> { // Severe burns - slowness, weakness, wither
-                    entity.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS, duration.toInt(), 2))
-                    entity.addPotionEffect(PotionEffect(PotionEffectType.WEAKNESS, duration.toInt(), 2))
-                    entity.addPotionEffect(PotionEffect(PotionEffectType.WITHER, (duration / 2).toInt(), 1))
+                    entity.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS, duration.toTicks().toInt(), 2))
+                    entity.addPotionEffect(PotionEffect(PotionEffectType.WEAKNESS, duration.toTicks().toInt(), 2))
+                    entity.addPotionEffect(PotionEffect(PotionEffectType.WITHER, (duration / 2).toTicks().toInt(), 1))
                 }
 
                 2 -> { // Moderate burns - slowness, weakness
-                    entity.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS, duration.toInt(), 1))
-                    entity.addPotionEffect(PotionEffect(PotionEffectType.WEAKNESS, duration.toInt(), 1))
+                    entity.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS, duration.toTicks().toInt(), 1))
+                    entity.addPotionEffect(PotionEffect(PotionEffectType.WEAKNESS, duration.toTicks().toInt(), 1))
                 }
 
                 1 -> { // Minor burns - just slowness
-                    entity.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS, (duration / 2).toInt(), 0))
+                    entity.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS, (duration / 2).toTicks().toInt(), 0))
                 }
             }
         }
@@ -189,13 +198,13 @@ class ThermalRadiationBurn(
         if (entity !is LivingEntity) return Closeable { }
 
         // Calculate tick interval based on burn level
-        val tickInterval = when (burnLevel) {
-            3 -> 20L    // Severe burns: damage every second
-            2 -> 40L    // Moderate burns: damage every 2 seconds
-            else -> 80L // Minor burns: damage every 4 seconds
+        val interval = when (burnLevel) {
+            3 -> 1.seconds
+            2 -> 2.seconds
+            else -> 4.seconds
         }
 
-        return intervalAsync(tickInterval, tickInterval) {
+        return intervalAsync(interval) {
             // Skip if entity is no longer valid
             if (!entity.isValid || entity.isDead) {
                 cleanup(entity)
@@ -226,7 +235,8 @@ class ThermalRadiationBurn(
                     val newElytra = ItemStack(chestPlateItem.type, 1)
                     val meta = chestPlateItem.itemMeta?.clone() as? Damageable
                     if (meta != null) {
-                        meta.damage = if (meta.hasMaxDamage()) meta.maxDamage - 1 else newElytra.type.maxDurability.toInt() - 1 // Set to almost broken (1 durability left)
+                        meta.damage =
+                            if (meta.hasMaxDamage()) meta.maxDamage - 1 else newElytra.type.maxDurability.toInt() - 1 // Set to almost broken (1 durability left)
                         newElytra.itemMeta = meta
                         // Actually apply the modified elytra to the player's inventory
                         entity.inventory.chestplate = newElytra

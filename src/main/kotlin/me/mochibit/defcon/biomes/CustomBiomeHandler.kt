@@ -1,5 +1,7 @@
 package me.mochibit.defcon.biomes
 
+import com.github.shynixn.mccoroutine.bukkit.launch
+import kotlinx.coroutines.delay
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.Defcon.Logger
 import me.mochibit.defcon.threading.scheduling.runLater
@@ -67,7 +69,7 @@ object CustomBiomeHandler {
     fun setBiomeClientSide(
         playerId: UUID,
         center: Location,
-        biome: Biome,
+        biome: CustomBiome,
         lengthPositiveY: Int,
         lengthNegativeY: Int,
         lengthPositiveX: Int,
@@ -101,7 +103,7 @@ object CustomBiomeHandler {
 
         // Create and store the biome boundary
         val boundary = ClientSideBiomeBoundary(
-            biome.key,
+            biome.asBukkitBiome.key,
             minX, maxX, minY, maxY, minZ, maxZ
         )
 
@@ -155,7 +157,8 @@ object CustomBiomeHandler {
 
         var delay = 1L
         for ((chunkX, chunkZ) in chunksToUpdate) {
-            runLater(delay) {
+            Defcon.instance.launch {
+                delay(delay)
                 try {
                     world.refreshChunk(chunkX, chunkZ)
                 } catch (e: Exception) {
@@ -214,7 +217,7 @@ object CustomBiomeHandler {
      * Sets a custom biome for a range of blocks in the world.
      * This changes the actual world biome for all players.
      */
-    fun setCustomBiomeRange(
+    suspend fun setCustomBiomeRange(
         center: Location,
         biome: CustomBiome,
         lengthPositiveY: Int,

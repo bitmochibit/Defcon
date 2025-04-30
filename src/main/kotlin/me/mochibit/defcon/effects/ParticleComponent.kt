@@ -7,6 +7,7 @@ import me.mochibit.defcon.particles.templates.AbstractParticle
 import me.mochibit.defcon.threading.scheduling.runLater
 import org.joml.Matrix4f
 import org.joml.Vector3f
+import kotlin.time.Duration
 
 /**
  * Represents an effect component that manages particle emission and transformation.
@@ -59,7 +60,7 @@ open class ParticleComponent(
     /**
      * Set the visibility of the particle component after a specified delay.
      */
-    fun setVisibilityAfterDelay(visible: Boolean, delay: Long) = apply {
+    fun setVisibilityAfterDelay(visible: Boolean, delay: Duration) = apply {
         runLater(delay) {
             particleEmitter.visible = visible
         }

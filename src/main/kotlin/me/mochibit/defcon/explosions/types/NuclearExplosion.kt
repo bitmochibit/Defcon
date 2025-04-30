@@ -19,6 +19,10 @@
 
 package me.mochibit.defcon.explosions.types
 
+import com.github.shynixn.mccoroutine.bukkit.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.biomes.CustomBiomeHandler
 import me.mochibit.defcon.biomes.definitions.BurningAirBiome
 import me.mochibit.defcon.effects.nuclear.CondensationCloudVFX
@@ -28,10 +32,13 @@ import me.mochibit.defcon.explosions.ExplosionComponent
 import me.mochibit.defcon.explosions.TransformationRule
 import me.mochibit.defcon.explosions.effects.BlindFlashEffect
 import me.mochibit.defcon.explosions.processor.Crater
+import me.mochibit.defcon.explosions.processor.ExplosionSoundManager
 import me.mochibit.defcon.explosions.processor.Shockwave
 import me.mochibit.defcon.explosions.processor.ThermalRadiationBurn
 import org.bukkit.Location
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 
 class NuclearExplosion(center: Location, private val nuclearComponent: ExplosionComponent = ExplosionComponent()) :
@@ -136,61 +143,87 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
 //
 //        }, 0, 20)
 //
+        Defcon.instance.launch {
+            val shockwaveRadius = nuclearComponent.blastPower * 800
+            val shockwaveHeight = (nuclearComponent.blastPower * 100 * 3).roundToInt()
+            val craterRadius = (shockwaveRadius / 2).roundToInt().coerceIn(20, 180)
 
-        val shockwaveRadius = nuclearComponent.blastPower * 650
-        val shockwaveHeight = (nuclearComponent.blastPower * 100 * 3).roundToInt()
-        val craterRadius = (shockwaveRadius / 2.5).roundToInt().coerceIn(20, 150)
+            val falloutRadius = (shockwaveRadius * 2).roundToInt()
 
-        val falloutRadius = (shockwaveRadius * 2).roundToInt()
+            val flashReach = (nuclearComponent.thermalPower * 1000).roundToInt()
 
-        val flashReach = (nuclearComponent.thermalPower * 1000).roundToInt()
+            // VFX
+            val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
+            val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
+            val nuclearFog = NuclearFogVFX(nuclearComponent, center)
 
-        // VFX
-        val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
-        val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
-        val nuclearFog = NuclearFogVFX(nuclearComponent, center)
+            nuclearExplosion.instantiate(async = true, useThreadPool = true)
+            nuclearFog.instantiate(async = true, useThreadPool = true)
+            condensationCloud.instantiate(async = true, useThreadPool = true)
 
-        nuclearExplosion.instantiate(async = true, useThreadPool = true)
-        nuclearFog.instantiate(async = true, useThreadPool = true)
-        condensationCloud.instantiate(async = true, useThreadPool = true)
+            withContext(Dispatchers.IO) {
+                val duration = 10.seconds
+                val blindEffect = BlindFlashEffect(center, flashReach, 200, duration)
+                blindEffect.start()
 
-        val duration = 10L * 20
-        val blindEffect = BlindFlashEffect(center, flashReach, 200, duration)
-        blindEffect.start(duration)
-
-        val thermalRadius = (nuclearComponent.thermalPower * 1000).roundToInt()
-        val thermalRadiationBurn = ThermalRadiationBurn(center, thermalRadius, duration = 30L * 20)
-        thermalRadiationBurn.start(20L * 20)
-
-        val shockwave = Shockwave(
-            center,
-            craterRadius / 2,
-            shockwaveRadius.toInt(),
-            shockwaveHeight,
-            radiusDestroyStart = craterRadius - 2
-        )
-
-        Crater(center, craterRadius, craterRadius / 6, craterRadius, TransformationRule(), shockwaveHeight).apply {
-            onComplete {
-                shockwave.explode()
+                val thermalRadius = (nuclearComponent.thermalPower * 1000).roundToInt()
+                val thermalRadiationBurn = ThermalRadiationBurn(center, thermalRadius, duration = 30.seconds)
+                thermalRadiationBurn.start()
             }
-            create()
-        }
 
 
-        for (player in center.world.players) {
-            CustomBiomeHandler.setBiomeClientSide(
-                player.uniqueId,
-                center,
-                BurningAirBiome.asBukkitBiome,
-                falloutRadius,
-                20,
-                falloutRadius,
-                falloutRadius,
-                falloutRadius,
-                falloutRadius
-            )
+            withContext(Dispatchers.Default) {
+                val effectiveRadius = Crater(
+                    center,
+                    craterRadius,
+                    craterRadius / 6,
+                    craterRadius,
+                    TransformationRule(),
+                    shockwaveHeight
+                ).create()
+
+                Shockwave(
+                    center,
+                    effectiveRadius-2,
+                    shockwaveRadius.toInt(),
+                    shockwaveHeight,
+                ).explode()
+            }
+
+            withContext(Dispatchers.Default) {
+                for (player in center.world.players) {
+                    if (player.location.distance(center) < shockwaveRadius) {
+                        Defcon.instance.launch {
+                            ExplosionSoundManager.startRepeatingSounds(
+                                ExplosionSoundManager.LargeExplosionWindBackground,
+                                player,
+                                2.minutes,
+                                6.seconds
+                            )
+                        }
+                    }
+
+                }
+            }
+
+            withContext(Dispatchers.Default) {
+                for (player in center.world.players) {
+                    CustomBiomeHandler.setBiomeClientSide(
+                        player.uniqueId,
+                        center,
+                        BurningAirBiome,
+                        falloutRadius,
+                        20,
+                        falloutRadius,
+                        falloutRadius,
+                        falloutRadius,
+                        falloutRadius
+                    )
+                }
+            }
+
         }
+
     }
 
 }

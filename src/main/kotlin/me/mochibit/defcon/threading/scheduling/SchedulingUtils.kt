@@ -19,36 +19,72 @@
 
 package me.mochibit.defcon.threading.scheduling
 
+import com.github.shynixn.mccoroutine.bukkit.asyncDispatcher
+import com.github.shynixn.mccoroutine.bukkit.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import me.mochibit.defcon.Defcon
 import org.bukkit.scheduler.BukkitTask
 import java.io.Closeable
 import java.util.concurrent.Future
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 private val plugin = Defcon.instance
 
 fun <T> runSyncMethod(task: () -> T): Future<T> {
-   return plugin.server.scheduler.callSyncMethod(plugin, task)
-}
-
-fun runLater(delay: Long, task: () -> Unit): Closeable {
-    val handler = plugin.server.scheduler.runTaskLater(plugin, task, delay)
-    return Closeable { handler.cancel() }
-}
-
-fun interval(delay: Long, period: Long, task: () -> Unit): Closeable {
-    val handler = plugin.server.scheduler.runTaskTimer(plugin, task, delay, period)
-    return Closeable { handler.cancel() }
+    return plugin.server.scheduler.callSyncMethod(plugin, task)
 }
 
 fun intervalWithTask(delay: Long, period: Long, task: (BukkitTask) -> Unit) {
     plugin.server.scheduler.runTaskTimer(plugin, task, delay, period)
 }
 
-fun intervalAsync(delay: Long, period: Long, task: () -> Unit): Closeable {
-    val handler = plugin.server.scheduler.runTaskTimerAsynchronously(plugin, task, delay, period)
-    return Closeable { handler.cancel() }
-}
-
 fun intervalAsyncWithTask(delay: Long, period: Long, task: (BukkitTask) -> Unit) {
     plugin.server.scheduler.runTaskTimerAsynchronously(plugin, task, delay, period)
+}
+
+fun interval(period: Duration, delay: Duration = 0.seconds, task: suspend () -> Unit): Closeable {
+    val job = plugin.launch {
+        delay(delay)
+        while (isActive) {
+            task()
+            delay(period)
+        }
+    }
+    return Closeable { job.cancel() }
+}
+
+fun intervalAsync(
+    period: Duration, delay: Duration = 0.seconds ,task: suspend () -> Unit,
+): Closeable {
+    val job = plugin.launch(plugin.asyncDispatcher) {
+        delay(delay)
+        while (isActive) {
+            task()
+            delay(period)
+        }
+    }
+    return Closeable { job.cancel() }
+}
+
+fun runLater (
+    delay: Duration, task: suspend () -> Unit,
+): Closeable {
+    val job = plugin.launch {
+        delay(delay)
+        task()
+    }
+    return Closeable { job.cancel() }
+}
+
+fun runLaterAsync(
+    delay: Duration, task: suspend () -> Unit,
+): Closeable {
+    val job = plugin.launch(plugin.asyncDispatcher) {
+        delay(delay)
+        task()
+    }
+    return Closeable { job.cancel() }
 }

@@ -194,4 +194,11 @@ object Geometry {
     fun packIntegerCoordinates(x: Int, y: Int, z: Int): Long {
         return(x.toLong() and 0x1FFFFF) or ((y.toLong() and 0x1FFFFF) shl 21) or ((z.toLong() and 0x1FFFFF) shl 42)
     }
+
+    fun unpackIntegerCoordinates(packed: Long): Triple<Int, Int, Int> {
+        val x = (packed and 0x1FFFFF).toInt()
+        val y = ((packed shr 21) and 0x1FFFFF).toInt()
+        val z = ((packed shr 42) and 0x1FFFFF).toInt()
+        return Triple(x, y, z)
+    }
 }

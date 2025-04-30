@@ -1,13 +1,19 @@
 package me.mochibit.defcon.explosions.effects
 
+import com.github.shynixn.mccoroutine.bukkit.launch
 import io.ktor.utils.io.core.*
+import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.explosions.processor.RaycastedEffector
+import me.mochibit.defcon.extensions.toTicks
 import me.mochibit.defcon.threading.scheduling.intervalAsync
-import me.mochibit.defcon.threading.scheduling.runLater
 import org.bukkit.Location
 import org.bukkit.entity.Display
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
+import org.bukkit.event.EventHandler
+import org.bukkit.event.HandlerList
+import org.bukkit.event.Listener
+import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
 import org.joml.Matrix4f
@@ -15,9 +21,9 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.sqrt
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * BlindFlashEffect is a class that represents a visual effect of a flash
@@ -32,63 +38,108 @@ class BlindFlashEffect(
     center: Location,
     reach: Int,
     raycastHeight: Int = 100,
-    duration: Long = 10 * 20L,
+    duration: Duration,
     skyVisibilityRequired: Float = 0.3f
-) : RaycastedEffector(center, reach, raycastHeight, duration, skyVisibilityRequired) {
+) : RaycastedEffector(center, reach, raycastHeight, duration, skyVisibilityRequired), Listener {
 
-    // Use a specialized map for the text displays
-    private val playerDisplays = ConcurrentHashMap<UUID, MutableMap<CubeFace, ClientSideTextDisplay>>()
+    // Use a specialized map for the text displays - using weak values to prevent memory leaks
+    private val playerDisplays = ConcurrentHashMap<UUID, EnumMap<CubeFace, ClientSideTextDisplay>>()
 
     // Data for cube display effect
     private val textureScale = Vector3f(8f, 4f, 1f)
     private val cubeSize = 50f
-    private val transforms = mapOf(
-        CubeFace.BACK to Matrix4f() // Back
+    private val transforms = mutableMapOf<CubeFace, Matrix4f>()
+
+    // Register player quit listener for cleanup
+    private var isListenerRegistered = false
+
+    init {
+        // Pre-compute transforms once instead of recreating them every time
+        initializeTransforms()
+
+        // Register event listener for player disconnects
+        Defcon.instance.server.pluginManager.registerEvents(this, Defcon.instance)
+        isListenerRegistered = true
+    }
+
+    /**
+     * Initialize cube transforms once at startup
+     */
+    private fun initializeTransforms() {
+        transforms[CubeFace.BACK] = Matrix4f() // Back
             .rotate(Quaternionf())
             .scale(cubeSize, cubeSize, 1f)
             .translate(-.5f, -.5f, -cubeSize / 2)
             .translate(-0.1f + .5f, -.5f + .5f, 0f)
-            .scale(textureScale),
+            .scale(textureScale)
 
-        CubeFace.RIGHT to Matrix4f() // Right
+        transforms[CubeFace.RIGHT] = Matrix4f() // Right
             .rotate(Quaternionf().rotateY(Math.PI.toFloat() / 2 * 1))
             .scale(cubeSize, cubeSize, 1f)
             .translate(-.5f, -.5f, -cubeSize / 2)
             .translate(-0.1f + .5f, -.5f + .5f, 0f)
-            .scale(textureScale.x, textureScale.y, textureScale.x * cubeSize),
+            .scale(textureScale.x, textureScale.y, textureScale.x * cubeSize)
 
-        CubeFace.FRONT to Matrix4f() // Front
+        transforms[CubeFace.FRONT] = Matrix4f() // Front
             .rotate(Quaternionf().rotateY(Math.PI.toFloat() / 2 * 2))
             .scale(cubeSize, cubeSize, 1f)
             .translate(-.5f, -.5f, -cubeSize / 2)
             .translate(-0.1f + .5f, -.5f + .5f, 0f)
-            .scale(textureScale.x, textureScale.y, textureScale.x),
-        CubeFace.LEFT to Matrix4f() // Left
+            .scale(textureScale.x, textureScale.y, textureScale.x)
+
+        transforms[CubeFace.LEFT] = Matrix4f() // Left
             .rotate(Quaternionf().rotateY(Math.PI.toFloat() / 2 * 3))
             .scale(cubeSize, cubeSize, 1f)
             .translate(-.5f, -.5f, -cubeSize / 2)
             .translate(-0.1f + .5f, -.5f + .5f, 0f)
-            .scale(textureScale.x, textureScale.y, textureScale.x * cubeSize),
+            .scale(textureScale.x, textureScale.y, textureScale.x * cubeSize)
 
-        CubeFace.TOP to Matrix4f() // TOP
+        transforms[CubeFace.TOP] = Matrix4f() // TOP
             .rotate(Quaternionf().rotateX(Math.PI.toFloat() / 2))
             .scale(cubeSize, cubeSize, 1f)
             .translate(-.5f, -.5f, -cubeSize / 2)
             .translate(-0.1f + .5f, -.5f + .5f, 0f)
-            .scale(textureScale.x, textureScale.y, textureScale.y * cubeSize),
-        CubeFace.BOTTOM to Matrix4f() // BOTTOM
+            .scale(textureScale.x, textureScale.y, textureScale.y * cubeSize)
+
+        transforms[CubeFace.BOTTOM] = Matrix4f() // BOTTOM
             .rotate(Quaternionf().rotateX(-Math.PI.toFloat() / 2))
             .scale(cubeSize, cubeSize, 1f)
             .translate(-.5f, -.5f, -cubeSize / 2)
             .translate(-0.1f + .5f, -.5f + .5f, 0f)
             .scale(textureScale.x, textureScale.y, textureScale.y * cubeSize)
-    )
+    }
 
     /**
      * Enum for cube faces used in the close-range effect
      */
     private enum class CubeFace {
         FRONT, RIGHT, BACK, LEFT, TOP, BOTTOM;
+    }
+
+    /**
+     * Listen for player quit events to clean up any displays
+     */
+    @EventHandler
+    fun onPlayerQuit(event: PlayerQuitEvent) {
+        // Make sure we clean up displays when player disconnects
+        val player = event.player
+        cleanupDisplays(player.uniqueId)
+    }
+
+    /**
+     * Helper function to clean up displays for a player
+     */
+    private fun cleanupDisplays(playerUUID: UUID) {
+        // Clean up text displays safely
+        val displays = playerDisplays.remove(playerUUID)
+        displays?.values?.forEach {
+            try {
+                it.remove()
+            } catch (e: Exception) {
+                // Log exception but continue cleaning up
+                Defcon.instance.logger.warning("Error removing display for player $playerUUID: ${e.message}")
+            }
+        }
     }
 
     /**
@@ -106,9 +157,14 @@ class BlindFlashEffect(
     override fun applyEffect(entity: Entity, effectType: EffectType) {
         if (entity !is Player) return
 
+        // Check if player already has effect applied
+        if (affectedEntities.containsKey(entity.uniqueId)) {
+            return
+        }
+
         // Apply night vision effect with intensity based on distance
         if (!entity.hasPotionEffect(PotionEffectType.NIGHT_VISION)) {
-            runLater(1L) {
+            Defcon.instance.launch {
                 // Lower amplifier for distant effects
                 val amplifier = when (effectType) {
                     EffectType.CLOSE_RANGE -> 255
@@ -119,40 +175,32 @@ class BlindFlashEffect(
                 entity.addPotionEffect(
                     PotionEffect(
                         PotionEffectType.NIGHT_VISION,
-                        duration.toInt(),
+                        duration.toTicks().toInt(),
                         amplifier
                     )
                 )
             }
         }
 
-        val effectDurationMs = duration * 50 // Convert ticks to milliseconds
         val effectTask = createEffectTask(entity, effectType)
 
         // Store reference to effect task
         val effectData = EffectorData(
             effectTask,
             System.currentTimeMillis(),
-            effectDurationMs,
+            duration.inWholeMilliseconds,
             effectType
         )
 
         // Store effect data
         affectedEntities[entity.uniqueId] = effectData
-
-        // Initialize display map for this player
-        playerDisplays[entity.uniqueId] = EnumMap(CubeFace::class.java)
-
-        // Stop the effect after duration
-        runLater(duration) {
-            cleanup(entity)
-        }
     }
+
     /**
      * Creates the appropriate visual effect task based on distance and effect type
      */
     private fun createEffectTask(player: Player, initialEffectType: EffectType): Closeable {
-        return intervalAsync(0L, 2L) {
+        return intervalAsync(50.milliseconds) {
             // Skip if player left the world or game
             if (!player.isOnline || player.world != world) {
                 cleanup(player)
@@ -161,7 +209,6 @@ class BlindFlashEffect(
 
             val playerUUID = player.uniqueId
             val effectData = affectedEntities[playerUUID] ?: return@intervalAsync
-            val displays = playerDisplays[playerUUID] ?: EnumMap(CubeFace::class.java)
 
             // Calculate time-based parameters
             val elapsed = System.currentTimeMillis() - effectData.startTime
@@ -186,35 +233,55 @@ class BlindFlashEffect(
                 return@intervalAsync
             }
 
-
             val distanceSquared = player.location.distanceSquared(center)
             val currentEffectType = determineEffectType(distanceSquared)
 
             // Update effect type if changed (player moved closer/further)
             if (currentEffectType != effectData.currentEffectType) {
-                // Clean up previous effect visuals
-                displays.values.forEach { it.remove() }
-                displays.clear()
+                // Update the current effect type
                 effectData.currentEffectType = currentEffectType
             }
 
             // Update visuals based on current effect type
-            when (currentEffectType) {
-                EffectType.CLOSE_RANGE -> {
-                    // Close range: Use cubic text display with fading opacity
-                    updateCubeDisplayEffect(player, displays, smoothFadeFactor)
-                }
-                EffectType.MID_RANGE -> {
-                    // Mid range: Use particles with perspective and moderate count
-                    updateMidRangeEffect(player, distanceSquared, smoothFadeFactor)
-                }
-                EffectType.FAR_RANGE -> {
-                    // Far range: Distant flash effect
-                    if (isPlayerInOpenAir(player)) {
-                        updateFarRangeEffect(player, distanceSquared, smoothFadeFactor)
+            try {
+                when (currentEffectType) {
+                    EffectType.CLOSE_RANGE -> {
+                        // Close range: Use cubic text display with fading opacity
+                        updateCubeDisplayEffect(player, smoothFadeFactor)
+                    }
+                    EffectType.MID_RANGE -> {
+                        // Clean up any existing displays since we're switching to particles
+                        cleanupDisplaysIfExists(playerUUID)
+
+                        // Mid range: Use particles with perspective and moderate count
+                        updateMidRangeEffect(player, distanceSquared, smoothFadeFactor)
+                    }
+                    EffectType.FAR_RANGE -> {
+                        // Clean up any existing displays since we're switching to particles
+                        cleanupDisplaysIfExists(playerUUID)
+
+                        // Far range: Distant flash effect
+                        if (isPlayerInOpenAir(player)) {
+                            updateFarRangeEffect(player, distanceSquared, smoothFadeFactor)
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                // Log error but continue execution
+                Defcon.instance.logger.warning("Error updating flash effect: ${e.message}")
+                cleanup(player)
             }
+        }
+    }
+
+    /**
+     * Helper method to clean up displays if they exist
+     */
+    private fun cleanupDisplaysIfExists(playerUUID: UUID) {
+        val displays = playerDisplays[playerUUID]
+        if (displays != null) {
+            displays.values.forEach { it.remove() }
+            playerDisplays.remove(playerUUID)
         }
     }
 
@@ -222,15 +289,28 @@ class BlindFlashEffect(
      * Updates the cube display effect with 6 faces surrounding the player, properly oriented
      * @param fadeFactor Factor from 1.0 (full effect) to 0.0 (no effect)
      */
-    private fun updateCubeDisplayEffect(player: Player, displays: MutableMap<CubeFace, ClientSideTextDisplay>, fadeFactor: Float) {
+    private fun updateCubeDisplayEffect(
+        player: Player,
+        fadeFactor: Float
+    ) {
+        val playerUUID = player.uniqueId
+
         // Create display faces if they don't exist
+        val displays = playerDisplays.computeIfAbsent(playerUUID) {
+            EnumMap(CubeFace::class.java)
+        }
+
+        // Create displays if they don't exist
         if (displays.isEmpty()) {
-            CubeFace.entries.forEach { face ->
+            for (face in CubeFace.entries) {
                 val textDisplay = ClientSideTextDisplay(player)
-                textDisplay.setBillboard(Display.Billboard.FIXED)
-                textDisplay.summon()
-                textDisplay.setInterpolationDuration(5)
                 displays[face] = textDisplay
+                textDisplay.setBillboard(Display.Billboard.FIXED)
+                textDisplay.setInterpolationDuration(5)
+                textDisplay.summon()
+
+                // Apply the pre-computed transform
+                transforms[face]?.let { textDisplay.applyTransform(it) }
             }
         }
 
@@ -241,13 +321,9 @@ class BlindFlashEffect(
         val eyeLoc = player.location
 
         // Update each face's position and rotation
-        CubeFace.entries.forEach { face ->
-            val display = displays[face] ?: return@forEach
-
-            // Apply rotation
-            display.applyTransform(transforms[face] ?: return@forEach)
-
-            // Update position and opacity
+        for (face in CubeFace.entries) {
+            val display = displays[face] ?: continue
+            // Update position, rotation and opacity
             display.teleport(eyeLoc)
             display.setOpacity(opacityValue)
         }
@@ -349,12 +425,29 @@ class BlindFlashEffect(
     override fun cleanup(entity: Entity) {
         // Clean up text displays if it's a player
         if (entity is Player) {
-            val playerUUID = entity.uniqueId
-            val displays = playerDisplays.remove(playerUUID)
-            displays?.values?.forEach { it.remove() }
+            cleanupDisplays(entity.uniqueId)
         }
 
         // Perform the standard cleanup
         super.cleanup(entity)
+    }
+
+    /**
+     * Ensure proper cleanup of all resources when the effect is stopped
+     */
+    override fun stop() {
+        super.stop()
+
+        // Clean up ALL remaining displays
+        playerDisplays.keys.forEach { playerUUID ->
+            cleanupDisplays(playerUUID)
+        }
+        playerDisplays.clear()
+
+        // Unregister listener to prevent memory leaks
+        if (isListenerRegistered) {
+            HandlerList.unregisterAll(this)
+            isListenerRegistered = false
+        }
     }
 }

@@ -99,6 +99,19 @@ class ChunkCache private constructor(
         }
     }
 
+     fun preloadChunks(chunkKeys: Set<Long>) {
+        // Implementation would depend on ChunkCache's internals
+        // This is a placeholder for where you'd add chunk preloading logic
+        chunkKeys.forEach { key ->
+            val chunkX = (key shr 32).toInt()
+            val chunkZ = key.toInt()
+            val chunkKey = chunkX to chunkZ
+            if (localCache.containsKey(chunkKey)) {
+                return@forEach
+            }
+            getChunkSnapshot(chunkX, chunkZ)
+        }
+    }
     fun highestBlockYAt(x: Int, z: Int): Int {
         return getChunkSnapshot(x, z).getHighestBlockYAt(x and 15, z and 15)
     }

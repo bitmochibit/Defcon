@@ -1,39 +1,18 @@
-/*
- *
- * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2025 mochibit.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package me.mochibit.defcon.utils
 
+import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import me.mochibit.defcon.Defcon
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.block.Biome
 import org.bukkit.block.Block
 import org.bukkit.block.data.*
-import org.bukkit.scheduler.BukkitTask
 import org.joml.Vector3i
-import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.math.max
-import kotlin.math.min
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Lightweight block change representation
@@ -46,427 +25,248 @@ data class BlockChange(
     val copyBlockData: Boolean = false,
     val updateBlock: Boolean = false,
     val newBiome: Biome? = null,
-)
-
-/**
- * Worker responsible for processing a queue of block changes
- */
-class BlockChangeWorker(
-    private val world: World,
-    private val queue: ConcurrentLinkedQueue<BlockChange>,
-    private val queueSize: AtomicInteger,
-    private val blocksPerTick: Int,
-    private val tickInterval: Long,
-    private val plugin: Defcon
 ) {
-    private var task: BukkitTask? = null
-    private var running = false
-    private val totalProcessed = AtomicInteger(0)
-    private val chunkCache = ChunkCache.getInstance(world)
-    private val stateLock = ReentrantLock()
-    private var pauseThreshold = 100 // Auto-pause if server TPS drops
-    private var autoRestartDelay = 60L // Ticks to wait before auto-restart
-    private var consecutiveEmptyTicks = 0
-    private val maxConsecutiveEmptyTicks = 5 // Stop after this many empty tick
+    // Add chunk coordinates for faster access
+    private val chunkX: Int = x shr 4
+    private val chunkZ: Int = z shr 4
 
-    val isRunning get() = running
-
-    /**
-     * Start processing the queue
-     */
-    fun start() {
-        stateLock.lock()
-        try {
-            if (running) return
-            running = true
-            consecutiveEmptyTicks = 0
-
-            task = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
-                val serverTPS = getServerTPS()
-                val currentQueueSize = queueSize.get()
-
-                // Auto-pause if server is struggling
-                if (serverTPS < 16.0 && currentQueueSize > pauseThreshold) {
-                    pauseProcessing()
-                    // Schedule restart after delay
-                    plugin.server.scheduler.runTaskLater(plugin, Runnable {
-                        if (!running && queueSize.get() > 0) {
-                            resumeProcessing()
-                        }
-                    }, autoRestartDelay)
-                    return@Runnable
-                }
-
-                var processedCount = 0
-                val maxToProcess = calculateDynamicBlocksPerTick(serverTPS, blocksPerTick)
-
-                // Process blocks with adaptive rate based on server performance
-                while (processedCount < maxToProcess && !queue.isEmpty()) {
-                    val blockChange = queue.poll() ?: break
-                    try {
-                        applyBlockChange(blockChange)
-                        queueSize.decrementAndGet()
-                        processedCount++
-                    } catch (e: Exception) {
-                        plugin.logger.warning("Error processing block change at (${blockChange.x}, ${blockChange.y}, ${blockChange.z}): ${e.message}")
-                    }
-                }
-
-                totalProcessed.addAndGet(processedCount)
-
-                // Handle queue empty case
-                if (queue.isEmpty()) {
-                    consecutiveEmptyTicks++
-                    if (consecutiveEmptyTicks >= maxConsecutiveEmptyTicks) {
-                        stop()
-                    }
-                } else {
-                    consecutiveEmptyTicks = 0
-                }
-            }, tickInterval, tickInterval)
-        } finally {
-            stateLock.unlock()
-        }
-    }
-
-    /**
-     * Stop processing
-     */
-    fun stop() {
-        stateLock.lock()
-        try {
-            if (!running) return
-            running = false
-            task?.cancel()
-            task = null
-        } finally {
-            stateLock.unlock()
-        }
-    }
-
-    /**
-     * Pause processing temporarily
-     */
-    private fun pauseProcessing() {
-        stateLock.lock()
-        try {
-            if (!running) return
-            running = false
-            task?.cancel()
-            task = null
-        } finally {
-            stateLock.unlock()
-        }
-    }
-
-    /**
-     * Resume processing after pause
-     */
-    private fun resumeProcessing() {
-        start()
-    }
-
-    /**
-     * Get server TPS (Transactions Per Second)
-     */
-    private fun getServerTPS(): Double {
-        return 20.0
-    }
-
-    /**
-     * Calculate dynamic blocks per tick based on server performance
-     */
-    private fun calculateDynamicBlocksPerTick(serverTPS: Double, baseBlocksPerTick: Int): Int {
-        return when {
-            serverTPS > 19.5 -> (baseBlocksPerTick * 1.25).toInt() // Server running well, process more
-            serverTPS > 18.0 -> baseBlocksPerTick                  // Normal rate
-            serverTPS > 16.0 -> (baseBlocksPerTick * 0.75).toInt() // Server struggling a bit, slow down
-            serverTPS > 14.0 -> (baseBlocksPerTick * 0.5).toInt()  // Server under load, slow down more
-            else -> (baseBlocksPerTick * 0.25).toInt()             // Server struggling significantly
-        }.coerceAtLeast(10) // Always process at least 10 blocks
-    }
-
-    /**
-     * Apply a block change efficiently
-     */
-    private fun applyBlockChange(change: BlockChange) {
-        // Skip if block is already the target material
-        if (chunkCache.getBlockMaterial(change.x, change.y, change.z) == change.newMaterial) return
-
-        // Capture block data before changing material if needed
-        val block: Block = world.getBlockAt(change.x, change.y, change.z)
-        val oldBlockData = if (change.copyBlockData) block.blockData else null
-
-        // Apply material change
-        change.newMaterial?.let { block.setType(it, change.updateBlock) }
-
-        // Apply block data if needed
-        if (change.copyBlockData && oldBlockData != null) {
-            try {
-                val newBlockData = block.blockData
-                copyRelevantBlockData(oldBlockData, newBlockData)
-                block.setBlockData(newBlockData, false)
-            } catch (e: Exception) {
-                // Log but continue processing
-                plugin.logger.fine("Failed to copy block data at (${change.x}, ${change.y}, ${change.z}): ${e.message}")
-            }
-        }
-
-        change.newBiome?.let {
-            world.setBiome(change.x, change.y, change.z, it)
-        }
-    }
-
-
-    /**
-     * Copy only the relevant block data properties
-     */
-    private fun copyRelevantBlockData(oldBlockData: BlockData, newBlockData: BlockData) {
-        // Only copy properties that exist in both block data types
-        try {
-            if (oldBlockData is Directional && newBlockData is Directional) {
-                newBlockData.facing = oldBlockData.facing
-            }
-            if (oldBlockData is Rail && newBlockData is Rail) {
-                newBlockData.shape = oldBlockData.shape
-            }
-            if (oldBlockData is Bisected && newBlockData is Bisected) {
-                newBlockData.half = oldBlockData.half
-            }
-            if (oldBlockData is Orientable && newBlockData is Orientable) {
-                newBlockData.axis = oldBlockData.axis
-            }
-            if (oldBlockData is Rotatable && newBlockData is Rotatable) {
-                newBlockData.rotation = oldBlockData.rotation
-            }
-            if (oldBlockData is Snowable && newBlockData is Snowable) {
-                newBlockData.isSnowy = oldBlockData.isSnowy
-            }
-            if (oldBlockData is Waterlogged && newBlockData is Waterlogged) {
-                newBlockData.isWaterlogged = oldBlockData.isWaterlogged
-            }
-            // Additional block data types
-            if (oldBlockData is Openable && newBlockData is Openable) {
-                newBlockData.isOpen = oldBlockData.isOpen
-            }
-            if (oldBlockData is Powerable && newBlockData is Powerable) {
-                newBlockData.isPowered = oldBlockData.isPowered
-            }
-            if (oldBlockData is Ageable && newBlockData is Ageable) {
-                newBlockData.age = oldBlockData.age.coerceAtMost(newBlockData.maximumAge)
-            }
-        } catch (e: Exception) {
-            // Silently catch exceptions from incompatible properties
-        }
-    }
-
-    /**
-     * Configure worker parameters
-     */
-    fun configure(newBlocksPerTick: Int, newPauseThreshold: Int, newAutoRestartDelay: Long) {
-        this.pauseThreshold = newPauseThreshold
-        this.autoRestartDelay = newAutoRestartDelay
-    }
+    // Generate chunk key directly
+    val chunkKey: Long = (chunkX.toLong() shl 32) or (chunkZ.toLong() and 0xFFFFFFFFL)
 }
 
 /**
- * Optimized BlockChanger that manages block changes for a specific world
+ * Optimized BlockChanger using Kotlin Channels and Coroutines for efficient processing
  */
-class BlockChanger(private val world: World) {
-    // Worker pool configuration
-    private var workerCount = max(1, Runtime.getRuntime().availableProcessors() / 2)
-    private var blocksPerWorkerTick = 500
-    private var tickInterval = 1L
-    private var pauseThreshold = 10000
-    private var autoRestartDelay = 60L
-    private val priorityQueue = ConcurrentLinkedQueue<BlockChange>()
-    private val priorityQueueSize = AtomicInteger(0)
+class BlockChanger private constructor(
+    private val world: World,
+) {
+    private val plugin = Defcon.instance
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    // Worker pool and distribution
-    private val workers = ArrayList<BlockChangeWorker>()
-    private val queues = ArrayList<ConcurrentLinkedQueue<BlockChange>>()
-    private val queueSizes = ArrayList<AtomicInteger>()
-    private val configLock = ReentrantLock()
-    private var taskLoadBalancer: BukkitTask? = null
+    // Configuration properties with more aggressive defaults
+    private var blocksPerBatch = 25000 * 5
+    private var processingInterval = 0L
+    private var maxQueueSize = 500000
+    private var chunkBatchSize = 1000
+    private var workerCount = 16
 
-    private var nextWorkerIndex = 0
-    private val workerUsageStats = ArrayList<Double>() // Track worker efficiency
+    // Stats tracking
+    private val totalProcessed = AtomicLong(0)
+    private val processingActive = AtomicBoolean(false)
+    private val currentQueueSize = AtomicLong(0)
+
+    // Cache reference
+    private val chunkCache = ChunkCache.getInstance(world)
+
+    // Single shared channel for all workers
+    private lateinit var blockChannel: Channel<BlockChange>
+    private var processingJobs = mutableListOf<Job>()
 
     init {
-        initializeWorkers()
-        startLoadBalancer()
+        initializeChannel()
+        startProcessing()
     }
 
     /**
-     * Singleton pattern implementation
+     * Initialize the channel system
      */
-    companion object {
-        private val instances = ConcurrentHashMap<String, BlockChanger>()
-        private val instanceLock = ReentrantLock()
+    private fun initializeChannel() {
+        // Create a single buffered channel with high capacity
+        blockChannel = Channel(maxQueueSize)
+    }
 
-        /**
-         * Get or create a BlockChanger instance for the specified world
-         */
-        @JvmStatic
-        fun getInstance(world: World): BlockChanger {
-            val worldName = world.name
-            var instance = instances[worldName]
+    /**
+     * Start processing block changes with multiple workers
+     */
+    private fun startProcessing() {
+        if (!processingActive.compareAndSet(false, true)) return
 
-            if (instance == null) {
-                instanceLock.lock()
-                try {
-                    // Double-check after acquiring lock
-                    instance = instances[worldName]
-                    if (instance == null) {
-                        instance = BlockChanger(world)
-                        instances[worldName] = instance
-                    }
-                } finally {
-                    instanceLock.unlock()
-                }
+        processingJobs.clear()
+
+        // Launch multiple workers that share the same channel
+        repeat(workerCount) { workerId ->
+            val job = scope.launch {
+                processBlocks(workerId)
             }
-
-            return instance!!
+            processingJobs.add(job)
         }
+    }
 
-        /**
-         * Cleanup all instances - call this on plugin disable
-         */
-        @JvmStatic
-        fun shutdownAll() {
-            instanceLock.lock()
+    /**
+     * Process blocks from the shared channel
+     */
+    private suspend fun processBlocks(workerId: Int) {
+        // Reusable collections to minimize allocations
+        val chunksToProcess = HashMap<Long, MutableList<BlockChange>>(64)
+
+        while (true) {
             try {
-                for (instance in instances.values) {
-                    instance.stopAll()
+                // Clear previous batch data
+                chunksToProcess.clear()
+
+                // Collect a batch of changes from the channel
+                var batchSize = 0
+                val targetBatchSize = blocksPerBatch / workerCount
+
+                // Fast collection loop with yield for cooperative behavior
+                while (batchSize < targetBatchSize) {
+                    val change = blockChannel.tryReceive().getOrNull() ?: break
+                    chunksToProcess.getOrPut(change.chunkKey) { ArrayList(64) }.add(change)
+                    batchSize++
+                    currentQueueSize.decrementAndGet()
+
+                    // Periodically yield to allow other coroutines to run
+                    if (batchSize % 5000 == 0) yield()
                 }
-                instances.clear()
-            } finally {
-                instanceLock.unlock()
-            }
-        }
-    }
 
-    /**
-     * Initialize workers based on current configuration
-     */
-    private fun initializeWorkers() {
-        configLock.lock()
-        try {
-            // Clean up existing workers if any
-            stopAll()
-            workers.clear()
-            queues.clear()
-            queueSizes.clear()
-            workerUsageStats.clear()
+                if (chunksToProcess.isEmpty()) {
+                    // If nothing in immediate queue, do a suspending receive
+                    val change = blockChannel.receiveCatching().getOrNull() ?: continue
+                    chunksToProcess.getOrPut(change.chunkKey) { ArrayList(64) }.add(change)
+                    currentQueueSize.decrementAndGet()
+                }
 
-            // Create new workers
-            for (i in 0 until workerCount) {
-                val queue = ConcurrentLinkedQueue<BlockChange>()
-                val queueSize = AtomicInteger(0)
-                queues.add(queue)
-                queueSizes.add(queueSize)
-                workerUsageStats.add(0.0)
+                // Process chunks more aggressively
+                val chunkEntries = chunksToProcess.entries.take(chunkBatchSize)
 
-                val worker = BlockChangeWorker(
-                    world,
-                    queue,
-                    queueSize,
-                    blocksPerWorkerTick,
-                    tickInterval,
-                    Defcon.instance
-                )
-                worker.configure(blocksPerWorkerTick, pauseThreshold, autoRestartDelay)
-                workers.add(worker)
-            }
-        } finally {
-            configLock.unlock()
-        }
-    }
-
-    fun stopAll() {
-        configLock.lock()
-        try {
-            // Stop all workers first
-            for (worker in workers) {
-                worker.stop()
-            }
-
-            // Cancel load balancer task
-            taskLoadBalancer?.cancel()
-            taskLoadBalancer = null
-
-            // Clear any remaining queues
-            if (queues.isNotEmpty()) {
-                for (i in 0 until queues.size) {
-                    // Don't lose track of pending changes
-                    val remainingChanges = queues[i].size
-                    if (remainingChanges > 0) {
-                        priorityQueue.addAll(queues[i])
-                        priorityQueueSize.addAndGet(remainingChanges)
+                // Process all collected chunks on the main thread in one batch
+                withContext(plugin.minecraftDispatcher) {
+                    for ((_, chunkChanges) in chunkEntries) {
+                        // Process all changes for this chunk
+                        for (change in chunkChanges) {
+                            applyBlockChange(change)
+                        }
+                        totalProcessed.addAndGet(chunkChanges.size.toLong())
                     }
-                    queues[i].clear()
-                    queueSizes[i].set(0)
+                }
+
+                // Dynamic delay based on system load
+                if (currentQueueSize.get() < maxQueueSize / 20) {
+                    if (processingInterval > 0) delay(processingInterval)
+                    else yield() // Just yield when processing interval is 0
+                }
+
+            } catch (e: CancellationException) {
+                break
+            } catch (e: Exception) {
+                if (plugin.config.getBoolean("debug", false)) {
+                    plugin.logger.warning("Error processing blocks in worker $workerId: ${e.message}")
+                }
+                yield() // Just yield on error to continue processing
+            }
+        }
+    }
+
+    /**
+     * Apply a single block change efficiently
+     */
+    private fun applyBlockChange(change: BlockChange) {
+        try {
+            // Skip if block is already the target material (fast path using cache)
+            if (change.newMaterial != null &&
+                chunkCache.getBlockMaterial(change.x, change.y, change.z) == change.newMaterial
+            ) {
+                return
+            }
+
+            // Get block and apply changes
+            val block = world.getBlockAt(change.x, change.y, change.z)
+
+            // Capture block data before changing material if needed
+            val oldBlockData = if (change.copyBlockData) block.blockData else null
+
+            // Apply material change
+            change.newMaterial?.let {
+                block.setType(it, change.updateBlock)
+            }
+
+            // Apply block data if needed
+            if (change.copyBlockData && oldBlockData != null && change.newMaterial != null) {
+                try {
+                    val newBlockData = block.blockData
+                    copyRelevantBlockData(oldBlockData, newBlockData)
+                    block.setBlockData(newBlockData, false)
+                } catch (e: Exception) {
+                    // Silent catch for better performance
                 }
             }
-        } finally {
-            configLock.unlock()
-        }
-    }
 
-    /**
-     * Find the queue with the least number of pending changes
-     * and update usage stats for adaptive balancing
-     */
-    private fun findBestWorkerIndex(): Int {
-        var bestIndex = 0
-        var minSize = Int.MAX_VALUE
-        var totalWork = 0
-
-        for (i in 0 until workerCount) {
-            val size = queueSizes[i].get()
-            totalWork += size
-
-            // We also consider worker historical efficiency in our calculation
-            val adjustedSize = (size * (1.0 + workerUsageStats[i] * 0.2)).toInt()
-
-            if (adjustedSize < minSize) {
-                bestIndex = i
-                minSize = adjustedSize
+            // Apply biome change if requested
+            change.newBiome?.let {
+                world.setBiome(change.x, change.y, change.z, it)
             }
+        } catch (e: Exception) {
+            // Silent catch for resilience against world/chunk unload scenarios
         }
+    }
 
-        // Update worker usage statistics (simple exponential moving average)
-        if (totalWork > 0) {
-            for (i in 0 until workerCount) {
-                val currentRatio = queueSizes[i].get().toDouble() / totalWork
-                workerUsageStats[i] = workerUsageStats[i] * 0.8 + currentRatio * 0.2
+    /**
+     * Copy only the relevant block data properties with memory-efficient implementation
+     */
+    private fun copyRelevantBlockData(oldBlockData: BlockData, newBlockData: BlockData) {
+        try {
+            // Only copy properties that exist in both block data types
+            // Use more type checking to avoid unnecessary casts
+            if (oldBlockData is Directional && newBlockData is Directional) {
+                try {
+                    newBlockData.facing = oldBlockData.facing
+                } catch (e: Exception) {
+                }
             }
-        }
+            if (oldBlockData is Bisected && newBlockData is Bisected) {
+                try {
+                    newBlockData.half = oldBlockData.half
+                } catch (e: Exception) {
+                }
+            }
+            if (oldBlockData is Orientable && newBlockData is Orientable) {
+                try {
+                    newBlockData.axis = oldBlockData.axis
+                } catch (e: Exception) {
+                }
+            }
+            if (oldBlockData is Rotatable && newBlockData is Rotatable) {
+                try {
+                    newBlockData.rotation = oldBlockData.rotation
+                } catch (e: Exception) {
+                }
+            }
 
-        return bestIndex
+            // Only check boolean properties if we need to change them (avoid extra calls)
+            if (oldBlockData is Waterlogged && newBlockData is Waterlogged && oldBlockData.isWaterlogged) {
+                newBlockData.isWaterlogged = true
+            }
+            if (oldBlockData is Snowable && newBlockData is Snowable && oldBlockData.isSnowy) {
+                newBlockData.isSnowy = true
+            }
+            if (oldBlockData is Openable && newBlockData is Openable && oldBlockData.isOpen) {
+                newBlockData.isOpen = true
+            }
+            if (oldBlockData is Powerable && newBlockData is Powerable && oldBlockData.isPowered) {
+                newBlockData.isPowered = true
+            }
+
+            // Rail is expensive to check, only do it if both are rails
+            if (oldBlockData is Rail && newBlockData is Rail) {
+                try {
+                    newBlockData.shape = oldBlockData.shape
+                } catch (_: Exception) { }
+            }
+
+            // Age is expensive due to coercing, do last
+            if (oldBlockData is Ageable && newBlockData is Ageable) {
+                val targetAge = oldBlockData.age.coerceAtMost(newBlockData.maximumAge)
+                if (targetAge > 0) { // Skip if age is 0 (default)
+                    newBlockData.age = targetAge
+                }
+            }
+        } catch (_: Exception) { }
     }
 
     /**
-     * Improved worker selection for batch operations
-     * Uses a combination of round-robin and least-loaded strategies
+     * Add a block change using x, y, z coordinates - suspending for backpressure
      */
-    private fun getNextWorkerIndex(): Int {
-        // For every 4th selection, use the least loaded worker instead of round-robin
-        return if (nextWorkerIndex % 4 == 0) {
-            val index = findBestWorkerIndex()
-            nextWorkerIndex++
-            index
-        } else {
-            val index = (nextWorkerIndex++) % workerCount
-            if (nextWorkerIndex >= workerCount * 2) nextWorkerIndex = 0
-            index
-        }
-    }
-
-    /**
-     * Add a block change using x, y, z coordinates
-     */
-    fun addBlockChange(
+    suspend fun addBlockChange(
         x: Int,
         y: Int,
         z: Int,
@@ -475,23 +275,22 @@ class BlockChanger(private val world: World) {
         updateBlock: Boolean = false,
         newBiome: Biome? = null
     ) {
-        val workerIndex = findBestWorkerIndex()
-        val queue = queues[workerIndex]
-        val queueSize = queueSizes[workerIndex]
+        val change = BlockChange(x, y, z, newMaterial, copyBlockData, updateBlock, newBiome)
 
-        queue.add(BlockChange(x, y, z, newMaterial, copyBlockData, updateBlock, newBiome))
-        queueSize.incrementAndGet()
+        // Send to channel - will suspend if channel is full (built-in backpressure)
+        blockChannel.send(change)
+        currentQueueSize.incrementAndGet()
 
-        // Start worker if not already running
-        val worker = workers[workerIndex]
-        if (!worker.isRunning)
-            worker.start()
+        // Ensure processing is active
+        if (!processingActive.get()) {
+            startProcessing()
+        }
     }
 
     /**
      * Add a block change using Block object
      */
-    fun addBlockChange(
+    suspend fun addBlockChange(
         block: Block,
         newMaterial: Material,
         copyBlockData: Boolean = false,
@@ -509,12 +308,15 @@ class BlockChanger(private val world: World) {
         )
     }
 
-    fun addBlockChange(
+    /**
+     * Add a block change using Vector3i object
+     */
+    suspend fun addBlockChange(
         pos: Vector3i,
         newMaterial: Material,
         copyBlockData: Boolean = false,
         updateBlock: Boolean = false,
-        newBiome: Biome?
+        newBiome: Biome? = null
     ) {
         addBlockChange(
             pos.x,
@@ -527,7 +329,10 @@ class BlockChanger(private val world: World) {
         )
     }
 
-    fun changeBiome(
+    /**
+     * Change only the biome at a location
+     */
+    suspend fun changeBiome(
         x: Int,
         y: Int,
         z: Int,
@@ -540,241 +345,166 @@ class BlockChanger(private val world: World) {
             newMaterial = null,
             copyBlockData = false,
             updateBlock = false,
-            newBiome
+            newBiome = newBiome
         )
     }
 
     /**
-     * Bulk add block changes - more efficient for large operations
-     * Now with smarter distribution based on change locality
+     * Bulk add block changes - optimized with larger batches
      */
-    fun addBlockChanges(changes: Collection<BlockChange>) {
+    suspend fun addBlockChanges(changes: Collection<BlockChange>) {
         if (changes.isEmpty()) return
 
-        // For small batches, distribute evenly
-        if (changes.size < 100) {
-            val workerIndex = getNextWorkerIndex()
-            val queue = queues[workerIndex]
-            val queueSize = queueSizes[workerIndex]
+        val batchSize = 20000
 
-            queue.addAll(changes)
-            queueSize.addAndGet(changes.size)
+        for (batch in changes.chunked(batchSize)) {
+            // Submit batch through the channel with counter updates
+            for (change in batch) {
+                blockChannel.send(change)
+                currentQueueSize.incrementAndGet()
+            }
 
-            // Start worker if not already running
-            val worker = workers[workerIndex]
-            if (!worker.isRunning)
-                worker.start()
-            return
+            // Brief yield after each batch
+            if (batch.size == batchSize) {
+                yield()
+            }
         }
 
-        // For large batches, distribute based on spatial locality when possible
-        // This improves chunk loading/caching efficiency
-        try {
-            // Group by chunk coordinates (simple division by 16)
-            val changesByChunk = changes.groupBy { Triple(it.x shr 4, it.y shr 4, it.z shr 4) }
-
-            // Distribute chunks across workers
-            val chunkBatches = changesByChunk.values.chunked(max(1, changesByChunk.size / workerCount))
-
-            for (chunkGroup in chunkBatches) {
-                val workerIndex = getNextWorkerIndex()
-                val queue = queues[workerIndex]
-                val queueSize = queueSizes[workerIndex]
-                val batchSize = chunkGroup.sumOf { it.size }
-
-                for (chunk in chunkGroup) {
-                    queue.addAll(chunk)
-                }
-                queueSize.addAndGet(batchSize)
-
-                // Start worker if not already running
-                val worker = workers[workerIndex]
-                if (!worker.isRunning)
-                    worker.start()
-            }
-        } catch (e: Exception) {
-            // Fallback to simple distribution if spatial grouping fails
-            val changesPerWorker = changes.size / workerCount + 1
-            val batches = changes.chunked(changesPerWorker)
-
-            for (batch in batches) {
-                val workerIndex = getNextWorkerIndex()
-                val queue = queues[workerIndex]
-                val queueSize = queueSizes[workerIndex]
-
-                queue.addAll(batch)
-                queueSize.addAndGet(batch.size)
-
-                // Start worker if not already running
-                val worker = workers[workerIndex]
-                if (!worker.isRunning)
-                    worker.start()
-            }
+        // Ensure processing is active
+        if (!processingActive.get()) {
+            startProcessing()
         }
     }
 
     /**
-     * Start the load balancer that periodically rebalances work across workers
+     * Non-suspending version for use in synchronous contexts
      */
-    private fun startLoadBalancer() {
-        taskLoadBalancer = Defcon.instance.server.scheduler.runTaskTimer(
-            Defcon.instance,
-            Runnable { rebalanceQueues() },
-            100L, // Initial delay
-            200L  // Run every 10 seconds (200 ticks)
-        )
-    }
+    fun addBlockChangeSync(
+        x: Int,
+        y: Int,
+        z: Int,
+        newMaterial: Material?,
+        copyBlockData: Boolean = false,
+        updateBlock: Boolean = false,
+        newBiome: Biome? = null
+    ): Boolean {
+        val change = BlockChange(x, y, z, newMaterial, copyBlockData, updateBlock, newBiome)
 
-    /**
-     * Rebalance the queues to ensure even distribution of work
-     * More efficient implementation with better thresholds
-     */
-    private fun rebalanceQueues() {
-        configLock.lock()
-        try {
-            if (workers.isEmpty()) return
+        // Try to add with non-blocking approach
+        val added = blockChannel.trySend(change).isSuccess
 
-            // Calculate total and average work
-            var totalWork = 0
-            var maxWork = 0
-            var minWork = Int.MAX_VALUE
+        if (added) {
+            currentQueueSize.incrementAndGet()
 
-            for (size in queueSizes) {
-                val work = size.get()
-                totalWork += work
-                maxWork = max(maxWork, work)
-                minWork = min(minWork, work)
+            // Ensure processing is active
+            if (!processingActive.get()) {
+                scope.launch { startProcessing() }
             }
-
-            // Only rebalance if there's significant imbalance
-            if (totalWork < 200 || maxWork - minWork < 150) return
-
-            val targetPerWorker = totalWork / workerCount
-
-            // Find workers with too much work and those with too little
-            val workersWithExcess = mutableListOf<Pair<Int, Int>>() // Pair<Index, ExcessWork>
-            val workersWithCapacity = mutableListOf<Pair<Int, Int>>() // Pair<Index, AvailableCapacity>
-
-            for (i in 0 until workerCount) {
-                val currentWork = queueSizes[i].get()
-                val difference = currentWork - targetPerWorker
-
-                if (difference > 100) { // Only redistribute significant imbalances
-                    workersWithExcess.add(Pair(i, difference))
-                } else if (difference < -100) {
-                    workersWithCapacity.add(Pair(i, -difference))
-                }
-            }
-
-            // Sort by most excess and most capacity
-            workersWithExcess.sortByDescending { it.second }
-            workersWithCapacity.sortByDescending { it.second }
-
-            // Redistribute work
-            for ((excessWorkerIdx, excess) in workersWithExcess) {
-                if (workersWithCapacity.isEmpty()) break
-
-                val (capacityWorkerIdx, capacity) = workersWithCapacity.removeAt(0)
-                val toRedistribute = min(excess / 2, capacity) // Take half of excess, up to capacity
-
-                if (toRedistribute < 50) continue // Don't bother with small redistributions
-
-                // Move blocks between queues
-                val sourceQueue = queues[excessWorkerIdx]
-                val targetQueue = queues[capacityWorkerIdx]
-                val sourceSizeCounter = queueSizes[excessWorkerIdx]
-                val targetSizeCounter = queueSizes[capacityWorkerIdx]
-
-                val transferred = transferBlocks(sourceQueue, targetQueue, toRedistribute)
-                if (transferred > 0) {
-                    sourceSizeCounter.addAndGet(-transferred)
-                    targetSizeCounter.addAndGet(transferred)
-                }
-            }
-        } finally {
-            configLock.unlock()
-        }
-    }
-
-    /**
-     * Transfer a specific number of block changes from one queue to another
-     */
-    private fun transferBlocks(
-        sourceQueue: ConcurrentLinkedQueue<BlockChange>,
-        targetQueue: ConcurrentLinkedQueue<BlockChange>,
-        count: Int
-    ): Int {
-        var transferred = 0
-        val tempList = ArrayList<BlockChange>(count)
-
-        // Get blocks from source queue in batch
-        repeat(count) {
-            val change = sourceQueue.poll() ?: return transferred
-            tempList.add(change)
-            transferred++
         }
 
-        // Add to target queue in bulk
-        targetQueue.addAll(tempList)
-        return transferred
+        return added
     }
 
     /**
-     * Configure worker parameters
+     * Configure block changer parameters
      */
     fun configure(
+        newBlocksPerBatch: Int? = null,
+        newProcessingInterval: Long? = null,
+        newMaxQueueSize: Int? = null,
         newWorkerCount: Int? = null,
-        newBlocksPerTick: Int? = null,
-        newTickInterval: Long? = null,
-        newPauseThreshold: Int? = null,
-        newAutoRestartDelay: Long? = null
+        newChunkBatchSize: Int? = null
     ) {
-        configLock.lock()
-        try {
-            var needsReinit = false
+        var needRestart = false
 
-            newWorkerCount?.let {
-                if (it > 0 && it != workerCount) {
-                    workerCount = it
-                    needsReinit = true
-                }
-            }
+        newBlocksPerBatch?.let { if (it > 0) blocksPerBatch = it }
+        newProcessingInterval?.let { if (it >= 0) processingInterval = it }
+        newChunkBatchSize?.let { if (it > 0) chunkBatchSize = it }
 
-            newBlocksPerTick?.let {
-                if (it > 0) {
-                    blocksPerWorkerTick = it
-                    for (worker in workers) {
-                        worker.configure(blocksPerWorkerTick, pauseThreshold, autoRestartDelay)
-                    }
-                }
+        // Worker count requires restart if changed
+        newWorkerCount?.let {
+            if (it > 0 && it != workerCount) {
+                workerCount = it
+                needRestart = true
             }
+        }
 
-            newTickInterval?.let {
-                if (it > 0 && it != tickInterval) {
-                    tickInterval = it
-                    needsReinit = true
-                }
+        // Queue size requires new channel if changed
+        newMaxQueueSize?.let {
+            if (it > 0 && it != maxQueueSize) {
+                maxQueueSize = it
+                needRestart = true
             }
+        }
 
-            newPauseThreshold?.let {
-                pauseThreshold = it
-                for (worker in workers) {
-                    worker.configure(blocksPerWorkerTick, pauseThreshold, autoRestartDelay)
-                }
-            }
-
-            newAutoRestartDelay?.let {
-                autoRestartDelay = it
-                for (worker in workers) {
-                    worker.configure(blocksPerWorkerTick, pauseThreshold, autoRestartDelay)
-                }
-            }
-
-            if (needsReinit) {
-                initializeWorkers()
-            }
-        } finally {
-            configLock.unlock()
+        if (needRestart && processingActive.get()) {
+            shutdown()
+            initializeChannel() // Recreate channel with new capacity
+            startProcessing()
         }
     }
+
+    /**
+     * Get the current queue size
+     */
+    fun getQueueSize(): Long {
+        return currentQueueSize.get()
+    }
+
+    /**
+     * Get the total number of blocks processed
+     */
+    fun getTotalProcessed(): Long {
+        return totalProcessed.get()
+    }
+
+    /**
+     * Clean method to flush all pending changes before shutdown
+     */
+    suspend fun flush() {
+        // Wait until queue is empty
+        while (currentQueueSize.get() > 0) {
+            delay(50)
+        }
+    }
+
+    /**
+     * Stop processing and clean up resources
+     */
+    fun shutdown() {
+        processingActive.set(false)
+
+        // Cancel all processing jobs
+        processingJobs.forEach { it.cancel() }
+        processingJobs.clear()
+
+        // Close channel
+        blockChannel.close()
+    }
+
+    /**
+     * Singleton pattern implementation
+     */
+    companion object {
+        private val instances = ConcurrentHashMap<String, BlockChanger>()
+
+        @JvmStatic
+        fun getInstance(world: World): BlockChanger {
+            val worldName = world.name
+            return instances.computeIfAbsent(worldName) { BlockChanger(world) }
+        }
+
+        @JvmStatic
+        fun shutdownAll() {
+            instances.values.forEach { it.shutdown() }
+            instances.clear()
+        }
+    }
+}
+
+/**
+ * Extension method for Defcon class for convenient access
+ */
+fun Defcon.getBlockChanger(world: World): BlockChanger {
+    return BlockChanger.getInstance(world)
 }

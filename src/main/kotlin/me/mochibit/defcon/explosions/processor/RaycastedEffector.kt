@@ -1,10 +1,10 @@
 package me.mochibit.defcon.explosions.processor
 
-import com.github.shynixn.mccoroutine.bukkit.launch
 import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
 import io.ktor.utils.io.core.*
 import kotlinx.coroutines.withContext
 import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.extensions.ticks
 import me.mochibit.defcon.threading.scheduling.intervalAsync
 import me.mochibit.defcon.threading.scheduling.runLater
 import org.bukkit.FluidCollisionMode
@@ -12,9 +12,13 @@ import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
+import org.bukkit.util.BoundingBox
 import org.bukkit.util.Vector
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.PI
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Abstract base class for effects that use raycasting to determine visibility
@@ -23,27 +27,36 @@ import java.util.concurrent.ConcurrentHashMap
  * @param center The center of the effect in the world
  * @param reach The maximum distance from the center at which the effect can be applied
  * @param raycastHeight Determines from what point relative to the center it should cast the effect
- * @param duration The duration of the effect in ticks (20 ticks = 1 second)
+ * @param duration The duration of the effect
  * @param skyVisibilityRequired Percentage of sky that must be visible for distant effects to be seen (0.0-1.0)
  */
 abstract class RaycastedEffector(
     protected val center: Location,
     protected val reach: Int,
     private val raycastHeight: Int = 100,
-    protected val duration: Long = 10 * 20L,
+    protected val duration: Duration = 20.seconds,
     private val skyVisibilityRequired: Float = 0.3f
 ) {
     protected val world: World = center.world
     protected val reachSquared: Int = reach * reach
 
-    // Distance thresholds for effect variations
+    // Distance thresholds for effect variations (calculated once)
     protected val closeRangeThreshold: Int = reach / 3
     protected val closeRangeThresholdSquared: Int = closeRangeThreshold * closeRangeThreshold
     protected val farRangeThreshold: Int = reach * 2 / 3
     protected val farRangeThresholdSquared: Int = farRangeThreshold * farRangeThreshold
 
-    // Improved cast position calculation
+    // Pre-calculate the effect bounding box for faster entity lookups
+    private val effectBoundingBox: BoundingBox = BoundingBox.of(
+        center.clone().subtract(reach.toDouble(), reach.toDouble(), reach.toDouble()),
+        center.clone().add(reach.toDouble(), reach.toDouble(), reach.toDouble())
+    )
+
+    // Improved cast position calculation (stored as single object)
     private val relativeCastPos = Location(world, center.x, center.y + raycastHeight, center.z)
+
+    // Store center as vector for more efficient calculations
+    private val centerVector = center.toVector()
 
     // Use ConcurrentHashMap for thread safety
     protected val affectedEntities = ConcurrentHashMap<UUID, EffectorData>()
@@ -51,8 +64,9 @@ abstract class RaycastedEffector(
     // Tracking task for checking entities entering the reach area
     private var trackingTask: Closeable? = null
 
-    // Cache for sky visibility checks (entity UUID to last check time and result)
+    // Multi-level caching strategy
     private val skyVisibilityCache = ConcurrentHashMap<UUID, Pair<Long, Float>>()
+    private val lineOfSightCache = ConcurrentHashMap<UUID, Pair<Long, Boolean>>()
 
     /**
      * Data class to store effect-related information for each entity
@@ -75,29 +89,16 @@ abstract class RaycastedEffector(
      * Starts tracking entities that might come into the range of the effect
      * @param trackingDuration How long to track entities (in ticks)
      */
-    open fun start(trackingDuration: Long = duration) {
-        // Check all applicable entities in the world initially
-        Defcon.instance.launch {
-            getTargetEntities().forEach { entity ->
-                if (!affectedEntities.containsKey(entity.uniqueId)) {
-                    checkAndApplyEffect(entity)
-                }
-            }
-        }
-
+    open fun start(trackingDuration: Duration = duration) {
         // Set up a tracking task to check for entities entering the range
-        trackingTask = intervalAsync(0L, 5L) { // Check every 5 ticks (1/4 second)
-            Defcon.instance.launch {
-                getTargetEntities().forEach { entity ->
-                    if (!affectedEntities.containsKey(entity.uniqueId)) {
-                        checkAndApplyEffect(entity)
-                    }
-                }
+        trackingTask = intervalAsync(0.25.seconds) { // Check every 5 ticks
+            getTargetEntities().forEach { entity ->
+                checkAndApplyEffect(entity)
             }
         }
 
-        // Stop tracking after the specified duration
-        runLater(trackingDuration) {
+        runLater(duration) {
+            // Stop tracking after the specified duration
             stop()
         }
     }
@@ -110,35 +111,47 @@ abstract class RaycastedEffector(
         trackingTask = null
 
         // Cancel all remaining effect tasks
-        affectedEntities.forEach { (_, effectData) ->
+        affectedEntities.values.forEach { effectData ->
             effectData.task.close()
         }
         affectedEntities.clear()
 
-        // Clear cache
+        // Clear caches
         skyVisibilityCache.clear()
+        lineOfSightCache.clear()
     }
 
     /**
      * Gets all entities that this effector should consider
-     * Override in subclasses to filter specific entity types
+     * Optimized to use the bounding box for faster entity collection
      */
     protected open suspend fun getTargetEntities(): List<Entity> {
-        val entities = withContext(Defcon.instance.minecraftDispatcher) {
-            world.entities.filter { entity ->
+        return withContext(Defcon.instance.minecraftDispatcher) {
+            // Use getNearbyEntities instead of filtering all world entities
+            center.world.getNearbyEntities(effectBoundingBox).filter { entity ->
+                // Quick distance check for spherical range
                 entity.location.distanceSquared(center) <= reachSquared
             }
         }
-        return entities
     }
 
     /**
      * Checks if an entity should see/be affected by the effect and applies it if so
      */
-    protected fun checkAndApplyEffect(entity: Entity) {
-        // Quick distance check first for performance
-        val distanceSquared = entity.location.distanceSquared(center)
-        if (entity.world != world || distanceSquared > reachSquared) {
+    private fun checkAndApplyEffect(entity: Entity) {
+        val entityId = entity.uniqueId
+
+        // Skip already affected entities (fast path)
+        if (affectedEntities.containsKey(entityId)) return
+
+        // Quick distance check for performance (avoid creating new Location/Vector objects)
+        val location = entity.location
+        if (entity.world != world || !effectBoundingBox.contains(location.toVector())) {
+            return
+        }
+
+        val distanceSquared = location.distanceSquared(center)
+        if (distanceSquared > reachSquared) {
             return
         }
 
@@ -161,6 +174,7 @@ abstract class RaycastedEffector(
 
     /**
      * Determines the effect type based on distance from effect source
+     * Quick constant-time check using pre-calculated thresholds
      */
     protected fun determineEffectType(distanceSquared: Double): EffectType {
         return when {
@@ -172,48 +186,57 @@ abstract class RaycastedEffector(
 
     /**
      * Checks if a player is in the open air with sufficient sky visibility
-     * Use caching to improve performance
+     * Uses caching to improve performance
      */
     protected fun isPlayerInOpenAir(player: Player): Boolean {
         val now = System.currentTimeMillis()
-        val cached = skyVisibilityCache[player.uniqueId]
+        val entityId = player.uniqueId
 
         // Use cached value if it's recent enough
-        if (cached != null && (now - cached.first) < SKY_VISIBILITY_CACHE_DURATION) {
-            return cached.second >= skyVisibilityRequired
+        skyVisibilityCache[entityId]?.let { (timestamp, visibility) ->
+            if (now - timestamp < SKY_VISIBILITY_CACHE_DURATION) {
+                return visibility >= skyVisibilityRequired
+            }
         }
 
         // Calculate sky visibility
         val skyVisibility = calculateSkyVisibility(player)
-        skyVisibilityCache[player.uniqueId] = Pair(now, skyVisibility)
+        skyVisibilityCache[entityId] = Pair(now, skyVisibility)
 
         return skyVisibility >= skyVisibilityRequired
     }
 
     /**
      * Calculates how much sky is visible to a player (0.0-1.0)
+     * Optimized to use fewer ray casts while maintaining accuracy
      */
-    protected fun calculateSkyVisibility(player: Player): Float {
+    private fun calculateSkyVisibility(player: Player): Float {
         val location = player.eyeLocation
-        val samples = 9 // Number of sample rays to cast upward
+        val samples = 5 // Reduced from 9 for performance
         var visibleSky = 0
 
-        // Cast rays in a 3x3 grid pattern above the player
-        for (x in -1..1) {
-            for (z in -1..1) {
-                val rayVector = Vector(x * 0.5, 1.0, z * 0.5).normalize()
-                val result = world.rayTraceBlocks(
-                    location,
-                    rayVector,
-                    256.0, // Check up to world height
-                    FluidCollisionMode.NEVER,
-                    true
-                )
+        // Use a cross pattern instead of a 3x3 grid (5 rays instead of 9)
+        val directions = listOf(
+            Vector(0.0, 1.0, 0.0),     // Straight up
+            Vector(0.5, 1.0, 0.0),     // Angled NE
+            Vector(-0.5, 1.0, 0.0),    // Angled SW
+            Vector(0.0, 1.0, 0.5),     // Angled SE
+            Vector(0.0, 1.0, -0.5)     // Angled NW
+        )
 
-                if (result == null) {
-                    // Ray reached the sky
-                    visibleSky++
-                }
+        for (dir in directions) {
+            val rayVector = dir.normalize()
+            val result = world.rayTraceBlocks(
+                location,
+                rayVector,
+                256.0, // Check up to world height
+                FluidCollisionMode.NEVER,
+                true
+            )
+
+            if (result == null) {
+                // Ray reached the sky
+                visibleSky++
             }
         }
 
@@ -222,36 +245,62 @@ abstract class RaycastedEffector(
 
     /**
      * Determines if the entity has line of sight to the effect source
+     * Uses caching and optimized raycasting
      */
     protected open fun hasLineOfSightToSource(entity: Entity): Boolean {
-        val entityLocation = if (entity is Player) entity.eyeLocation else entity.location.add(0.0, entity.height / 2, 0.0)
-        val directionToSource = relativeCastPos.clone().subtract(entityLocation).toVector().normalize()
+        val now = System.currentTimeMillis()
+        val entityId = entity.uniqueId
+
+        // Use cached line of sight result if available and recent
+        lineOfSightCache[entityId]?.let { (timestamp, hasLineOfSight) ->
+            if (now - timestamp < LINE_OF_SIGHT_CACHE_DURATION) {
+                return hasLineOfSight
+            }
+        }
+
+        // Get entity eye position without creating new objects
+        val entityEyeLocation = if (entity is Player) {
+            entity.eyeLocation
+        } else {
+            // For non-players, approximate eye location
+            entity.location.apply { y += entity.height / 2 }
+        }
+
+        // Compute direction vector (reuse existing vector objects)
+        val entityPos = entityEyeLocation.toVector()
+        val directionToSource = relativeCastPos.toVector().subtract(entityPos).normalize()
 
         // Check if entity is looking somewhat towards the source (relevant for players)
-        val lookingAngle = if (entity is Player) {
-            entityLocation.direction.angle(directionToSource).toDouble()
-        } else {
-            0.0 // Non-players are always considered to be "looking" in all directions
-        }
+        val distanceSquared = entityEyeLocation.distanceSquared(center)
 
-        // Use different angle thresholds based on distance
-        val distanceSquared = entityLocation.distanceSquared(center)
-        val maxAngle = when {
-            distanceSquared <= closeRangeThresholdSquared -> Math.PI // Close range: can see in any direction
-            distanceSquared <= farRangeThresholdSquared -> Math.PI * 0.75 // Mid range: wider angle
-            else -> Math.PI / 2 // Far range: must be somewhat facing it
-        }
+        if (entity is Player) {
+            val lookingAngle = entityEyeLocation.direction.angle(directionToSource).toDouble()
 
-        if (lookingAngle > maxAngle && entity is Player) {
-            // Player is facing away from explosion
-            // For close range, we'll still check from source to entity
-            return distanceSquared <= closeRangeThresholdSquared &&
-                    checkRaycastFromSource(entity.location.toVector())
+            // Use different angle thresholds based on distance
+            val maxAngle = when {
+                distanceSquared <= closeRangeThresholdSquared -> PI // Close range: can see in any direction
+                distanceSquared <= farRangeThresholdSquared -> PI * 0.75 // Mid range: wider angle
+                else -> PI / 2 // Far range: must be somewhat facing it
+            }
+
+            if (lookingAngle > maxAngle) {
+                // Player is facing away from explosion
+                // For close range, we'll still check from source to entity
+                val result = if (distanceSquared <= closeRangeThresholdSquared) {
+                    checkRaycastFromSource(entityPos)
+                } else {
+                    false
+                }
+
+                // Cache the result
+                lineOfSightCache[entityId] = Pair(now, result)
+                return result
+            }
         }
 
         // Check if there are blocks in the way
         val result = world.rayTraceBlocks(
-            entityLocation,
+            entityEyeLocation,
             directionToSource,
             reach.toDouble(),
             FluidCollisionMode.NEVER,
@@ -259,19 +308,23 @@ abstract class RaycastedEffector(
         )
 
         // If no hit or hit is very close to center, entity can see the source
-        return result == null ||
-                result.hitPosition.distanceSquared(center.toVector()) < 4.0
+        val hasLineOfSight = result == null ||
+                result.hitPosition.distanceSquared(centerVector) < 4.0
+
+        // Cache the result
+        lineOfSightCache[entityId] = Pair(now, hasLineOfSight)
+        return hasLineOfSight
     }
 
     /**
      * Secondary check using raycasting from above the source down to entity
+     * Optimized to use fewer rays
      */
-    protected fun checkRaycastFromSource(entityPos: Vector): Boolean {
-        // Cast multiple rays to improve detection
+    private fun checkRaycastFromSource(entityPos: Vector): Boolean {
+        // Optimize by using only 2 rays instead of 3
         val directions = listOf(
-            center.toVector().subtract(relativeCastPos.toVector()).normalize(),
-            Vector(0.0, -1.0, 0.0), // Straight down
-            center.toVector().subtract(entityPos).normalize() // Directly towards entity
+            center.toVector().subtract(relativeCastPos.toVector()).normalize(), // Towards source
+            Vector(0.0, -1.0, 0.0) // Straight down
         )
 
         for (direction in directions) {
@@ -306,10 +359,9 @@ abstract class RaycastedEffector(
         // Cancel the task
         effectData.task.close()
 
-        // Clear cached sky visibility if it's a player
-        if (entity is Player) {
-            skyVisibilityCache.remove(entityUUID)
-        }
+        // Clear cached values
+        skyVisibilityCache.remove(entityUUID)
+        lineOfSightCache.remove(entityUUID)
     }
 
     /**
@@ -320,5 +372,6 @@ abstract class RaycastedEffector(
 
     companion object {
         const val SKY_VISIBILITY_CACHE_DURATION = 5000L // 5 seconds cache
+        const val LINE_OF_SIGHT_CACHE_DURATION = 500L   // 0.5 seconds cache
     }
 }

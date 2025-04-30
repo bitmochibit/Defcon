@@ -30,6 +30,7 @@ import me.mochibit.defcon.particles.emitter.SphereSurfaceShape
 import me.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
 import org.bukkit.Location
 import org.joml.Vector3f
+import kotlin.time.Duration.Companion.seconds
 
 class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val center: Location) :
     AnimatedEffect(3600) {
@@ -134,7 +135,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
             visible = false
         }
         .translate(Vector3f(0.0f, -90.0f, 0.0f))
-        .setVisibilityAfterDelay(true, 20 * 50)
+        .setVisibilityAfterDelay(true, 30.seconds)
         .applyRadialVelocityFromCenter(Vector3f(5.0f, 0f, 5.0f))
 
     private val stem: ParticleComponent = ParticleComponent(
