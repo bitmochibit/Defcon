@@ -19,15 +19,11 @@
 
 package me.mochibit.defcon.customassets.items.definitions
 
-import me.mochibit.defcon.customassets.items.AbstractCustomItemModel
-import me.mochibit.defcon.customassets.items.ModelData
-import me.mochibit.defcon.customassets.items.Override
-import me.mochibit.defcon.customassets.items.Predicate
-import me.mochibit.defcon.customassets.sounds.SoundInfo
+import me.mochibit.defcon.customassets.items.*
 import org.bukkit.Material
 
 class LeatherGasMask: AbstractCustomItemModel(
-    ModelData(
+    LegacyModelData(
         originalItem = Material.LEATHER_BOOTS,
         textures = mapOf(
             "layer0" to "item/leather_boots",
@@ -106,5 +102,8 @@ class LeatherGasMask: AbstractCustomItemModel(
             )
         ), // Trims
         modelName = "leather_gas_mask"
+    ),
+    ModelData(
+        name = "leather_gas_mask",
     )
 )

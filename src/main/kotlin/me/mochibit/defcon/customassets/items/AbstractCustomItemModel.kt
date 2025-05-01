@@ -20,5 +20,6 @@
 package me.mochibit.defcon.customassets.items
 
 abstract class AbstractCustomItemModel (
+    var legacyModelData: LegacyModelData,
     var modelData: ModelData
 )

@@ -21,6 +21,8 @@ package me.mochibit.defcon.save
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.save.savedata.SaveDataInfo
 import me.mochibit.defcon.save.schemas.SaveSchema
@@ -36,7 +38,13 @@ abstract class AbstractSaveData<T : SaveSchema>(
     protected var schema: T,
     private val useCache: Boolean = true
 ) {
-    private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
+    private val gson: Gson by lazy {
+        GsonBuilder()
+            .setPrettyPrinting()
+            .disableHtmlEscaping()
+            .create()
+    }
+
     private val readWriteLock = ReentrantReadWriteLock()
     private val schemaCache = ConcurrentHashMap<Int, T>()
 
@@ -48,21 +56,21 @@ abstract class AbstractSaveData<T : SaveSchema>(
 
     // Prefix derived from annotation or class name
     private val filePrefix: Lazy<String> = lazy {
-        val info = this.javaClass.getAnnotation(SaveDataInfo::class.java)
-        info?.name ?: this.javaClass.simpleName.lowercase()
+        javaClass.getAnnotation(SaveDataInfo::class.java)?.name
+            ?: javaClass.simpleName.lowercase()
     }
 
     // Maximum items per file, from annotation or default
     private val maxItemsPerFile: Lazy<Int> = lazy {
-        val info = this.javaClass.getAnnotation(SaveDataInfo::class.java)
-        info?.maxPerFile ?: 50
+        javaClass.getAnnotation(SaveDataInfo::class.java)?.maxPerFile ?: 50
     }
 
     // Current page being worked with
+    @Volatile
     protected var currentPage: Int? = null
 
     // Optional suffix for the file name
-    private var suffixSupplier: (() -> String)? = null
+    private var suffixSupplier: (() -> String) = {""}
 
     /**
      * Sets a supplier for the file suffix, useful for per-world data
@@ -74,15 +82,15 @@ abstract class AbstractSaveData<T : SaveSchema>(
     /**
      * Checks if a page exists on disk
      */
-    protected fun pageExists(page: Int): Boolean {
-        return getFile(page).exists()
+    protected suspend fun pageExists(page: Int): Boolean = withContext(Dispatchers.IO) {
+        getFile(page).exists()
     }
 
     /**
      * Gets the file for a specific page
      */
     private fun getFile(page: Int): File {
-        val suffix = suffixSupplier?.invoke() ?: ""
+        val suffix = suffixSupplier.invoke()
         return File(dataFolder.value, "${filePrefix.value}$suffix-$page.json")
     }
 
@@ -96,7 +104,7 @@ abstract class AbstractSaveData<T : SaveSchema>(
     /**
      * Loads the current page from disk
      */
-    protected fun load() {
+    protected suspend fun load() = withContext(Dispatchers.IO) {
         val page = currentPage ?: 0
         val file = getFile(page)
 
@@ -106,7 +114,8 @@ abstract class AbstractSaveData<T : SaveSchema>(
                     if (useCache && schemaCache.containsKey(page)) {
                         schema = schemaCache[page] as T
                     } else {
-                        val loadedSchema = gson.fromJson(file.readText(), schema.javaClass) as T
+                        val fileContent = file.readText()
+                        val loadedSchema = gson.fromJson(fileContent, schema.javaClass) as T
                         schema = loadedSchema
                         if (useCache) {
                             schemaCache[page] = loadedSchema
@@ -122,7 +131,7 @@ abstract class AbstractSaveData<T : SaveSchema>(
     /**
      * Saves the current schema to disk
      */
-    protected fun save() {
+    protected suspend fun save() = withContext(Dispatchers.IO) {
         val page = currentPage ?: 0
         saveSchema(schema, page)
     }
@@ -130,23 +139,28 @@ abstract class AbstractSaveData<T : SaveSchema>(
     /**
      * Saves a specific schema to a specific page
      */
-    protected fun saveSchema(schema: T, page: Int) {
+    protected suspend fun saveSchema(schema: T, page: Int) = withContext(Dispatchers.IO) {
         val file = getFile(page)
         file.parentFile.mkdirs()
 
-        readWriteLock.write {
-            try {
-                // Write to temp file first for atomic write operation
-                val tempFile = File(file.parentFile, file.name + ".tmp")
-                tempFile.writeText(gson.toJson(schema))
-                Files.move(tempFile.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        withContext(Dispatchers.IO) {
+            readWriteLock.write {
+                try {
+                    // Generate JSON string in memory first
+                    val jsonContent = gson.toJson(schema)
 
-                // Update cache if enabled
-                if (useCache) {
-                    schemaCache[page] = schema
+                    // Write to temp file first for atomic write operation
+                    val tempFile = File(file.parentFile, file.name + ".tmp")
+                    tempFile.writeText(jsonContent)
+                    Files.move(tempFile.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+
+                    // Update cache if enabled
+                    if (useCache) {
+                        schemaCache[page] = schema
+                    }
+                } catch (e: Exception) {
+                    throw RuntimeException("Failed to save data to ${file.path}", e)
                 }
-            } catch (e: Exception) {
-                throw RuntimeException("Failed to save data to ${file.path}", e)
             }
         }
     }
@@ -154,24 +168,27 @@ abstract class AbstractSaveData<T : SaveSchema>(
     /**
      * Gets a schema from a specific page without changing the current page
      */
-    protected fun getSchema(page: Int): T? {
+    protected suspend fun getSchema(page: Int): T? = withContext(Dispatchers.IO) {
         val file = getFile(page)
         if (!file.exists()) {
-            return null
+            return@withContext null
         }
 
-        return readWriteLock.read {
-            if (useCache && schemaCache.containsKey(page)) {
-                schemaCache[page] as T
-            } else {
-                try {
-                    val loadedSchema = gson.fromJson(file.readText(), schema.javaClass) as T
-                    if (useCache) {
-                        schemaCache[page] = loadedSchema
+        return@withContext withContext(Dispatchers.IO) {
+            readWriteLock.read {
+                if (useCache && schemaCache.containsKey(page)) {
+                    schemaCache[page] as T
+                } else {
+                    try {
+                        val fileContent = file.readText()
+                        val loadedSchema = gson.fromJson(fileContent, schema.javaClass) as T
+                        if (useCache) {
+                            schemaCache[page] = loadedSchema
+                        }
+                        loadedSchema
+                    } catch (e: Exception) {
+                        null
                     }
-                    loadedSchema
-                } catch (e: Exception) {
-                    null
                 }
             }
         }
@@ -180,12 +197,12 @@ abstract class AbstractSaveData<T : SaveSchema>(
     /**
      * Gets all pages that exist for this save data
      */
-    protected fun getAllPages(): List<Int> {
-        val suffix = suffixSupplier?.invoke() ?: ""
+    protected suspend fun getAllPages(): List<Int> = withContext(Dispatchers.IO) {
+        val suffix = suffixSupplier.invoke()
         val prefix = "${filePrefix.value}$suffix-"
         val suffixRegex = Regex("\\.json$")
 
-        return dataFolder.value.listFiles { file ->
+        return@withContext dataFolder.value.listFiles { file ->
             file.name.startsWith(prefix) && file.name.endsWith(".json")
         }?.mapNotNull { file ->
             val pageStr = file.name.removePrefix(prefix).replace(suffixRegex, "")
@@ -196,49 +213,55 @@ abstract class AbstractSaveData<T : SaveSchema>(
     /**
      * Finds a page with available space
      */
-    protected fun findAvailablePage(): Int {
+    protected suspend fun findAvailablePage(): Int = withContext(Dispatchers.IO) {
         var page = 0
         while (pageExists(page)) {
             val pageSchema = getSchema(page)
             if (pageSchema != null && pageSchema.getSize() < maxItemsPerFile.value) {
-                return page
+                return@withContext page
             }
             page++
         }
-        return page
+        return@withContext page
     }
 
     /**
      * Gets all data across all pages
      */
-    fun getAllData(): List<Any> {
+    suspend fun getAllData(): List<Any> = withContext(Dispatchers.IO) {
         val result = mutableListOf<Any>()
-        getAllPages().forEach { page ->
+        val pages = getAllPages()
+
+        pages.forEach { page ->
             val pageSchema = getSchema(page)
             pageSchema?.getAllItems()?.let { result.addAll(it) }
         }
-        return result
+
+        return@withContext result
     }
 
     /**
      * Gets the maximum ID across all pages
      */
-    fun getMaxId(): Int {
+    suspend fun getMaxId(): Int = withContext(Dispatchers.IO) {
         var maxId = 0
-        getAllPages().forEach { page ->
+        val pages = getAllPages()
+
+        pages.forEach { page ->
             val pageSchema = getSchema(page)
             val pageMaxId = pageSchema?.getMaxID() ?: 0
             if (pageMaxId > maxId) {
                 maxId = pageMaxId
             }
         }
-        return maxId
+
+        return@withContext maxId
     }
 
     /**
      * Clears the cache for this save data
      */
-    fun clearCache() {
+    suspend fun clearCache() = withContext(Dispatchers.IO) {
         readWriteLock.write {
             schemaCache.clear()
         }

@@ -16,13 +16,14 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 package me.mochibit.defcon.lifecycle
 
+import com.github.shynixn.mccoroutine.bukkit.launch
+import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
+import kotlinx.coroutines.*
 import me.mochibit.defcon.Defcon
 import org.bukkit.Bukkit
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
+import kotlin.coroutines.CoroutineContext
 
 abstract class CycledObject(private val maxAliveTicks: Int = 200) : Lifecycled {
     private var isDestroyed = false
@@ -30,67 +31,75 @@ abstract class CycledObject(private val maxAliveTicks: Int = 200) : Lifecycled {
     private var lastTickTime = System.currentTimeMillis()
     private var currentTickTime = System.currentTimeMillis()
 
-    private val executorService = Executors.newSingleThreadExecutor()
+    // Job reference to control the coroutine lifecycle
+    private var tickJob: Job? = null
 
-    private val tickFunction: () -> Unit = {
-        currentTickTime = System.currentTimeMillis()
+    /**
+     * Instantiates the cycled object and starts its lifecycle.
+     * @param async Whether to run on Minecraft async dispatcher or main thread dispatcher
+     */
+    fun instantiate(async: Boolean) {
+        // Use MCCoroutine to launch our coroutine
+        Defcon.instance.launch {
+            // Initialize on the appropriate dispatcher
+            initialize(async)
 
-        update((currentTickTime - lastTickTime).coerceAtLeast(50)/1000.0f)
-
-        tickAlive++
-        if (maxAliveTicks > 0 && tickAlive > maxAliveTicks) {
-            destroy()
-        }
-        lastTickTime = currentTickTime
-    }
-
-    fun instantiate(async: Boolean, useThreadPool: Boolean = false) {
-        initialize()
-        if (async) {
-            if (useThreadPool) {
-                // Use a thread from the thread pool for the loop
-                executorService.submit {
-                    while (!isDestroyed) {
-                        tickFunction()
-                        try {
-                            TimeUnit.MILLISECONDS.sleep(50) // Wait for 1 tick (50ms)
-                        } catch (e: InterruptedException) {
-                            Thread.currentThread().interrupt()
-                            return@submit
-                        }
-                    }
-                }
+            val dispatcher = if (async) {
+                Dispatchers.IO
             } else {
-                // Use Bukkit's async scheduler
-                Bukkit.getScheduler().runTaskTimerAsynchronously(
-                    Defcon.instance,
-                    Runnable { if (!isDestroyed) tickFunction() },
-                    0L,
-                    1L // Execute every 1 tick (50ms)
-                )
+                Defcon.instance.minecraftDispatcher
             }
-        } else {
-            // Run synchronously on the main thread
-            Bukkit.getScheduler().runTaskTimer(
-                Defcon.instance,
-                Runnable { if (!isDestroyed) tickFunction() },
-                0L,
-                1L // Execute every 1 tick (50ms)
-            )
+
+            tickJob = launch(dispatcher) {
+                while (isActive && !isDestroyed) {
+                    currentTickTime = System.currentTimeMillis()
+                    val deltaTime = (currentTickTime - lastTickTime).coerceAtLeast(50) / 1000.0f
+                    update(deltaTime)
+
+                    tickAlive++
+                    if (maxAliveTicks > 0 && tickAlive > maxAliveTicks) {
+                        destroy()
+                        break
+                    }
+
+                    lastTickTime = currentTickTime
+
+                    // Wait 50ms (1 tick) before the next iteration
+                    delay(50)
+                }
+            }
         }
     }
 
+    /**
+     * Initializes the object respecting the async parameter.
+     * @param async Whether to run initialization on async dispatcher or main thread
+     */
+    private suspend fun initialize(async: Boolean) {
+        val dispatcher = if (async) {
+            Dispatchers.IO
+        } else {
+            Defcon.instance.minecraftDispatcher
+        }
 
-    private fun initialize() {
-        start()
-        lastTickTime = System.currentTimeMillis()
+        withContext(dispatcher) {
+            start()
+            lastTickTime = System.currentTimeMillis()
+        }
     }
 
+    /**
+     * Cancels the coroutine and cleans up resources.
+     */
     fun destroy() {
         if (!isDestroyed) {
             isDestroyed = true
-            stop()
-            executorService.shutdown()
+            tickJob?.cancel()
+
+            // Launch stop callback on the appropriate thread
+            Defcon.instance.launch {
+                stop()
+            }
         }
     }
 }

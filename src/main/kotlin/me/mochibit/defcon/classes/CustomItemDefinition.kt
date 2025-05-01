@@ -19,33 +19,34 @@
 
 package me.mochibit.defcon.classes
 
-import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.enums.ItemBehaviour
 import me.mochibit.defcon.enums.ItemDataKey
 import me.mochibit.defcon.interfaces.PluginItem
 import me.mochibit.defcon.utils.ColorUtils
 import me.mochibit.defcon.utils.MetaManager
-import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Material
+import org.bukkit.NamespacedKey
+import org.bukkit.event.inventory.InventoryType
+import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemStack
-import org.bukkit.plugin.java.JavaPlugin
-import java.util.*
+import org.bukkit.inventory.meta.components.EquippableComponent
 
 /**
  * This class defines a definitions item
  * It provides a way to generate effective minecraft items from this definition
  */
+@Suppress("UnstableApiUsage")
 class CustomItemDefinition(
     override val id: String,
     name: String,
     override val description: String?,
     override val minecraftId: String,
-    override val modelId: Int,
+    override val itemModel: NamespacedKey?,
+    override val equipSlot: EquipmentSlot,
     override val customBlockId: String?,
     override val isUsable: Boolean,
     override val isEquipable: Boolean,
-    override val equipSlotNumber: Int,
     override val isDroppable: Boolean,
     override val stackSize: Int,
     override val isTransportable: Boolean,
@@ -79,7 +80,6 @@ class CustomItemDefinition(
             MetaManager.setItemData(itemMeta, ItemDataKey.StackSize, stackSize)
             MetaManager.setItemData(itemMeta, ItemDataKey.Usable, isUsable)
             MetaManager.setItemData(itemMeta, ItemDataKey.Equipable, isEquipable)
-            MetaManager.setItemData(itemMeta, ItemDataKey.EquipSlotNumber, equipSlotNumber)
             MetaManager.setItemData(itemMeta, ItemDataKey.Droppable, isDroppable)
             MetaManager.setItemData(itemMeta, ItemDataKey.Transportable, isTransportable)
             MetaManager.setItemData(itemMeta, ItemDataKey.Behaviour, behaviour.name)
@@ -88,7 +88,18 @@ class CustomItemDefinition(
                 MetaManager.setItemData(itemMeta, ItemDataKey.CustomBlockId, customBlockId)
             }
 
-            itemMeta.setCustomModelData(modelId)
+            itemModel?.let {
+                itemMeta.itemModel = it
+            }
+
+            println(equipSlot)
+
+            val component = itemMeta.equippable
+            component.slot = equipSlot
+
+            itemMeta.setEquippable(component)
+
+            println(itemMeta)
             customItem.setItemMeta(itemMeta)
 
             return customItem

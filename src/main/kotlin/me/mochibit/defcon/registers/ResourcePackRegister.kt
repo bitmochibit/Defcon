@@ -15,6 +15,7 @@ import me.mochibit.defcon.Defcon.Logger.info
 import me.mochibit.defcon.Defcon.Logger.warn
 import me.mochibit.defcon.customassets.fonts.AbstractCustomFont
 import me.mochibit.defcon.customassets.items.AbstractCustomItemModel
+import me.mochibit.defcon.customassets.items.ModelData
 import me.mochibit.defcon.customassets.sounds.AbstractCustomSound
 import me.mochibit.defcon.registers.packformat.FormatReader
 import me.mochibit.defcon.server.ResourcePackServer
@@ -280,7 +281,6 @@ object ResourcePackRegister : PackRegister(true) {
             val targetModelsPath = Paths.get("$minecraftPath/models")
 
             // Get all custom item models
-            val itemModels = ArrayList<AbstractCustomItemModel>()
             val customItemModels = Reflections("$packageName.customassets.items.definitions")
                 .getSubTypesOf(AbstractCustomItemModel::class.java)
 
@@ -288,32 +288,10 @@ object ResourcePackRegister : PackRegister(true) {
                 try {
                     val itemModelInstance = itemModelClass.getDeclaredConstructor().newInstance()
 
-                    // Handle animation frames if present
-                    if (itemModelInstance.modelData.animationFrames.isNotEmpty()) {
-                        for ((index, frameName) in itemModelInstance.modelData.animationFrames) {
-                            processAnimationFrame(
-                                targetModelsPath,
-                                itemModelInstance,
-                                frameName,
-                                index,
-                                itemModels,
-                                itemModelClass
-                            )
-                        }
-                    } else {
-                        // Add the regular model
-                        itemModels.add(itemModelInstance)
-                    }
+                    createItemModelFile(minecraftPath, itemModelInstance.modelData)
                 } catch (e: Exception) {
                     info("Error processing item model ${itemModelClass.simpleName}: ${e.message}")
                 }
-            }
-
-            // Group models by original item name and create model files
-            for (itemGroup in itemModels.sortedBy { it.modelData.customModelData }
-                .groupBy { it.modelData.originalItemName }) {
-
-                createItemModelFile(targetModelsPath, itemGroup.key, itemGroup.value)
             }
         } catch (e: Exception) {
             info("Error processing custom item models: ${e.message}")
@@ -321,99 +299,19 @@ object ResourcePackRegister : PackRegister(true) {
     }
 
     /**
-     * Processes a single animation frame for a custom item model.
-     */
-    private fun processAnimationFrame(
-        targetModelsPath: Path,
-        itemModelInstance: AbstractCustomItemModel,
-        frameName: String,
-        index: Int,
-        itemModels: MutableList<AbstractCustomItemModel>,
-        itemModelClass: Class<out AbstractCustomItemModel>
-    ) {
-        try {
-            val modelBasePath = "item/${itemModelInstance.modelData.modelName}"
-            val modelPath = targetModelsPath.resolve("$modelBasePath/${itemModelInstance.modelData.modelName}.json")
-            val frameModelPath = targetModelsPath.resolve("$modelBasePath/$frameName.json")
-
-            Files.copy(modelPath, frameModelPath, StandardCopyOption.REPLACE_EXISTING)
-
-            // Update the model.json with the new texture
-            val modelReader = Files.newBufferedReader(frameModelPath)
-            val modelJson = jsonParser.parse(modelReader) as JSONObject
-            modelReader.close()
-
-            val textures = modelJson["textures"] as JSONObject
-            textures["0"] = "item/${itemModelInstance.modelData.modelName}/$frameName"
-
-            Files.write(frameModelPath, modelJson.toJSONString().toByteArray())
-
-            // Create new instance with updated model data
-            val newInstance = itemModelClass.getDeclaredConstructor().newInstance()
-            newInstance.modelData = itemModelInstance.modelData.copy(
-                model = "$modelBasePath/$frameName",
-                customModelData = itemModelInstance.modelData.customModelData + index
-            )
-
-            itemModels.add(newInstance)
-        } catch (e: Exception) {
-            info("Error processing animation frame $frameName: ${e.message}")
-        }
-    }
-
-    /**
      * Creates an item model JSON file for a group of custom items.
      */
     private fun createItemModelFile(
-        targetModelsPath: Path,
-        itemName: String,
-        items: List<AbstractCustomItemModel>
+        targetMinecraftPath: Path,
+        modelData: ModelData,
     ) {
-        try {
-            val firstModelData = items.first().modelData
+        val model = JSONObject()
+        model["type"] = modelData.type
+        model["model"] = modelData.model
 
-            val model = JSONObject()
-            model["parent"] = firstModelData.parent.value
-
-            // Add textures
-            val textures = JSONObject()
-            for ((key, value) in firstModelData.textures) {
-                textures[key] = value
-            }
-            model["textures"] = textures
-
-            // Add overrides
-            val overrides = JSONArray()
-
-            // Add default overrides
-            for (defaultOverride in firstModelData.overrides) {
-                val defaultModelOverride = JSONObject()
-                val predicate = JSONObject()
-                predicate[defaultOverride.predicate.key] = defaultOverride.predicate.value
-                defaultModelOverride["predicate"] = predicate
-                defaultModelOverride["model"] = defaultOverride.model
-                overrides.add(defaultModelOverride)
-            }
-
-            // Add custom model data overrides
-            for (item in items) {
-                val customModelOverride = JSONObject()
-                val predicate = JSONObject()
-                predicate["custom_model_data"] = item.modelData.customModelData
-                customModelOverride["predicate"] = predicate
-                customModelOverride["model"] = item.modelData.model
-                overrides.add(customModelOverride)
-            }
-
-            model["overrides"] = overrides
-
-            // Write the model file
-            Files.write(
-                targetModelsPath.resolve("item/$itemName.json"),
-                model.toJSONString().toByteArray()
-            )
-        } catch (e: Exception) {
-            info("Error creating item model file for $itemName: ${e.message}")
-        }
+        Files.write(
+            targetMinecraftPath.resolve("items/${modelData.name}.json"),
+            model.toJSONString().toByteArray()
+        )
     }
 }

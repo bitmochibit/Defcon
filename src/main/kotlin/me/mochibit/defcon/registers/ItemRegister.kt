@@ -27,6 +27,8 @@ import me.mochibit.defcon.enums.ConfigurationStorage
 import me.mochibit.defcon.enums.ItemBehaviour
 import me.mochibit.defcon.exceptions.ItemNotRegisteredException
 import me.mochibit.defcon.interfaces.PluginItem
+import org.bukkit.NamespacedKey
+import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.plugin.java.JavaPlugin
 
 /**
@@ -59,7 +61,7 @@ class ItemRegister() {
             val itemName = itemConfig.getString("$item.item-name") ?: throw ItemNotRegisteredException(itemId)
             val itemDescription = itemConfig.getString("$item.item-description")
             val itemMinecraftId = itemConfig.getString("$item.item-minecraft-id") ?: throw ItemNotRegisteredException(itemId)
-            val itemDataModelId = itemConfig.getInt("$item.item-data-model-id", 0)
+
             val itemCustomBlockId = itemConfig.getString("$item.definitions-block-id", null)
 
             val itemStackSize = itemConfig.getInt("$item.max-stack-size")
@@ -68,7 +70,9 @@ class ItemRegister() {
             val itemDroppable = itemConfig.getBoolean("$item.is-droppable")
 
             val itemEquipable = itemConfig.getBoolean("$item.is-equipable", false)
-            val itemEquipSlotNumber = itemConfig.getInt("$item.equip-slot-number", 0)
+
+            val itemModel = NamespacedKey.fromString(itemConfig.getString("$item.item-model") ?: "none")
+            val equipSlot = EquipmentSlot.valueOf(itemConfig.getString("$item.equip-slot")?.uppercase() ?: "HAND")
 
             var behaviourName = itemConfig.getString("$item.behaviour")
             if (behaviourName == null) {
@@ -81,9 +85,9 @@ class ItemRegister() {
                     name = itemName,
                     description = itemDescription,
                     minecraftId = itemMinecraftId,
-                    modelId = itemDataModelId,
+                    itemModel = itemModel,
                     customBlockId = itemCustomBlockId,
-                    equipSlotNumber = itemEquipSlotNumber,
+                    equipSlot = equipSlot,
 
                     isEquipable = itemEquipable,
                     isUsable = itemUsable,

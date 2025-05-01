@@ -22,10 +22,11 @@ package me.mochibit.defcon.explosions.types
 import com.github.shynixn.mccoroutine.bukkit.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.biomes.CustomBiomeHandler
 import me.mochibit.defcon.biomes.definitions.BurningAirBiome
+import me.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
 import me.mochibit.defcon.effects.nuclear.CondensationCloudVFX
 import me.mochibit.defcon.effects.nuclear.NuclearExplosionVFX
 import me.mochibit.defcon.effects.nuclear.NuclearFogVFX
@@ -38,6 +39,7 @@ import me.mochibit.defcon.explosions.processor.Shockwave
 import me.mochibit.defcon.explosions.processor.ThermalRadiationBurn
 import me.mochibit.defcon.extensions.toVector3i
 import me.mochibit.defcon.radiation.RadiationAreaFactory
+import me.mochibit.defcon.threading.scheduling.runLaterAsync
 import org.bukkit.Location
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.minutes
@@ -61,11 +63,11 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
             val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
             val nuclearFog = NuclearFogVFX(nuclearComponent, center)
 
-            nuclearExplosion.instantiate(async = true, useThreadPool = true)
-            nuclearFog.instantiate(async = true, useThreadPool = true)
-            condensationCloud.instantiate(async = true, useThreadPool = true)
+            nuclearExplosion.instantiate(async = true)
+            nuclearFog.instantiate(async = true)
+            condensationCloud.instantiate(async = true)
 
-            withContext(Dispatchers.IO) {
+            launch(Dispatchers.IO) {
                 val duration = 10.seconds
                 val blindEffect = BlindFlashEffect(center, flashReach, 200, duration)
                 blindEffect.start()
@@ -75,26 +77,7 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                 thermalRadiationBurn.start()
             }
 
-
-            withContext(Dispatchers.Default) {
-                val effectiveRadius = Crater(
-                    center,
-                    craterRadius,
-                    craterRadius / 6,
-                    craterRadius,
-                    TransformationRule(),
-                    shockwaveHeight
-                ).create()
-
-                Shockwave(
-                    center,
-                    effectiveRadius - 2,
-                    shockwaveRadius.toInt(),
-                    shockwaveHeight,
-                ).explode()
-            }
-
-            withContext(Dispatchers.IO) {
+            launch(Dispatchers.IO) {
                 val players = center.world.players
 
                 for (player in players) {
@@ -118,27 +101,53 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                 )
             }
 
-            withContext(Dispatchers.IO) {
-                for (player in center.world.players) {
-                    CustomBiomeHandler.setBiomeClientSide(
-                        player.uniqueId,
-                        center,
-                        BurningAirBiome,
-                        falloutRadius,
-                        20,
-                        falloutRadius,
-                        falloutRadius,
-                        falloutRadius,
-                        falloutRadius
-                    )
-                }
+            launch(Dispatchers.Default) {
+                val burningBiomeUUID = CustomBiomeHandler.createBiomeArea(
+                    center,
+                    BurningAirBiome,
+                    falloutRadius,
+                    craterRadius/6,
+                    falloutRadius,
+                    falloutRadius,
+                    falloutRadius,
+                    falloutRadius
+                )
+                delay(2.minutes)
+                CustomBiomeHandler.removeBiomeArea(burningBiomeUUID)
+
+                CustomBiomeHandler.createBiomeArea(
+                    center,
+                    NuclearFalloutBiome,
+                    falloutRadius,
+                    craterRadius/6,
+                    falloutRadius,
+                    falloutRadius,
+                    falloutRadius,
+                    falloutRadius
+                )
             }
 
-            withContext(Dispatchers.IO) {
-                delay(1.minutes)
+            runLaterAsync(1.minutes) {
                 RadiationAreaFactory.fromCenter(center.toVector3i(), center.world, 5.0, 20000)
             }
 
+            launch(Dispatchers.Default) {
+                val effectiveRadius = Crater(
+                    center,
+                    craterRadius,
+                    craterRadius / 6,
+                    craterRadius,
+                    TransformationRule(),
+                    shockwaveHeight
+                ).create()
+
+                Shockwave(
+                    center,
+                    effectiveRadius - 2,
+                    shockwaveRadius.toInt(),
+                    shockwaveHeight,
+                ).explode()
+            }
         }
 
     }

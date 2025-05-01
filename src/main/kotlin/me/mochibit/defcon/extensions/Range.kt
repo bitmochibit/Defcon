@@ -1,7 +1,7 @@
 /*
  *
  * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
+ * Copyright (c) 2025 mochibit.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -17,10 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.lifecycle
+package me.mochibit.defcon.extensions
 
-interface Lifecycled {
-    fun start()
-    fun update(delta: Float)
-    fun stop()
+fun ClosedFloatingPointRange<Float>.random(): Float {
+    return start + (endInclusive - start) * Math.random().toFloat()
 }
+
+fun ClosedFloatingPointRange<Double>.random(): Double {
+    return start + (endInclusive - start) * Math.random().toFloat()
+}
+
+

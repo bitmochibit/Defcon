@@ -123,7 +123,7 @@ data class RadiationArea(
          * @param location The location to check
          * @return List of radiation areas found for this location
          */
-        private fun tryLoadFromLocation(location: Location): List<RadiationArea> {
+        private suspend fun tryLoadFromLocation(location: Location): List<RadiationArea> {
             // Try to load the radiation area save for this world
             val radiationAreaSave = RadiationAreaSave.getSave(location.world.name)
 

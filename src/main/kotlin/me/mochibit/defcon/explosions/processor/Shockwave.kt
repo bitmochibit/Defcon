@@ -79,8 +79,6 @@ class Shockwave(
     // Reusable work queues for better memory usage
     private val treeBlocks = ThreadLocal<ArrayList<Vector3i>>()
     private val nonTreeBlocks = ThreadLocal<ArrayList<Vector3i>>()
-    private val blockChangeBuffer = ThreadLocal<ArrayList<BlockChange>>()
-
     // Data class for efficient circle point representation
     private data class CirclePoint(val cosValue: Double, val sinValue: Double)
 
@@ -90,7 +88,7 @@ class Shockwave(
     }
 
 
-   private val playerEffectChannel = Channel<Pair<Player, Double>>(Channel.BUFFERED)
+    private val playerEffectChannel = Channel<Pair<Player, Double>>(Channel.BUFFERED)
     fun explode() {
         val startTime = System.nanoTime()
 
@@ -409,7 +407,7 @@ class Shockwave(
 
             // Process regular blocks in parallel batches
             nonTreeBlocksLocal.chunked(1000).map { chunk ->
-                launch(blockChangeBuffer.asContextElement(ArrayList())) {
+                launch {
                     chunk.forEach { location ->
                         processBlock(location, explosionPower)
                     }
@@ -483,10 +481,6 @@ class Shockwave(
         // Enhanced depth calculation
         val maxDepth = (shockwaveHeight * (0.7 + normalizedExplosionPower * 0.6)).toInt()
 
-        // Reuse block changes list
-        val localBuffer = blockChangeBuffer.get()
-        localBuffer.clear()
-
         for (depth in 0 until maxDepth) {
             val currentY = startY - depth
 
@@ -512,20 +506,14 @@ class Shockwave(
             val shouldCopyData = finalMaterial in slabs || finalMaterial in walls || finalMaterial in stairs
 
             // Add to batch
-            localBuffer.add(
-                BlockChange(
-                    x, currentY, z,
-                    finalMaterial,
-                    shouldCopyData,
-                    (finalMaterial == Material.AIR && currentY == startY) || detectAttached(x, currentY, z)
-                )
+            blockChanger.addBlockChange(
+                x, currentY, z,
+                finalMaterial,
+                shouldCopyData,
+                (finalMaterial == Material.AIR && currentY == startY) || detectAttached(x, currentY, z)
+
             )
         }
-
-
-        blockChanger.addBlockChanges(
-            localBuffer,
-        )
     }
 
     // Process roof/floor structures with optimized algorithm
@@ -811,8 +799,6 @@ class Shockwave(
         // Release cached data when no longer needed
         treeBlocks.remove()
         nonTreeBlocks.remove()
-        blockChangeBuffer.remove()
-
         // Signal completion
         complete()
     }

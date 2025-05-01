@@ -20,7 +20,11 @@
 package me.mochibit.defcon.interfaces
 
 import me.mochibit.defcon.enums.ItemBehaviour
+import org.bukkit.NamespacedKey
+import org.bukkit.event.inventory.InventoryType
+import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemStack
+
 
 interface PluginItem {
     // Identification
@@ -32,11 +36,11 @@ interface PluginItem {
     val itemStack: ItemStack
 
     // Characteristics
-    val modelId: Int
+    val itemModel: NamespacedKey?
+    val equipSlot: EquipmentSlot
     val customBlockId: String?
     val isUsable: Boolean
     val isEquipable: Boolean
-    val equipSlotNumber: Int
     val isDroppable: Boolean
     val stackSize: Int
     val isTransportable: Boolean

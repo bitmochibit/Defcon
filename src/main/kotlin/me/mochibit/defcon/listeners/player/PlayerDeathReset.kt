@@ -19,6 +19,8 @@
 
 package me.mochibit.defcon.listeners.player
 
+import com.github.shynixn.mccoroutine.bukkit.asyncDispatcher
+import com.github.shynixn.mccoroutine.bukkit.launch
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.save.savedata.PlayerDataSave
 import org.bukkit.Bukkit
@@ -32,7 +34,7 @@ class PlayerDeathReset : Listener {
 
     @EventHandler
     fun onPlayerDeath(event: PlayerDeathEvent){
-        Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
+        Defcon.instance.launch(Defcon.instance.asyncDispatcher) {
             // Get the player's UUID
             val player = event.player
 
@@ -40,6 +42,6 @@ class PlayerDeathReset : Listener {
             playerDataSave.savePlayerData(player, 0.0)
             // Reset the player's max health
             player.getAttribute(MAX_HEALTH)?.baseValue = 20.0
-        })
+        }
     }
 }

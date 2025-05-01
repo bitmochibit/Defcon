@@ -19,20 +19,17 @@
 
 package me.mochibit.defcon.listeners.items
 
+import io.papermc.paper.event.entity.EntityEquipmentChangedEvent
 import me.mochibit.defcon.enums.ItemBehaviour
-import me.mochibit.defcon.events.customitems.CustomItemEquipEvent
 import me.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
 import me.mochibit.defcon.extensions.getBehaviour
-import me.mochibit.defcon.listeners.customitem.CustomItemEquipListener
-import org.bukkit.Material
+import me.mochibit.defcon.extensions.random
 import org.bukkit.Sound
-import org.bukkit.entity.HumanEntity
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
-import org.bukkit.event.inventory.InventoryClickEvent
-import org.bukkit.event.inventory.InventoryType
-import org.bukkit.inventory.ItemStack
+import org.bukkit.inventory.EquipmentSlot
+import kotlin.random.Random.Default.nextFloat
 
 class GasMaskListener : Listener {
     @EventHandler
@@ -50,14 +47,16 @@ class GasMaskListener : Listener {
     }
 
     @EventHandler
-    fun onGasMaskEquip(event: CustomItemEquipEvent) {
-        val player = event.player
-        val item = event.equippedItem
-
-        val itemBehaviour = item.getBehaviour()
-        if (itemBehaviour != ItemBehaviour.GAS_MASK) return event.setCancelled(true)
-
-        player.world.playSound(player.location, Sound.ITEM_ARMOR_EQUIP_LEATHER, 1.0f, 1.0f)
+    fun onGasMaskEquip(event: EntityEquipmentChangedEvent) {
+        if (event.entity !is Player) return
+        val changedSlot = event.equipmentChanges[EquipmentSlot.HEAD] ?: return
+        val newItem = changedSlot.newItem()
+        val itemBehaviour = newItem.getBehaviour()
+        if (itemBehaviour != ItemBehaviour.GAS_MASK) return
+        event.entity.let {
+            val randomizedPitch = (0.6f..0.9f).random()
+            it.world.playSound(it.location, Sound.ENTITY_PLAYER_BREATH, 2.0f, randomizedPitch)
+        }
     }
 
 }

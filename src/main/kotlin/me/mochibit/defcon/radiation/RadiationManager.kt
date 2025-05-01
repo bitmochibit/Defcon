@@ -39,7 +39,6 @@ object RadiationManager {
         }
     }
 
-
     private suspend fun updatePlayers() = withContext(Dispatchers.IO) {
         val players = Defcon.instance.server.onlinePlayers
         val playerDataSave = PlayerDataSave.getInstance()
@@ -55,7 +54,6 @@ object RadiationManager {
                 Bukkit.getPluginManager().callEvent(geigerDetectEvent)
             }
 
-
             if (player.gameMode.let { it == GameMode.SURVIVAL || it == GameMode.ADVENTURE }) {
                 if (totalRadiation < 3.0) continue
                 val radSuffocateEvent = RadiationSuffocationEvent(player, totalRadiation, radiationAreas)
@@ -66,60 +64,61 @@ object RadiationManager {
                     }
                     player.damage(1.0 * (totalRadiation / radiationAreas.size))
                 }
-            }
+                val playerData = playerDataSave.getPlayerData(player) ?: PlayerData(player, 0.0)
+                playerData.radiationLevel += totalRadiation / 20 // Ticks
 
-            val playerData = playerDataSave.getPlayerData(player) ?: PlayerData(player, 0.0)
-            playerData.radiationLevel += totalRadiation / 20 // Ticks
+                playerDataSave.savePlayerData(player, playerData.radiationLevel)
 
-            playerDataSave.savePlayerData(player, playerData.radiationLevel)
+                withContext(Defcon.instance.minecraftDispatcher) {
+                    playerData.radiationLevel.apply {
+                        if (this <= 0) return@apply
 
-            withContext(Defcon.instance.minecraftDispatcher) {
-                playerData.radiationLevel.apply {
-                    if (this <= 0) return@apply
+                        val maxHealthAttribute = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)
+                        maxHealthAttribute?.baseValue = 20.0 - this.coerceAtMost(20.0)
 
-                    val maxHealthAttribute = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)
-                    maxHealthAttribute?.baseValue = 20.0 - this.coerceAtMost(20.0)
-
-                    if (this > 5.0) {
-                        player.addPotionEffect(
-                            org.bukkit.potion.PotionEffect(
-                                org.bukkit.potion.PotionEffectType.GLOWING,
-                                100,
-                                1
+                        if (this > 5.0) {
+                            player.addPotionEffect(
+                                org.bukkit.potion.PotionEffect(
+                                    org.bukkit.potion.PotionEffectType.GLOWING,
+                                    100,
+                                    1
+                                )
                             )
-                        )
+                        }
+
+                        if (this > 10.0) {
+                            player.addPotionEffect(
+                                org.bukkit.potion.PotionEffect(
+                                    org.bukkit.potion.PotionEffectType.NAUSEA,
+                                    100,
+                                    1
+                                )
+                            )
+                        }
+
+                        if (this > 15.0) {
+                            player.addPotionEffect(
+                                org.bukkit.potion.PotionEffect(
+                                    org.bukkit.potion.PotionEffectType.SLOWNESS,
+                                    100,
+                                    1
+                                )
+                            )
+                            player.addPotionEffect(
+                                org.bukkit.potion.PotionEffect(
+                                    org.bukkit.potion.PotionEffectType.MINING_FATIGUE,
+                                    100,
+                                    1
+                                )
+                            )
+                        }
+
+
                     }
-
-                    if (this > 10.0) {
-                        player.addPotionEffect(
-                            org.bukkit.potion.PotionEffect(
-                                org.bukkit.potion.PotionEffectType.NAUSEA,
-                                100,
-                                1
-                            )
-                        )
-                    }
-
-                    if (this > 15.0) {
-                        player.addPotionEffect(
-                            org.bukkit.potion.PotionEffect(
-                                org.bukkit.potion.PotionEffectType.SLOWNESS,
-                                100,
-                                1
-                            )
-                        )
-                        player.addPotionEffect(
-                            org.bukkit.potion.PotionEffect(
-                                org.bukkit.potion.PotionEffectType.MINING_FATIGUE,
-                                100,
-                                1
-                            )
-                        )
-                    }
-
-
                 }
             }
+
+
         }
     }
 }

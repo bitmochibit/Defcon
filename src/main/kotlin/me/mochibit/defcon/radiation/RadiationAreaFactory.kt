@@ -51,7 +51,7 @@ object RadiationAreaFactory {
         radLevel: Double = 1.0,
         maxFloodBlocks: Int = 20000,
         maxUpperVertexRadius: Vector3i = Vector3i(20000, 150, 20000),
-        maxLowerVertexRadius: Vector3i = Vector3i(-20000, -10, -20000)
+        maxLowerVertexRadius: Vector3i = Vector3i(-20000, -30, -20000)
     ): RadiationArea = withContext(Dispatchers.IO) {
         generate(center, world, radLevel, maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius)
     }

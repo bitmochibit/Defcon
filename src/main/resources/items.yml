@@ -46,12 +46,12 @@ enabled-items:
 #------------------------------------------------------------------------------
 gas-mask:
   item-name: "Gas mask"
-  item-description: "&eProtects you from toxic gases"
-  item-minecraft-id: LEATHER_BOOTS
-  item-data-model-id: 1
+  item-description: "Protects you from toxic gases"
+  item-minecraft-id: LEATHER_HELMET
+  item-model: "leather_gas_mask"
   is-usable: true
   is-equipable: true
-  equip-slot-number: 5
+  equip-slot: "head"
   is-droppable: true
   max-stack-size: 1
   is-transportable: true
@@ -59,7 +59,7 @@ gas-mask:
 
 geiger:
   item-name: "<gradient:#34e89e:#0f3443>Geiger Counter</gradient>"
-  item-description: "&eThis item measures the radiation levels"
+  item-description: "This item measures the radiation levels"
   item-minecraft-id: COMPASS
   item-data-model-id: 1
   is-usable: true
@@ -71,7 +71,7 @@ geiger:
 
 wrench:
   item-name: "Wrench"
-  item-description: "&eUsed to assemble structures"
+  item-description: "Used to assemble structures"
   item-minecraft-id: IRON_PICKAXE
   item-data-model-id: 2
   is-usable: true
@@ -86,7 +86,7 @@ wrench:
 #------------------------------------------------------------------------------
 bomb-casing:
   item-name: "Bomb casing"
-  item-description: "&eUsed to create a bomb casing"
+  item-description: "Used to create a bomb casing"
   item-minecraft-id: IRON_BLOCK
   item-data-model-id: 1000
   is-usable: true
@@ -99,7 +99,7 @@ bomb-casing:
 
 bomb-core:
   item-name: "Bomb core"
-  item-description: "&eThe core of the bomb"
+  item-description: "The core of the bomb"
   item-minecraft-id: BEACON
   item-data-model-id: 1001
   is-usable: true
@@ -112,7 +112,7 @@ bomb-core:
 
 bomb-interface:
   item-name: "Bomb interface"
-  item-description: "&eThe interface of the bomb"
+  item-description: "The interface of the bomb"
   item-minecraft-id: COMMAND_BLOCK
   item-data-model-id: 1002
   is-usable: true

@@ -44,7 +44,7 @@ class BlockChanger private constructor(
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     // Configuration properties with more aggressive defaults
-    private var blocksPerBatch = 25000 * 5
+    private var blocksPerBatch = 25000 * 3
     private var processingInterval = 0L
     private var maxQueueSize = 500000
     private var chunkBatchSize = 1000

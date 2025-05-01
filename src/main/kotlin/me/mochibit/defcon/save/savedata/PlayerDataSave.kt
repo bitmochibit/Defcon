@@ -19,6 +19,8 @@
 
 package me.mochibit.defcon.save.savedata
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import me.mochibit.defcon.player.PlayerData
 import me.mochibit.defcon.save.AbstractSaveData
 import me.mochibit.defcon.save.schemas.PlayerSaveSchema
@@ -43,7 +45,7 @@ class PlayerDataSave private constructor() :
     /**
      * Saves player radiation data
      */
-    fun savePlayerData(player: Player, radiationLevel: Double) {
+    suspend fun savePlayerData(player: Player, radiationLevel: Double) = withContext(Dispatchers.IO) {
         val playerUUID = player.uniqueId.toString()
         val page = findPageContainingPlayer(playerUUID) ?: findAvailablePage()
         currentPage = page
@@ -65,19 +67,18 @@ class PlayerDataSave private constructor() :
     /**
      * Gets player data by UUID
      */
-    fun getPlayerData(player: Player): PlayerData? {
+    suspend fun getPlayerData(player: Player): PlayerData? = withContext(Dispatchers.IO) {
         val playerUUID = player.uniqueId.toString()
-        val page = findPageContainingPlayer(playerUUID) ?: return null
-        val schema = getSchema(page) ?: return null
-        return schema.playersData.find { it.playerUUID == playerUUID }?.toPlayerData()
+        val page = findPageContainingPlayer(playerUUID) ?: return@withContext null
+        val schema = getSchema(page) ?: return@withContext null
+        return@withContext schema.playersData.find { it.playerUUID == playerUUID }?.toPlayerData()
     }
-
 
     /**
      * Gets all player data across all pages
      */
-    fun getAllPlayerData(): Set<PlayerData> {
-        return getAllPages().flatMapTo(HashSet()) { page ->
+    suspend fun getAllPlayerData(): Set<PlayerData> = withContext(Dispatchers.IO) {
+        return@withContext getAllPages().flatMapTo(HashSet()) { page ->
             getSchema(page)?.playersData?.map { it.toPlayerData() } ?: emptySet()
         }
     }
@@ -85,47 +86,47 @@ class PlayerDataSave private constructor() :
     /**
      * Deletes player data
      */
-    fun deletePlayerData(playerUUID: String): Boolean {
-        val page = findPageContainingPlayer(playerUUID) ?: return false
-        val schema = getSchema(page) ?: return false
+    suspend fun deletePlayerData(playerUUID: String): Boolean = withContext(Dispatchers.IO) {
+        val page = findPageContainingPlayer(playerUUID) ?: return@withContext false
+        val schema = getSchema(page) ?: return@withContext false
 
         val removed = schema.playersData.removeIf { it.playerUUID == playerUUID }
         if (removed) {
             saveSchema(schema, page)
         }
-        return removed
+        return@withContext removed
     }
 
     /**
      * Updates multiple fields for a player
      */
-    fun updatePlayerData(playerData: PlayerData): Boolean {
+    suspend fun updatePlayerData(playerData: PlayerData): Boolean = withContext(Dispatchers.IO) {
         val playerUUID = playerData.player.uniqueId
 
-        val page = findPageContainingPlayer(playerUUID.toString()) ?: return false
-        val schema = getSchema(page) ?: return false
+        val page = findPageContainingPlayer(playerUUID.toString()) ?: return@withContext false
+        val schema = getSchema(page) ?: return@withContext false
 
         val existing = schema.playersData.find { it.playerUUID == playerUUID.toString() }
         if (existing != null) {
             schema.playersData.remove(existing)
             schema.playersData.add(playerData.toSchema())
             saveSchema(schema, page)
-            return true
+            return@withContext true
         }
-        return false
+        return@withContext false
     }
 
     /**
      * Finds the page containing player data for the given UUID
      */
-    private fun findPageContainingPlayer(playerUUID: String): Int? {
+    private suspend fun findPageContainingPlayer(playerUUID: String): Int? = withContext(Dispatchers.IO) {
         getAllPages().forEach { page ->
             val schema = getSchema(page)
             if (schema?.playersData?.any { it.playerUUID == playerUUID } == true) {
-                return page
+                return@withContext page
             }
         }
-        return null
+        return@withContext null
     }
 
     /**

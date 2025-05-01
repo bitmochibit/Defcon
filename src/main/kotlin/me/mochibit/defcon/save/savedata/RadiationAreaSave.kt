@@ -19,6 +19,9 @@
 
 package me.mochibit.defcon.save.savedata
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import me.mochibit.defcon.radiation.RadiationArea
 import me.mochibit.defcon.save.AbstractSaveData
 import me.mochibit.defcon.save.schemas.RadiationSaveSchema
@@ -27,7 +30,7 @@ import me.mochibit.defcon.save.schemas.toSchema
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-@SaveDataInfo("radiation_areas", 50)
+@SaveDataInfo("radiation_areas", maxPerFile = 50)
 class RadiationAreaSave private constructor(private val worldName: String) :
     AbstractSaveData<RadiationSaveSchema>(RadiationSaveSchema(), true) {
 
@@ -35,7 +38,10 @@ class RadiationAreaSave private constructor(private val worldName: String) :
 
     init {
         setSuffixSupplier { "-$worldName" }
-        maxId.set(getMaxId())
+        // Initialize maxId in a non-blocking way but wait for completion
+        runBlocking {
+            maxId.set(getMaxId())
+        }
     }
 
     companion object {
@@ -48,7 +54,10 @@ class RadiationAreaSave private constructor(private val worldName: String) :
         }
     }
 
-    fun addRadiationArea(area: RadiationArea): RadiationArea {
+    /**
+     * Adds a new radiation area
+     */
+    suspend fun addRadiationArea(area: RadiationArea): RadiationArea = withContext(Dispatchers.IO) {
         val page = findAvailablePage()
         currentPage = page
         load()
@@ -58,36 +67,45 @@ class RadiationAreaSave private constructor(private val worldName: String) :
         schema.radiationAreas.add(indexedArea.toSchema())
         save()
 
-        return indexedArea
+        return@withContext indexedArea
     }
 
-    fun getAll(): Set<RadiationArea> {
-        return getAllPages().flatMapTo(HashSet()) { page ->
+    /**
+     * Gets all radiation areas across all pages
+     */
+    suspend fun getAll(): Set<RadiationArea> = withContext(Dispatchers.IO) {
+        return@withContext getAllPages().flatMapTo(HashSet()) { page ->
             getSchema(page)?.radiationAreas?.map { it.toRadiationArea() } ?: emptyList()
         }
     }
 
-    fun get(id: Int): Pair<RadiationArea, Int>? {
+    /**
+     * Gets a radiation area by ID along with its page number
+     */
+    suspend fun get(id: Int): Pair<RadiationArea, Int>? = withContext(Dispatchers.IO) {
         getAllPages().forEach { page ->
             val schema = getSchema(page) ?: return@forEach
             val area = schema.radiationAreas.find { it.id == id }
             if (area != null) {
-                return Pair(area.toRadiationArea(), page)
+                return@withContext Pair(area.toRadiationArea(), page)
             }
         }
-        return null
+        return@withContext null
     }
 
-    fun delete(id: Int): Boolean {
-        val pair = get(id) ?: return false
+    /**
+     * Deletes a radiation area by ID
+     */
+    suspend fun delete(id: Int): Boolean = withContext(Dispatchers.IO) {
+        val pair = get(id) ?: return@withContext false
         val (area, page) = pair
+        val schema = getSchema(page) ?: return@withContext false
 
-        val schema = getSchema(page) ?: return false
         val removed = schema.radiationAreas.remove(area.toSchema())
         if (removed) {
             saveSchema(schema, page)
         }
-        return removed
+        return@withContext removed
     }
 
     /**

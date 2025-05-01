@@ -20,10 +20,9 @@
 package me.mochibit.defcon.customassets.items
 
 import org.bukkit.Material
-import org.bukkit.inventory.ItemStack
 import java.util.*
 
-data class ModelData(
+data class LegacyModelData(
     val originalItem : Material = Material.FLINT,
     val originalItemName: String = originalItem.name.lowercase(Locale.getDefault()),
     val modelName: String,
@@ -34,3 +33,11 @@ data class ModelData(
     val model: String = "${if (originalItem.isBlock) "block" else "item"}/$modelName/$modelName",
     val animationFrames: Map<Int, String> = mapOf(),
     )
+
+
+data class ModelData(
+    val name: String,
+    val type: String = "model",
+    val isItem : Boolean = true,
+    val model: String = "${if (isItem) "item" else "block"}/$name/$name"
+)
