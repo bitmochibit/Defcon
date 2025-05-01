@@ -28,24 +28,18 @@ import org.bukkit.event.Listener
 import org.bukkit.event.entity.PlayerDeathEvent
 
 class PlayerDeathReset : Listener {
-    // When a player dies, reset the player's data
+    private val playerDataSave = PlayerDataSave.getInstance()
+
     @EventHandler
     fun onPlayerDeath(event: PlayerDeathEvent){
         Bukkit.getScheduler().runTaskAsynchronously(Defcon.instance, Runnable {
             // Get the player's UUID
             val player = event.player
-            val playerUUID = player.uniqueId.toString()
 
             // Reset the player's data
-            val playerData = PlayerDataSave(playerUUID)
-            val radLevel = playerData.getRadiationLevel()
-            playerData.resetRadiationLevel()
+            playerDataSave.savePlayerData(player, 0.0)
             // Reset the player's max health
-            val currentMaxHealth = player.getAttribute(MAX_HEALTH)?.baseValue
-            if (currentMaxHealth != null) {
-                // Give back the maximum health the player had before radiation
-                player.getAttribute(MAX_HEALTH)?.baseValue = currentMaxHealth + radLevel.coerceAtMost(20.0)
-            }
+            player.getAttribute(MAX_HEALTH)?.baseValue = 20.0
         })
     }
 }

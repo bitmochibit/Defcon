@@ -1,7 +1,7 @@
 /*
  *
  * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
+ * Copyright (c) 2025 mochibit.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -17,12 +17,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.save.schemas
+package me.mochibit.defcon.player
 
-import me.mochibit.defcon.radiation.RadiationArea
+import org.bukkit.entity.Player
 
-data class RadiationAreaSchema(
-    var radiationAreas: HashSet<RadiationArea> = HashSet()
-) : SaveSchema
-
-
+data class PlayerData(
+    val player: Player,
+    var radiationLevel: Double = 0.0,
+)

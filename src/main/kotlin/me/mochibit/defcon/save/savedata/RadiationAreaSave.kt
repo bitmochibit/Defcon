@@ -21,116 +21,88 @@ package me.mochibit.defcon.save.savedata
 
 import me.mochibit.defcon.radiation.RadiationArea
 import me.mochibit.defcon.save.AbstractSaveData
-import me.mochibit.defcon.save.schemas.RadiationAreaSchema
-import org.bukkit.World
+import me.mochibit.defcon.save.schemas.RadiationSaveSchema
+import me.mochibit.defcon.save.schemas.toRadiationArea
+import me.mochibit.defcon.save.schemas.toSchema
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.locks.ReentrantLock
-import java.util.function.Supplier
-import kotlin.concurrent.withLock
 
-@SaveDataInfo("radiation_areas")
+@SaveDataInfo("radiation_areas", 50)
 class RadiationAreaSave private constructor(private val worldName: String) :
-    AbstractSaveData<RadiationAreaSchema>(RadiationAreaSchema(),true) {
-    private val lock: ReentrantLock = ReentrantLock()
-    private val maxPerFile: Int = 50
-    private var cachedMaxId = AtomicInteger(0)
+    AbstractSaveData<RadiationSaveSchema>(RadiationSaveSchema(), true) {
+
+    private val maxId = AtomicInteger(0)
+
     init {
         setSuffixSupplier { "-$worldName" }
-        getMaximumId()
+        maxId.set(getMaxId())
     }
+
     companion object {
-        private val radiationAreaSaves = mutableMapOf<String, RadiationAreaSave>()
-        fun getSave(world: World) : RadiationAreaSave {
-            val worldName = world.name
-            if (radiationAreaSaves.containsKey(worldName)) {
-                return radiationAreaSaves[worldName]!!
+        private val saves = ConcurrentHashMap<String, RadiationAreaSave>()
+
+        fun getSave(worldName: String): RadiationAreaSave {
+            return saves.computeIfAbsent(worldName) { name ->
+                RadiationAreaSave(name)
             }
-            val save = RadiationAreaSave(worldName)
-            radiationAreaSaves[worldName] = save
-            return save
         }
     }
-    fun addRadiationArea(radiationArea: RadiationArea): RadiationArea {
-        lock.withLock {
-            // get the available save file which the list size is less than maxPerFile and get the max id from all files
-            while (pageExists(currentPage ?: 0)) {
-                this.load()
-                if (schema.radiationAreas.size < maxPerFile) {
-                    break
-                }
-                schema.radiationAreas.clear()
-                nextPage()
-            }
-            val indexedRadiationArea = radiationArea.copy(id = cachedMaxId.get() + 1)
-            schema.radiationAreas.add(indexedRadiationArea)
-            this.save()
-            cachedMaxId.incrementAndGet()
-            return indexedRadiationArea
-        }
+
+    fun addRadiationArea(area: RadiationArea): RadiationArea {
+        val page = findAvailablePage()
+        currentPage = page
+        load()
+
+        val newId = maxId.incrementAndGet()
+        val indexedArea = area.copy(id = newId)
+        schema.radiationAreas.add(indexedArea.toSchema())
+        save()
+
+        return indexedArea
     }
 
     fun getAll(): Set<RadiationArea> {
-        lock.withLock {
-            val allRadiationAreas = mutableSetOf<RadiationArea>()
-            var page = 0
-            while (pageExists(page)) {
-                val schema = getSchema(page)
-                if (schema == null) {
-                    page++
-                    continue
-                }
-                allRadiationAreas.addAll(schema.radiationAreas)
-                page++
-            }
-            return allRadiationAreas
+        return getAllPages().flatMapTo(HashSet()) { page ->
+            getSchema(page)?.radiationAreas?.map { it.toRadiationArea() } ?: emptyList()
         }
     }
 
     fun get(id: Int): Pair<RadiationArea, Int>? {
-        lock.withLock {
-            var page = 0
-            while (pageExists(page)) {
-                val schema = getSchema(page)
-                if (schema == null) {
-                    page++
-                    continue
-                }
-                val area = schema.radiationAreas.find { it.id == id }
-                if (area != null) {
-                    return Pair(area, page)
-                }
-                page++
+        getAllPages().forEach { page ->
+            val schema = getSchema(page) ?: return@forEach
+            val area = schema.radiationAreas.find { it.id == id }
+            if (area != null) {
+                return Pair(area.toRadiationArea(), page)
             }
-            return null
         }
+        return null
     }
 
-    fun delete(id: Int) {
-        lock.withLock {
-            val areaToRemove = get(id) ?: return
-            val schema = getSchema(areaToRemove.second) ?: return
-            schema.radiationAreas.remove(areaToRemove.first)
-            this.saveSchema(schema, areaToRemove.second)
+    fun delete(id: Int): Boolean {
+        val pair = get(id) ?: return false
+        val (area, page) = pair
+
+        val schema = getSchema(page) ?: return false
+        val removed = schema.radiationAreas.remove(area.toSchema())
+        if (removed) {
+            saveSchema(schema, page)
         }
+        return removed
     }
 
-    private fun getMaximumId() {
-        lock.withLock {
-            var maxId = 0
-            var page = 0
-            while (pageExists(page)) {
-                val schema = getSchema(page)
-                if (schema == null) {
-                    page++
-                    continue
-                }
-                val max = schema.radiationAreas.maxByOrNull { it.id }?.id ?: 0
-                if (max > maxId) {
-                    maxId = max
-                }
-                page++
-            }
-            cachedMaxId.set(maxId)
+    /**
+     * Builder for RadiationAreaSave
+     */
+    class Builder : AbstractSaveData.Builder<RadiationSaveSchema, RadiationAreaSave>() {
+        private var worldName: String = "world"
+
+        fun forWorld(worldName: String): Builder {
+            this.worldName = worldName
+            return this
+        }
+
+        override fun build(): RadiationAreaSave {
+            return getSave(worldName)
         }
     }
 }

@@ -19,6 +19,8 @@
 
 package me.mochibit.defcon.radiation
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import me.mochibit.defcon.enums.BlockDataKey
 import me.mochibit.defcon.extensions.toChunkCoordinate
 import me.mochibit.defcon.save.savedata.RadiationAreaSave
@@ -27,99 +29,124 @@ import me.mochibit.defcon.utils.MetaManager
 import org.bukkit.Location
 import org.bukkit.World
 import org.joml.Vector3i
-import java.util.concurrent.CompletableFuture
 
+/**
+ * Factory for creating and manipulating radiation areas using coroutines.
+ */
 object RadiationAreaFactory {
-    fun fromCenter(
+    /**
+     * Creates a radiation area from a center point.
+     *
+     * @param center The center point of the radiation area
+     * @param world The world in which the radiation area exists
+     * @param radLevel The radiation level of the area
+     * @param maxFloodBlocks The maximum number of blocks to flood fill
+     * @param maxUpperVertexRadius The maximum upper vertex radius
+     * @param maxLowerVertexRadius The maximum lower vertex radius
+     * @return The created radiation area
+     */
+    suspend fun fromCenter(
         center: Vector3i,
         world: World,
         radLevel: Double = 1.0,
         maxFloodBlocks: Int = 20000,
         maxUpperVertexRadius: Vector3i = Vector3i(20000, 150, 20000),
         maxLowerVertexRadius: Vector3i = Vector3i(-20000, -10, -20000)
-    ): CompletableFuture<RadiationArea> {
-        return generate(center, world, radLevel, maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius)
+    ): RadiationArea = withContext(Dispatchers.IO) {
+        generate(center, world, radLevel, maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius)
     }
 
-    private fun generate(
+    /**
+     * Generates a radiation area using the provided parameters.
+     */
+    private suspend fun generate(
         center: Vector3i,
         world: World,
         radLevel: Double = 1.0,
         maxFloodBlocks: Int,
         maxVertexRadius: Vector3i,
         minVertexRadius: Vector3i
-    ): CompletableFuture<RadiationArea> {
-        return CompletableFuture.supplyAsync result@{
-            var radiationArea: RadiationArea? = null
-            var minVertex: Vector3i? = null;
-            var maxVertex: Vector3i? = null;
+    ): RadiationArea = withContext(Dispatchers.IO) {
+        val centerLocation = Location(world, center.x.toDouble(), center.y.toDouble(), center.z.toDouble())
+        val locations = FloodFill3D.getFloodFillAsync(centerLocation, maxFloodBlocks + 1, true)
+        val affectedChunkCoordinates = HashSet<Vector3i>()
 
-            val centerLocation = Location(world, center.x.toDouble(), center.y.toDouble(), center.z.toDouble())
-
-            val locations = FloodFill3D.getFloodFillAsync(centerLocation, maxFloodBlocks + 1, true).join();
-            val affectedChunkCoordinates = HashSet<Vector3i>()
-
-            if (locations.size > maxFloodBlocks) {
-                minVertex = Vector3i(
-                    (center.x + minVertexRadius.x),
-                    (center.y + minVertexRadius.y),
-                    (center.z + minVertexRadius.z)
-                )
-                maxVertex = Vector3i(
-                    (center.x + maxVertexRadius.x),
-                    (center.y + maxVertexRadius.y),
-                    (center.z + maxVertexRadius.z)
-                )
-
-                affectedChunkCoordinates.add(minVertex.toChunkCoordinate())
-                affectedChunkCoordinates.add(maxVertex.toChunkCoordinate())
-            } else {
-                for (location in locations) {
-                    affectedChunkCoordinates.add(location.toChunkCoordinate())
-                }
-            }
-            //TODO: Probably needs a refactor
-            radiationArea = RadiationArea(
-                center = center,
-                world = world,
-                minVertex = minVertex,
-                maxVertex = maxVertex,
-                affectedChunkCoordinates = affectedChunkCoordinates,
-                radiationLevel = radLevel
+        // Determine vertices based on flood fill size
+        val (minVertex, maxVertex) = if (locations.size > maxFloodBlocks) {
+            // Use bounding box if the area is too large
+            val min = Vector3i(
+                center.x + minVertexRadius.x,
+                center.y + minVertexRadius.y,
+                center.z + minVertexRadius.z
             )
-            val indexedRA = RadiationAreaSave.getSave(world).addRadiationArea(radiationArea)
+            val max = Vector3i(
+                center.x + maxVertexRadius.x,
+                center.y + maxVertexRadius.y,
+                center.z + maxVertexRadius.z
+            )
 
-            if (locations.size < maxFloodBlocks) {
-                for (location in locations) {
-                    MetaManager.setBlockData(location, BlockDataKey.RadiationLevel, radLevel)
-                    MetaManager.setBlockData(location, BlockDataKey.RadiationAreaId, indexedRA.id)
-                }
+            affectedChunkCoordinates.add(min.toChunkCoordinate())
+            affectedChunkCoordinates.add(max.toChunkCoordinate())
 
+            Pair(min, max)
+        } else {
+            // Use actual flood fill
+            locations.forEach { location ->
+                affectedChunkCoordinates.add(location.toChunkCoordinate())
             }
-            return@result radiationArea;
+            Pair(null, null)
         }
+
+        // Create and save radiation area
+        val radiationArea = RadiationArea(
+            center = center,
+            world = world,
+            minVertex = minVertex,
+            maxVertex = maxVertex,
+            affectedChunkCoordinates = affectedChunkCoordinates,
+            radiationLevel = radLevel
+        )
+
+        val indexedRA = RadiationAreaSave.getSave(world.name).addRadiationArea(radiationArea)
+
+        // Apply metadata to blocks if area size is manageable
+        if (locations.size < maxFloodBlocks) {
+            locations.forEach { location ->
+                MetaManager.setBlockData(location, BlockDataKey.RadiationLevel, radLevel)
+                MetaManager.setBlockData(location, BlockDataKey.RadiationAreaId, indexedRA.id)
+            }
+        }
+
+        radiationArea
     }
 
-    fun expand(radiationArea: RadiationArea, maxFloodBlocks: Int = 20000): CompletableFuture<RadiationArea?> {
-        return CompletableFuture.supplyAsync result@{
+    /**
+     * Expands an existing radiation area.
+     *
+     * @param radiationArea The radiation area to expand
+     * @param maxFloodBlocks The maximum number of blocks to flood fill
+     * @return The expanded radiation area, or null if expansion failed
+     */
+    suspend fun expand(radiationArea: RadiationArea, maxFloodBlocks: Int = 20000): RadiationArea =
+        withContext(Dispatchers.IO) {
             val world = radiationArea.world
+            val centerLoc = Location(
+                world,
+                radiationArea.center.x.toDouble(),
+                radiationArea.center.y.toDouble(),
+                radiationArea.center.z.toDouble()
+            )
 
-            val centerLoc = Location(world, radiationArea.center.x.toDouble(), radiationArea.center.y.toDouble(), radiationArea.center.z.toDouble())
+            val locations = FloodFill3D.getFloodFillAsync(centerLoc, maxFloodBlocks, true)
 
-            val locations = FloodFill3D.getFloodFillAsync(centerLoc, maxFloodBlocks, true).join();
-            val affectedChunkCoordinates = HashSet<Vector3i>()
-
-            for (location in locations) {
-                affectedChunkCoordinates.add(location.toChunkCoordinate())
+            // Process all new locations
+            locations.forEach { location ->
+                val chunkCoord = location.toChunkCoordinate()
+                radiationArea.affectedChunkCoordinates.add(chunkCoord)
                 MetaManager.setBlockData(location, BlockDataKey.RadiationLevel, radiationArea.radiationLevel)
                 MetaManager.setBlockData(location, BlockDataKey.RadiationAreaId, radiationArea.id)
             }
 
-            radiationArea.affectedChunkCoordinates.addAll(affectedChunkCoordinates)
-
-            return@result radiationArea;
+            radiationArea
         }
-    }
 }
-
-

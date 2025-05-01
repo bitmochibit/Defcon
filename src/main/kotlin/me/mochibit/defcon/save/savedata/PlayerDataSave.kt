@@ -19,64 +19,121 @@
 
 package me.mochibit.defcon.save.savedata
 
+import me.mochibit.defcon.player.PlayerData
 import me.mochibit.defcon.save.AbstractSaveData
-import me.mochibit.defcon.save.schemas.PlayerDataSchema
-import java.util.concurrent.ConcurrentHashMap
+import me.mochibit.defcon.save.schemas.PlayerSaveSchema
+import me.mochibit.defcon.save.schemas.toPlayerData
+import me.mochibit.defcon.save.schemas.toSchema
+import org.bukkit.entity.Player
+import java.util.*
+import kotlin.collections.HashSet
 
-@SaveDataInfo("player_data", "/player_data/")
-class PlayerDataSave(val uuid: String) :
-    AbstractSaveData<PlayerDataSchema>(PlayerDataSchema()) {
+@SaveDataInfo("player_data", maxPerFile = 100)
+class PlayerDataSave private constructor() :
+    AbstractSaveData<PlayerSaveSchema>(PlayerSaveSchema(), true) {
+
     companion object {
-        private val cachedPlayerData = ConcurrentHashMap<String, PlayerDataSchema>()
+        private val _instance by lazy { PlayerDataSave() }
+
+        fun getInstance(): PlayerDataSave {
+            return _instance
+        }
     }
-    init {
-        setSuffixSupplier { "-$uuid" }
+
+    /**
+     * Saves player radiation data
+     */
+    fun savePlayerData(player: Player, radiationLevel: Double) {
+        val playerUUID = player.uniqueId.toString()
+        val page = findPageContainingPlayer(playerUUID) ?: findAvailablePage()
+        currentPage = page
+        load()
+
+        // Find existing player data or create new entry
+        val existingPlayer = schema.playersData.find { it.playerUUID == playerUUID }
+        if (existingPlayer != null) {
+            // Update existing player data
+            existingPlayer.radiationLevel = radiationLevel
+        } else {
+            // Add new player data
+            schema.playersData.add(PlayerData(player, radiationLevel).toSchema())
+        }
+
+        save()
     }
-    private fun getCacheOrLoad(): PlayerDataSchema {
-        if (cachedPlayerData.containsKey(uuid)) {
-            val cached = cachedPlayerData[uuid]
-            if (cached != null) {
-                schema = cached
-                return schema
+
+    /**
+     * Gets player data by UUID
+     */
+    fun getPlayerData(player: Player): PlayerData? {
+        val playerUUID = player.uniqueId.toString()
+        val page = findPageContainingPlayer(playerUUID) ?: return null
+        val schema = getSchema(page) ?: return null
+        return schema.playersData.find { it.playerUUID == playerUUID }?.toPlayerData()
+    }
+
+
+    /**
+     * Gets all player data across all pages
+     */
+    fun getAllPlayerData(): Set<PlayerData> {
+        return getAllPages().flatMapTo(HashSet()) { page ->
+            getSchema(page)?.playersData?.map { it.toPlayerData() } ?: emptySet()
+        }
+    }
+
+    /**
+     * Deletes player data
+     */
+    fun deletePlayerData(playerUUID: String): Boolean {
+        val page = findPageContainingPlayer(playerUUID) ?: return false
+        val schema = getSchema(page) ?: return false
+
+        val removed = schema.playersData.removeIf { it.playerUUID == playerUUID }
+        if (removed) {
+            saveSchema(schema, page)
+        }
+        return removed
+    }
+
+    /**
+     * Updates multiple fields for a player
+     */
+    fun updatePlayerData(playerData: PlayerData): Boolean {
+        val playerUUID = playerData.player.uniqueId
+
+        val page = findPageContainingPlayer(playerUUID.toString()) ?: return false
+        val schema = getSchema(page) ?: return false
+
+        val existing = schema.playersData.find { it.playerUUID == playerUUID.toString() }
+        if (existing != null) {
+            schema.playersData.remove(existing)
+            schema.playersData.add(playerData.toSchema())
+            saveSchema(schema, page)
+            return true
+        }
+        return false
+    }
+
+    /**
+     * Finds the page containing player data for the given UUID
+     */
+    private fun findPageContainingPlayer(playerUUID: String): Int? {
+        getAllPages().forEach { page ->
+            val schema = getSchema(page)
+            if (schema?.playersData?.any { it.playerUUID == playerUUID } == true) {
+                return page
             }
         }
-        load()
-        cachedPlayerData[uuid] = schema
-
-        return this.schema
-    }
-    fun unload() {
-        getCacheOrLoad()
-        save()
-        cachedPlayerData.remove(uuid)
-    }
-    fun getRadiationLevel(): Double {
-        return getCacheOrLoad().radiationLevel
-    }
-    fun setRadiationLevel(radiationLevel: Double) {
-        getCacheOrLoad()
-        this.schema.radiationLevel = radiationLevel
+        return null
     }
 
-    fun increaseRadiationLevel(double: Double): Double {
-        getCacheOrLoad()
-        this.schema.radiationLevel += double
-        return this.schema.radiationLevel
-    }
-
-    fun decreaseRadiationLevel(double: Double): Double {
-        getCacheOrLoad()
-        this.schema.radiationLevel -= double
-        return this.schema.radiationLevel
-    }
-
-    fun resetRadiationLevel() {
-        val schemaTest = getCacheOrLoad()
-        this.schema.radiationLevel = 0.0
+    /**
+     * Builder for PlayerDataSave
+     */
+    class Builder : AbstractSaveData.Builder<PlayerSaveSchema, PlayerDataSave>() {
+        override fun build(): PlayerDataSave {
+            return getInstance()
+        }
     }
 }
-
-
-
-
-

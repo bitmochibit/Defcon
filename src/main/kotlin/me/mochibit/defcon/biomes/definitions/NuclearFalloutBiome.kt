@@ -20,9 +20,7 @@
 package me.mochibit.defcon.biomes.definitions
 
 import me.mochibit.defcon.biomes.*
-import me.mochibit.defcon.biomes.data.BiomeEffects
-import me.mochibit.defcon.biomes.data.BiomeInfo
-import me.mochibit.defcon.biomes.data.BiomeParticle
+import me.mochibit.defcon.biomes.data.*
 import me.mochibit.defcon.biomes.enums.PrecipitationType
 import me.mochibit.defcon.biomes.enums.TemperatureModifier
 import org.bukkit.Particle
@@ -43,6 +41,17 @@ object NuclearFalloutBiome : CustomBiome() {
             particle = BiomeParticle(
                 particle = Particle.WHITE_ASH,
                 probability = 0.05f
+            ),
+            ambientSound = "minecraft:ambient.soul_sand_valley.loop",
+            moodSound = BiomeMoodSound(
+                sound = "minecraft:ambient.soul_sand_valley.mood",
+                tickDelay = 500,
+                blockSearchExtent = 0,
+                offset = 2.0f
+            ),
+            additionalSound = BiomeAdditionalSound(
+                sound = "minecraft:ambient.soul_sand_valley.additions",
+                tickChance = 20
             )
         )
     }

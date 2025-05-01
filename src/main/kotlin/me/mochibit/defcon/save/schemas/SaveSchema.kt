@@ -20,4 +20,7 @@
 package me.mochibit.defcon.save.schemas
 
 sealed interface SaveSchema {
+    fun getMaxID(): Int
+    fun getSize(): Int
+    fun getAllItems(): List<Any>
 }

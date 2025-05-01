@@ -1,13 +1,13 @@
 package me.mochibit.defcon.utils
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import me.mochibit.defcon.registers.BlockRegister
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.World
-import org.bukkit.block.Block
 import org.joml.Vector3i
 import java.util.*
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 
 object FloodFill3D {
@@ -70,7 +70,7 @@ object FloodFill3D {
 
             // Add the location to the result map
             result.getOrPut(type) { HashSet() }
-                 .add(currentPos)
+                .add(currentPos)
 
             // Add neighbor blocks to the queue
             for (direction in Direction.entries) {
@@ -134,15 +134,13 @@ object FloodFill3D {
     /**
      * Async version of flood fill
      */
-    fun getFloodFillAsync(
+    suspend fun getFloodFillAsync(
         startLoc: Location,
         maxRange: Int,
         nonSolidOnly: Boolean = false,
         customBlockOnly: Boolean = false
-    ): CompletableFuture<List<Location>> {
-        return CompletableFuture.supplyAsync {
-            getFloodFill(startLoc, maxRange, nonSolidOnly, customBlockOnly)
-        }
+    ): List<Location> = withContext(Dispatchers.IO) {
+        getFloodFill(startLoc, maxRange, nonSolidOnly, customBlockOnly)
     }
 
     /**

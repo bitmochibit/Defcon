@@ -89,8 +89,6 @@ fun Location.getRadiationLevel(): Double? {
     return getBlockData<Double>(BlockDataKey.RadiationLevel)
 }
 
-
-
 inline fun <reified T> Location.getBlockData(key: BlockDataKey): T? {
     return MetaManager.getBlockData(this, key)
 }

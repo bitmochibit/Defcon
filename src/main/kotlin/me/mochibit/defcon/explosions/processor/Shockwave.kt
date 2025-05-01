@@ -120,7 +120,7 @@ class Shockwave(
                     val player = effect.first
                     val explosionPower = effect.second
 
-                    ExplosionSoundManager.playSounds(ExplosionSoundManager.ShockwaveHitSound, player)
+                    ExplosionSoundManager.playSounds(ExplosionSoundManager.DefaultSounds.ShockwaveHitSound, player)
 
                     val inv = ((1f / explosionPower) * 3).toFloat()
                     try {

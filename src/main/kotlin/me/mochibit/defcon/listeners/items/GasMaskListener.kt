@@ -38,7 +38,6 @@ class GasMaskListener : Listener {
     @EventHandler
     fun protectFromGas(event: RadiationSuffocationEvent) {
         val player = event.getPlayer()
-        val radiationArea = event.getRadiationArea()
 
         // Check if the player has a gas mask
         val helmet = player.inventory.helmet ?: return

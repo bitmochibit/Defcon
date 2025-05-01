@@ -21,24 +21,15 @@ package me.mochibit.defcon
 
 import com.github.retrooper.packetevents.PacketEvents
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import me.mochibit.defcon.Defcon.Logger.PluginLogger
 import me.mochibit.defcon.Defcon.Logger.info
 import me.mochibit.defcon.classes.PluginConfiguration
-import me.mochibit.defcon.events.customitems.GeigerDetectEvent
-import me.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
-import me.mochibit.defcon.extensions.getRadiationLevel
-import me.mochibit.defcon.extensions.increaseRadiationLevel
 import me.mochibit.defcon.notification.NotificationManager
-import me.mochibit.defcon.radiation.RadiationArea
+import me.mochibit.defcon.radiation.RadiationManager
 import me.mochibit.defcon.registers.*
 import me.mochibit.defcon.server.ResourcePackServer
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Bukkit
-import org.bukkit.GameMode
 import org.bukkit.plugin.java.JavaPlugin
 
 
@@ -81,91 +72,9 @@ class Defcon : JavaPlugin() {
         /* Register structures */
         StructureRegister().registerStructures()
 
-        //TODO: Refactor
-        Bukkit.getScheduler().runTaskTimer(
-            this, Runnable {
-                // Loop through every player and check if they are in a radiation area
-                for (player in Bukkit.getOnlinePlayers()) {
-                    if (player.gameMode == GameMode.CREATIVE || player.gameMode == GameMode.SPECTATOR) continue
 
-                    val radiationAreas = RadiationArea.getAtLocation(player.location.add(0.0, 1.0, 0.0))
-                    if (radiationAreas.isEmpty()) continue
-
-                    val totalRadiation = radiationAreas.sumOf { it.radiationLevel } / radiationAreas.size
-                    if (totalRadiation == 0.0) continue
-
-                    val geigerDetectEvent = GeigerDetectEvent(player, totalRadiation)
-                    Bukkit.getPluginManager().callEvent(geigerDetectEvent)
-
-                    for (radiationArea in radiationAreas) {
-                        if (radiationArea.radiationLevel < 3.0) continue
-                        val radSuffocateEvent = RadiationSuffocationEvent(player, radiationArea)
-                        Bukkit.getPluginManager().callEvent(radSuffocateEvent)
-                        if (radSuffocateEvent.isCancelled()) {
-                            continue
-                        }
-                        player.damage(1.0)
-                    }
-                    player.increaseRadiationLevel(totalRadiation / 20)
-                }
-            },
-            0, 20
-        )
-
-        //TODO: Refactor
-        Bukkit.getScheduler().runTaskTimer(
-            this, Runnable {
-                for (player in Bukkit.getOnlinePlayers()) {
-                    val radLevel = player.getRadiationLevel()
-                    if (radLevel <= 0.0) continue
-
-                    // Decrease max health
-                    player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)?.baseValue =
-                        20.0 - radLevel.coerceAtMost(20.0)
-
-                    if (radLevel > 5.0) {
-                        // Give nausea effect
-                        player.addPotionEffect(
-                            org.bukkit.potion.PotionEffect(
-                                org.bukkit.potion.PotionEffectType.GLOWING,
-                                100,
-                                1
-                            )
-                        )
-                    }
-                    if (radLevel > 10.0) {
-                        // Give poison effect
-                        player.addPotionEffect(
-                            org.bukkit.potion.PotionEffect(
-                                org.bukkit.potion.PotionEffectType.NAUSEA,
-                                100,
-                                1
-                            )
-                        )
-                    }
-
-                    if (radLevel > 15.0) {
-                        // Give poison effect
-                        player.addPotionEffect(
-                            org.bukkit.potion.PotionEffect(
-                                org.bukkit.potion.PotionEffectType.SLOWNESS,
-                                100,
-                                1
-                            )
-                        )
-                        player.addPotionEffect(
-                            org.bukkit.potion.PotionEffect(
-                                org.bukkit.potion.PotionEffectType.MINING_FATIGUE,
-                                100,
-                                1
-                            )
-                        )
-                    }
-                }
-            },
-            0, 20
-        )
-
+        // Start radiation processor
+        RadiationManager.start()
     }
 
     override fun onDisable() {

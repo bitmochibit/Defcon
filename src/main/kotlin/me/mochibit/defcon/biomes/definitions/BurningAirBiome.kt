@@ -20,9 +20,7 @@
 package me.mochibit.defcon.biomes.definitions
 
 import me.mochibit.defcon.biomes.*
-import me.mochibit.defcon.biomes.data.BiomeEffects
-import me.mochibit.defcon.biomes.data.BiomeInfo
-import me.mochibit.defcon.biomes.data.BiomeParticle
+import me.mochibit.defcon.biomes.data.*
 import me.mochibit.defcon.biomes.enums.PrecipitationType
 import me.mochibit.defcon.biomes.enums.TemperatureModifier
 import org.bukkit.Particle
@@ -43,6 +41,17 @@ object BurningAirBiome : CustomBiome() {
             particle = BiomeParticle(
                 particle = Particle.LAVA,
                 probability = 0.005f
+            ),
+            ambientSound = "minecraft:ambient.nether_wastes.loop",
+            moodSound = BiomeMoodSound(
+                sound = "minecraft:ambient.nether_wastes.mood",
+                tickDelay = 200,
+                blockSearchExtent = 0,
+                offset = 2.0f
+            ),
+            additionalSound = BiomeAdditionalSound(
+                sound = "minecraft:ambient.nether_wastes.additions",
+                tickChance = 20
             )
         )
     }

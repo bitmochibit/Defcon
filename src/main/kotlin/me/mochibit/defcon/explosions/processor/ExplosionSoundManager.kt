@@ -29,31 +29,45 @@ object ExplosionSoundManager {
     private val enclosedCache = ConcurrentHashMap<String, CachedEnclosedResult>()
     private const val ENCLOSED_CACHE_TTL = 10_000L // 10 seconds cache lifetime
 
-    // Sound definitions
-    val ShockwaveHitSound = ExplosionSound(
-        soundEntries = listOf(
-            SoundEntry(
-                soundNormal = Sound.sound(Key.key("item.totem.use"), Sound.Source.WEATHER, 2f, 1f),
-                repeats = 5,
-                randomizePitch = Pair(0.5f, 0.8f)
+    object DefaultSounds {
+        // Sound definitions
+        val ShockwaveHitSound = ExplosionSound(
+            soundEntries = listOf(
+                SoundEntry(
+                    soundNormal = Sound.sound(Key.key("item.totem.use"), Sound.Source.WEATHER, 2f, 1f),
+                    soundEnclosed = Sound.sound(Key.key("defcon", "nuke.shockwave_reach_outer"), Sound.Source.WEATHER, 2f, 0.1f),
+                    repeats = 5,
+                    randomizePitch = Pair(0.5f, 0.8f)
+                ),
+                SoundEntry(
+                    soundNormal = Sound.sound(Key.key("entity.lightning_bolt.thunder"), Sound.Source.WEATHER, 2f, 0.1f),
+                    repeats = 10,
+                )
             ),
-            SoundEntry(
-                soundNormal = Sound.sound(Key.key("entity.lightning_bolt.thunder"), Sound.Source.WEATHER, 2f, 0.1f),
-                repeats = 10,
-            )
-        ),
-        cooldownMs = 1000L // Shorter cooldown for impact sounds
-    )
+            cooldownMs = 1000L
+        )
 
-    val LargeExplosionWindBackground = ExplosionSound(
-        soundEntries = listOf(
-            SoundEntry(
-                soundNormal = Sound.sound(Key.key("item.elytra.flying"), Sound.Source.WEATHER, 1.0f, 0.1f),
-                repeats = 1,
-            )
-        ),
-        cooldownMs = 5000L // Longer cooldown for ambient sounds
-    )
+        val LargeExplosionWindBackground = ExplosionSound(
+            soundEntries = listOf(
+                SoundEntry(
+                    soundNormal = Sound.sound(Key.key("item.elytra.flying"), Sound.Source.WEATHER, 1.0f, 0.1f),
+                    repeats = 1,
+                )
+            ),
+            cooldownMs = 5000L
+        )
+
+        val DistantExplosion = ExplosionSound(
+            soundEntries = listOf(
+                SoundEntry(
+                    soundNormal = Sound.sound(Key.key("defcon", "nuke.set_distant"), Sound.Source.WEATHER, 2.0f, 0.1f),
+                    repeats = 1,
+                )
+            ),
+            cooldownMs = 5000L
+        )
+
+    }
 
     data class ExplosionSound(
         val soundEntries: List<SoundEntry>,
