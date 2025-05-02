@@ -1,11 +1,10 @@
 package me.mochibit.defcon.explosions.processor
 
-import kotlinx.coroutines.yield
 import me.mochibit.defcon.explosions.TransformationRule
-import me.mochibit.defcon.utils.BlockChange
 import me.mochibit.defcon.utils.BlockChanger
 import me.mochibit.defcon.utils.ChunkCache
 import me.mochibit.defcon.utils.Geometry
+import me.mochibit.defcon.utils.Geometry.wangNoise
 import org.bukkit.Location
 import org.bukkit.Material
 import kotlin.math.*
@@ -59,7 +58,6 @@ class Crater(
 
     suspend fun create(): Int {
         try {
-            processedPositions.clear()
             val effectiveRadius = createCrater()
             return effectiveRadius
         } catch (e: Exception) {
@@ -67,6 +65,7 @@ class Crater(
             return max(radiusX, radiusZ)
         } finally {
             chunkCache.cleanupCache()
+            processedPositions.clear()
         }
     }
 
@@ -266,7 +265,7 @@ class Crater(
 
         // Add some noise for variation
         val variation = 0.25
-        val distortion = (noise(x, 0, z) - 0.5) * variation
+        val distortion = (wangNoise(x, 0, z) - 0.5) * variation
         val distortedDistance = (clampedDistance + distortion).coerceIn(0.0, 1.0)
 
         // Select material based on distance - closer to center means more intense scorching
@@ -275,14 +274,5 @@ class Crater(
         return scorchMaterials.getOrElse(index) { scorchMaterials.first() }
     }
 
-    private fun noise(x: Int, y: Int, z: Int): Double {
-        // Wang hash for better pseudo-random distribution
-        var hash = x.toLong() * 0x1f1f1f1f
-        hash = hash xor (y.toLong() * 0x27d4eb2d)
-        hash = hash xor (z.toLong() * 0x85ebca77)
-        hash = hash xor (hash ushr 15)
-        hash *= 0xc2b2ae3d
-        hash = hash xor (hash ushr 16)
-        return (hash and 0x7FFFFFFF) / 2147483647.0
-    }
+
 }

@@ -45,13 +45,13 @@ object NuclearFalloutBiome : CustomBiome() {
             ambientSound = "minecraft:ambient.soul_sand_valley.loop",
             moodSound = BiomeMoodSound(
                 sound = "minecraft:ambient.soul_sand_valley.mood",
-                tickDelay = 500,
+                tickDelay = 1000,
                 blockSearchExtent = 0,
-                offset = 2.0f
+                offset = 5.0f
             ),
-            additionalSound = BiomeAdditionalSound(
+            additionsSound = BiomeAdditionsSound(
                 sound = "minecraft:ambient.soul_sand_valley.additions",
-                tickChance = 20
+                tickChance = 0.6
             )
         )
     }

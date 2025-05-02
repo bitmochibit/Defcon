@@ -19,7 +19,7 @@
 
 package me.mochibit.defcon.biomes.data
 
-data class BiomeAdditionalSound (
+data class BiomeAdditionsSound (
     var sound: String,
-    var tickChance: Int
+    var tickChance: Double
 )

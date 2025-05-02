@@ -106,20 +106,21 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                     center,
                     BurningAirBiome,
                     falloutRadius,
-                    craterRadius/6,
+                    craterRadius / 6,
                     falloutRadius,
                     falloutRadius,
                     falloutRadius,
                     falloutRadius
                 )
-                delay(2.minutes)
+
+                delay(5.minutes)
                 CustomBiomeHandler.removeBiomeArea(burningBiomeUUID)
 
                 CustomBiomeHandler.createBiomeArea(
                     center,
                     NuclearFalloutBiome,
                     falloutRadius,
-                    craterRadius/6,
+                    craterRadius / 6,
                     falloutRadius,
                     falloutRadius,
                     falloutRadius,
@@ -140,10 +141,9 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                     TransformationRule(),
                     shockwaveHeight
                 ).create()
-
                 Shockwave(
                     center,
-                    effectiveRadius - 2,
+                    effectiveRadius - 1,
                     shockwaveRadius.toInt(),
                     shockwaveHeight,
                 ).explode()

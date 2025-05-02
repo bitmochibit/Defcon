@@ -93,7 +93,7 @@ class Shockwave(
         val startTime = System.nanoTime()
 
         // Use a dispatcher optimized for computational work
-        val explosionDispatcher = Dispatchers.Default.limitedParallelism(8)
+        val explosionDispatcher = Dispatchers.Default
 
         val mainJob = Defcon.instance.launch {
             // Create channels with appropriate capacity
@@ -769,9 +769,9 @@ class Shockwave(
         }
 
         // Batch load all needed chunks
-        if (chunkCoordinates.size <= 64) { // Avoid excessive chunk loading
-            chunkCache.preloadChunks(chunkCoordinates)
-        }
+//        if (chunkCoordinates.size <= 64) { // Avoid excessive chunk loading
+//            chunkCache.preloadChunks(chunkCoordinates)
+//        }
 
         // Second pass: generate Vector3i for each point
         points.forEach { (cosVal, sinVal) ->
@@ -781,10 +781,7 @@ class Shockwave(
             // Get height using chunk cache
             val highestY = chunkCache.highestBlockYAt(x, z)
 
-            // Only add if valid Y position
-            if (highestY > 0) {
-                result.add(Vector3i(x, highestY, z))
-            }
+            result.add(Vector3i(x, highestY, z))
         }
 
         return result
@@ -799,6 +796,10 @@ class Shockwave(
         // Release cached data when no longer needed
         treeBlocks.remove()
         nonTreeBlocks.remove()
+
+        processedBlocks.clear()
+        circleCache.clear()
+
         // Signal completion
         complete()
     }

@@ -3,10 +3,13 @@ package me.mochibit.defcon.biomes
 import com.github.shynixn.mccoroutine.bukkit.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.Defcon.Logger
+import me.mochibit.defcon.save.savedata.BiomeAreaSave
 import org.bukkit.Location
 import org.bukkit.NamespacedKey
+import org.bukkit.World
 import org.bukkit.entity.Player
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -20,7 +23,8 @@ object CustomBiomeHandler {
      * Represents the boundary of a custom biome area.
      */
     data class CustomBiomeBoundary(
-        val id: UUID, // Unique identifier for this biome boundary
+        val id: Int = 0, // Unique ID for this biome boundary
+        val uuid: UUID, // Unique identifier for this biome boundary
         val biome: NamespacedKey,
         val minX: Int,
         val maxX: Int,
@@ -56,6 +60,30 @@ object CustomBiomeHandler {
 
     // Thread-safe map to track which players can see which biomes (for client-side updates)
     private val playerVisibleBiomes = ConcurrentHashMap<UUID, MutableSet<UUID>>()
+
+    // Track which worlds have had their biomes loaded
+    private val loadedWorlds = Collections.synchronizedSet(HashSet<String>())
+
+    /**
+     * Checks if a world's biomes have been loaded
+     */
+    fun isWorldLoaded(worldName: String): Boolean {
+        return loadedWorlds.contains(worldName)
+    }
+
+    /**
+     * Marks a world as having its biomes loaded
+     */
+    fun markWorldAsLoaded(worldName: String) {
+        loadedWorlds.add(worldName)
+    }
+
+    /**
+     * Activates a biome in memory
+     */
+    fun activateBiome(biome: CustomBiomeBoundary) {
+        activeBiomes[biome.uuid] = biome
+    }
 
     /**
      * Gets the biome boundary at a specific location.
@@ -95,11 +123,11 @@ object CustomBiomeHandler {
     }
 
     /**
-     * Creates a new custom biome area.
+     * Creates a new custom biome area and persists it to storage.
      *
      * @return UUID of the created biome area
      */
-    fun createBiomeArea(
+    suspend fun createBiomeArea(
         center: Location,
         biome: CustomBiome,
         lengthPositiveY: Int,
@@ -108,7 +136,7 @@ object CustomBiomeHandler {
         lengthNegativeX: Int,
         lengthPositiveZ: Int,
         lengthNegativeZ: Int,
-    ): UUID {
+    ): UUID = withContext(Dispatchers.Default) {
         // Validate input parameters
         require(lengthPositiveY >= 0) { "Positive Y length must be non-negative" }
         require(lengthNegativeY >= 0) { "Negative Y length must be non-negative" }
@@ -120,6 +148,7 @@ object CustomBiomeHandler {
         val centerX = center.blockX
         val centerY = center.blockY
         val centerZ = center.blockZ
+        val worldName = center.world.name
 
         // Get the world's min and max height
         val worldMinY = center.world.minHeight
@@ -136,9 +165,9 @@ object CustomBiomeHandler {
         // Create a unique ID for this biome area
         val biomeId = UUID.randomUUID()
 
-        // Create and store the biome boundary
+        // Create the biome boundary
         val boundary = CustomBiomeBoundary(
-            id = biomeId,
+            uuid = biomeId,
             biome = biome.asBukkitBiome.key,
             minX = minX,
             maxX = maxX,
@@ -146,15 +175,82 @@ object CustomBiomeHandler {
             maxY = maxY,
             minZ = minZ,
             maxZ = maxZ,
-            worldName = center.world.name
+            worldName = worldName
         )
 
-        activeBiomes[biomeId] = boundary
+        // Make sure the world is marked as loaded
+        markWorldAsLoaded(worldName)
 
-        // Update nearby players who should see this biome
-        updateNearbyPlayers(boundary)
+        // Save to persistent storage
+        val biomeSave = BiomeAreaSave.getSave(worldName)
+        val savedBoundary = biomeSave.addBiome(boundary)
 
-        return biomeId
+        // Update in-memory map with the saved ID
+        activeBiomes[biomeId] = savedBoundary
+
+        // Check chunks that might be affected by this new biome
+        updateChunksForNewBiome(savedBoundary)
+
+        return@withContext biomeId
+    }
+
+    /**
+     * Updates chunks that might be affected by a newly created biome
+     */
+    private fun updateChunksForNewBiome(boundary: CustomBiomeBoundary) {
+        val world = Defcon.instance.server.getWorld(boundary.worldName) ?: return
+
+        // Calculate chunk range
+        val minChunkX = boundary.minX shr 4
+        val maxChunkX = boundary.maxX shr 4
+        val minChunkZ = boundary.minZ shr 4
+        val maxChunkZ = boundary.maxZ shr 4
+
+        // For each potentially affected chunk that's loaded
+        for (chunkX in minChunkX..maxChunkX) {
+            for (chunkZ in minChunkZ..maxChunkZ) {
+                if (world.isChunkLoaded(chunkX, chunkZ)) {
+                    // Find players who should see this biome
+                    for (player in world.players) {
+                        val playerChunkX = player.location.blockX shr 4
+                        val playerChunkZ = player.location.blockZ shr 4
+                        val viewDistance = player.viewDistance.coerceAtMost(10)
+
+                        val deltaX = playerChunkX - chunkX
+                        val deltaZ = playerChunkZ - chunkZ
+                        val distanceSquared = deltaX * deltaX + deltaZ * deltaZ
+
+                        if (distanceSquared <= viewDistance * viewDistance) {
+                            makeBiomeVisibleToPlayer(player.uniqueId, boundary.uuid)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Creates a new custom biome area synchronously (for use in Bukkit API methods that can't be suspended).
+     * This is a convenience method that launches a coroutine but returns immediately.
+     */
+    fun createBiomeAreaSync(
+        center: Location,
+        biome: CustomBiome,
+        lengthPositiveY: Int,
+        lengthNegativeY: Int,
+        lengthPositiveX: Int,
+        lengthNegativeX: Int,
+        lengthPositiveZ: Int,
+        lengthNegativeZ: Int,
+        callback: (UUID) -> Unit = {}
+    ) {
+        Defcon.instance.launch(Dispatchers.Default) {
+            val biomeId = createBiomeArea(
+                center, biome, lengthPositiveY, lengthNegativeY,
+                lengthPositiveX, lengthNegativeX, lengthPositiveZ, lengthNegativeZ
+            )
+            callback(biomeId)
+        }
     }
 
     /**
@@ -177,44 +273,13 @@ object CustomBiomeHandler {
     }
 
     /**
-     * Updates which players should see a biome based on proximity.
-     */
-    private fun updateNearbyPlayers(boundary: CustomBiomeBoundary) {
-        val world = Defcon.instance.server.getWorld(boundary.worldName) ?: return
-
-        // Find players in the same world that should see this biome
-        for (player in world.players) {
-            val playerChunkX = player.location.blockX shr 4
-            val playerChunkZ = player.location.blockZ shr 4
-            val viewDistance = player.viewDistance.coerceAtMost(10)
-
-            // Check if any chunk in view distance intersects with the biome boundary
-            var shouldSee = false
-            outerLoop@ for (dx in -viewDistance..viewDistance) {
-                for (dz in -viewDistance..viewDistance) {
-                    val chunkX = playerChunkX + dx
-                    val chunkZ = playerChunkZ + dz
-                    if (boundary.intersectsChunk(chunkX, chunkZ)) {
-                        shouldSee = true
-                        break@outerLoop
-                    }
-                }
-            }
-
-            if (shouldSee) {
-                makeBiomeVisibleToPlayer(player.uniqueId, boundary.id)
-            }
-        }
-    }
-
-    /**
-     * Removes a custom biome area.
+     * Removes a custom biome area from both memory and persistent storage.
      *
      * @param biomeId UUID of the biome area to remove
      * @return true if the biome was found and removed, false otherwise
      */
-    fun removeBiomeArea(biomeId: UUID): Boolean {
-        val biome = activeBiomes.remove(biomeId) ?: return false
+    suspend fun removeBiomeArea(biomeId: UUID): Boolean = withContext(Dispatchers.Default) {
+        val biome = activeBiomes.remove(biomeId) ?: return@withContext false
 
         // Update all players who could see this biome
         for (playerId in playerVisibleBiomes.keys) {
@@ -222,7 +287,20 @@ object CustomBiomeHandler {
             updateClientSideBiomeChunks(playerId)
         }
 
-        return true
+        // Remove from persistent storage
+        val success = BiomeAreaSave.getSave(biome.worldName).delete(biome.id)
+        return@withContext success
+    }
+
+    /**
+     * Removes a custom biome area synchronously (for use in Bukkit API methods).
+     * This is a convenience method that launches a coroutine but returns immediately.
+     */
+    fun removeBiomeAreaSync(biomeId: UUID, callback: (Boolean) -> Unit = {}) {
+        Defcon.instance.launch(Dispatchers.Default) {
+            val success = removeBiomeArea(biomeId)
+            callback(success)
+        }
     }
 
     /**
@@ -262,7 +340,6 @@ object CustomBiomeHandler {
 
     /**
      * Updates chunks to reflect client-side biome changes.
-     * Optimized to refresh only affected chunks in an efficient manner.
      */
     private fun updateClientSideBiomeChunks(playerId: UUID) {
         val player = Defcon.instance.server.getPlayer(playerId) ?: return
@@ -324,8 +401,8 @@ object CustomBiomeHandler {
                 else -> farChunks.add(Pair(chunkX, chunkZ))
             }
         }
-        Defcon.instance.launch(Dispatchers.Default) {
 
+        Defcon.instance.launch(Dispatchers.Default) {
             // Update immediate chunks with minimal delay
             for ((chunkX, chunkZ) in immediateChunks) {
                 try {
@@ -334,9 +411,6 @@ object CustomBiomeHandler {
                     Logger.warn("Failed to refresh immediate chunk at $chunkX, $chunkZ: ${e.message}")
                 }
             }
-
-            // Short delay before updating near chunks
-            delay(0.1.seconds)
 
             // Update near chunks with small delays
             for ((chunkX, chunkZ) in nearChunks) {
@@ -362,38 +436,31 @@ object CustomBiomeHandler {
         }
     }
 
-
     /**
-     * Optimized spiral coordinate generator.
-     * This generates coordinates in a spiral pattern starting from center.
-     * This is kept as a utility but no longer used in the main implementation.
+     * Unloads biomes for a specific world from memory.
+     * This should be called when a world is unloaded.
      */
-    private fun spiralCoords(radius: Int): List<Pair<Int, Int>> {
-        val coords = mutableListOf<Pair<Int, Int>>()
-        var x = 0
-        var z = 0
-        var dx = 0
-        var dz = -1
+    fun unloadBiomesForWorld(worldName: String) {
+        Logger.info("Unloading biomes for world: $worldName")
 
-        // Calculate exact number of points needed based on radius
-        val maxI = (2 * radius + 1) * (2 * radius + 1)
+        // Find all biomes in this world
+        val biomesToRemove = activeBiomes.values
+            .filter { it.worldName == worldName }
+            .map { it.uuid }
+            .toList()
 
-        for (i in 0 until maxI) {
-            if (-radius <= x && x <= radius && -radius <= z && z <= radius) {
-                coords.add(Pair(x, z))
-            }
-
-            // Logic to generate spiral pattern
-            if (x == z || (x < 0 && x == -z) || (x > 0 && x == 1 - z)) {
-                val tmp = dx
-                dx = -dz
-                dz = tmp
-            }
-
-            x += dx
-            z += dz
+        // Remove them from the active biomes map
+        for (biomeId in biomesToRemove) {
+            activeBiomes.remove(biomeId)
         }
 
-        return coords
+        // Remove them from player visible biomes
+        for (playerId in playerVisibleBiomes.keys) {
+            val visible = playerVisibleBiomes[playerId] ?: continue
+            visible.removeAll(biomesToRemove.toSet())
+        }
+
+        loadedWorlds.remove(worldName)
+        Logger.info("Unloaded ${biomesToRemove.size} biomes for world: $worldName")
     }
 }

@@ -71,7 +71,9 @@ class ItemRegister() {
 
             val itemEquipable = itemConfig.getBoolean("$item.is-equipable", false)
 
-            val itemModel = NamespacedKey.fromString(itemConfig.getString("$item.item-model") ?: "none")
+            val itemModel = itemConfig.getString("$item.item-model")?.let {
+                NamespacedKey.fromString(it)
+            }
             val equipSlot = EquipmentSlot.valueOf(itemConfig.getString("$item.equip-slot")?.uppercase() ?: "HAND")
 
             var behaviourName = itemConfig.getString("$item.behaviour")

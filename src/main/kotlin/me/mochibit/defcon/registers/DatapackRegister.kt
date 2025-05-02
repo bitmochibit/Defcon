@@ -146,11 +146,15 @@ object DatapackRegister : PackRegister() {
             }
 
             // Additional sound
-            effects.additionalSound?.let { additionalSound ->
-                put("additional_sound", JSONObject().apply {
+            effects.additionsSound?.let { additionalSound ->
+                put("additions_sound", JSONObject().apply {
                     put("sound", additionalSound.sound)
                     put("tick_chance", additionalSound.tickChance)
                 })
+            }
+
+            effects.ambientSound?.let { ambientSound ->
+                put("ambient_sound", ambientSound)
             }
 
             // Particle

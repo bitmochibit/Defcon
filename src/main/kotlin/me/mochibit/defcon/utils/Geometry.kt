@@ -201,4 +201,15 @@ object Geometry {
         val z = ((packed shr 42) and 0x1FFFFF).toInt()
         return Triple(x, y, z)
     }
+
+    fun wangNoise(x: Int, y: Int, z: Int): Double {
+        // Wang hash for better pseudo-random distribution
+        var hash = x.toLong() * 0x1f1f1f1f
+        hash = hash xor (y.toLong() * 0x27d4eb2d)
+        hash = hash xor (z.toLong() * 0x85ebca77)
+        hash = hash xor (hash ushr 15)
+        hash *= 0xc2b2ae3d
+        hash = hash xor (hash ushr 16)
+        return (hash and 0x7FFFFFFF) / 2147483647.0
+    }
 }

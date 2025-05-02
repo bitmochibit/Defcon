@@ -35,7 +35,7 @@ data class BiomeEffects(
 
     // Effects
     var moodSound: BiomeMoodSound? = null,
-    var additionalSound : BiomeAdditionalSound? = null,
+    var additionsSound : BiomeAdditionsSound? = null,
     var particle: BiomeParticle? = null,
     var music: BiomeMusic? = null,
 )

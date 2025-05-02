@@ -99,7 +99,6 @@ class CustomItemDefinition(
 
             itemMeta.setEquippable(component)
 
-            println(itemMeta)
             customItem.setItemMeta(itemMeta)
 
             return customItem

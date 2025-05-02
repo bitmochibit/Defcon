@@ -45,13 +45,13 @@ object BurningAirBiome : CustomBiome() {
             ambientSound = "minecraft:ambient.nether_wastes.loop",
             moodSound = BiomeMoodSound(
                 sound = "minecraft:ambient.nether_wastes.mood",
-                tickDelay = 200,
+                tickDelay = 2000,
                 blockSearchExtent = 0,
-                offset = 2.0f
+                offset = 10.0f
             ),
-            additionalSound = BiomeAdditionalSound(
+            additionsSound = BiomeAdditionsSound(
                 sound = "minecraft:ambient.nether_wastes.additions",
-                tickChance = 20
+                tickChance = 0.5
             )
         )
     }
