@@ -23,6 +23,7 @@ import com.github.retrooper.packetevents.PacketEvents
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import me.mochibit.defcon.Defcon.Logger.PluginLogger
 import me.mochibit.defcon.Defcon.Logger.info
+import me.mochibit.defcon.biomes.CustomBiomeHandler
 import me.mochibit.defcon.classes.PluginConfiguration
 import me.mochibit.defcon.notification.NotificationManager
 import me.mochibit.defcon.radiation.RadiationManager
@@ -75,6 +76,10 @@ class Defcon : JavaPlugin() {
 
         // Start radiation processor
         RadiationManager.start()
+
+
+        // Start the custom biome handler
+        CustomBiomeHandler.initialize()
     }
 
     override fun onDisable() {
@@ -82,6 +87,7 @@ class Defcon : JavaPlugin() {
         NotificationManager.saveNotifications()
         PacketEvents.getAPI().terminate()
         ResourcePackServer.stopServer()
+        CustomBiomeHandler.shutdown()
         info("Plugin disabled!")
     }
 
@@ -90,7 +96,6 @@ class Defcon : JavaPlugin() {
         val instance get() = _instance
         var namespace = "defcon"
         val minecraftVersion = Bukkit.getServer().bukkitVersion.split("-")[0]
-
     }
 
     object Logger {

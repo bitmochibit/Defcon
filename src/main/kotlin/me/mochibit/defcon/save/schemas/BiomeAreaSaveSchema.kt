@@ -21,6 +21,8 @@ package me.mochibit.defcon.save.schemas
 
 import me.mochibit.defcon.biomes.CustomBiomeHandler
 import org.bukkit.NamespacedKey
+import org.bukkit.event.EventPriority
+import java.time.Instant
 
 data class BiomeAreaSaveSchema(
     var biomeAreas: HashSet<BoundarySaveSchema> = HashSet()
@@ -38,8 +40,8 @@ data class BiomeAreaSaveSchema(
     }
 
     data class BoundarySaveSchema(
-        val id : Int = 0,
-        val uuid : String = "",
+        val id: Int = 0,
+        val uuid: String = "",
         val biome: NamespacedKey,
         val worldName: String = "",
         val minX: Int,
@@ -48,6 +50,15 @@ data class BiomeAreaSaveSchema(
         val maxY: Int,
         val minZ: Int,
         val maxZ: Int,
+        val priority: Int = 0,
+        val transition: List<BiomeTransitionSaveSchema> = emptyList()
+    )
+
+    data class BiomeTransitionSaveSchema(
+        val transitionTime: Long,
+        val targetBiome: NamespacedKey,
+        val completed: Boolean = false,
+        val targetPriority: Int = 0,
     )
 }
 
@@ -62,7 +73,16 @@ fun CustomBiomeHandler.CustomBiomeBoundary.toSchema(): BiomeAreaSaveSchema.Bound
         minY = minY,
         maxY = maxY,
         minZ = minZ,
-        maxZ = maxZ
+        maxZ = maxZ,
+        priority = priority,
+        transition = transitions.map {
+            BiomeAreaSaveSchema.BiomeTransitionSaveSchema(
+                it.transitionTime.toEpochMilli(),
+                it.targetBiome,
+                it.completed,
+                it.targetPriority
+            )
+        }
     )
 }
 
@@ -77,6 +97,15 @@ fun BiomeAreaSaveSchema.BoundarySaveSchema.toCustomBiomeBoundary(): CustomBiomeH
         minY = minY,
         maxY = maxY,
         minZ = minZ,
-        maxZ = maxZ
+        maxZ = maxZ,
+        priority = priority,
+        transitions = transition.map {
+            CustomBiomeHandler.CustomBiomeBoundary.BiomeTransition(
+                Instant.ofEpochMilli(it.transitionTime),
+                it.targetBiome,
+                it.targetPriority,
+                it.completed,
+            )
+        }
     )
 }

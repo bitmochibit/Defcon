@@ -1,18 +1,21 @@
 package me.mochibit.defcon.biomes
 
 import com.github.shynixn.mccoroutine.bukkit.launch
+import io.ktor.utils.io.core.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.Defcon.Logger
 import me.mochibit.defcon.save.savedata.BiomeAreaSave
+import me.mochibit.defcon.threading.scheduling.intervalAsync
 import org.bukkit.Location
 import org.bukkit.NamespacedKey
-import org.bukkit.World
 import org.bukkit.entity.Player
+import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -32,8 +35,17 @@ object CustomBiomeHandler {
         val maxY: Int,
         val minZ: Int,
         val maxZ: Int,
-        val worldName: String // Store the world name to differentiate between worlds
+        val worldName: String, // Store the world name to differentiate between worlds
+        val priority: Int = 0, // Priority flag for resolving overlaps (higher values take precedence)
+        val transitions: List<BiomeTransition> = emptyList() // List of scheduled transitions
     ) {
+        data class BiomeTransition(
+            val transitionTime: Instant,
+            val targetBiome: NamespacedKey,
+            val targetPriority: Int = 0,
+            val completed: Boolean = false,
+        )
+
         /**
          * Checks if a specific location is within this biome boundary.
          */
@@ -53,6 +65,50 @@ object CustomBiomeHandler {
             return !(chunkMaxX < minX || chunkMinX > maxX ||
                     chunkMaxZ < minZ || chunkMinZ > maxZ)
         }
+
+        /**
+         * Checks if this biome boundary completely contains another.
+         */
+        fun contains(other: CustomBiomeBoundary): Boolean {
+            // Must be in the same world
+            if (worldName != other.worldName) return false
+
+            // Check if this boundary completely contains the other boundary
+            return minX <= other.minX && maxX >= other.maxX &&
+                    minY <= other.minY && maxY >= other.maxY &&
+                    minZ <= other.minZ && maxZ >= other.maxZ
+        }
+
+        /**
+         * Creates a copy of this boundary with a new biome.
+         */
+        fun withBiome(newBiome: NamespacedKey): CustomBiomeBoundary {
+            return copy(biome = newBiome)
+        }
+
+        /**
+         * Creates a copy of this boundary with updated transitions.
+         */
+        fun withTransitions(newTransitions: List<BiomeTransition>): CustomBiomeBoundary {
+            return copy(transitions = newTransitions)
+        }
+
+        /**
+         * Creates a copy with a new priority value.
+         */
+        fun withPriority(newPriority: Int): CustomBiomeBoundary {
+            return copy(priority = newPriority)
+        }
+
+        /**
+         * Gets the next pending transition, if any.
+         */
+        fun getNextPendingTransition(): BiomeTransition? {
+            val now = Instant.now()
+            return transitions
+                .filter { !it.completed && it.transitionTime.isBefore(now) }
+                .minByOrNull { it.transitionTime }
+        }
     }
 
     // Thread-safe map to store active biome boundaries by their unique IDs
@@ -63,6 +119,229 @@ object CustomBiomeHandler {
 
     // Track which worlds have had their biomes loaded
     private val loadedWorlds = Collections.synchronizedSet(HashSet<String>())
+
+    // Tasks for periodic checks
+    private var biomeMergeTask: Closeable? = null
+    private var transitionCheckTask: Closeable? = null
+
+    // Configuration for workers
+    private val MERGE_CHECK_INTERVAL = 5.minutes
+    private val TRANSITION_CHECK_INTERVAL = 30.seconds
+
+    /**
+     * Initializes the biome handler workers.
+     * Should be called during plugin startup.
+     */
+    fun initialize() {
+        biomeMergeTask = intervalAsync(MERGE_CHECK_INTERVAL) {
+            checkAndMergeBiomes()
+        }
+
+
+        transitionCheckTask = intervalAsync(TRANSITION_CHECK_INTERVAL) {
+            checkBiomeTransitions()
+        }
+    }
+
+    /**
+     * Shuts down the biome handler workers.
+     * Should be called during plugin shutdown.
+     */
+    fun shutdown() {
+        biomeMergeTask?.close()
+        transitionCheckTask?.close()
+        biomeMergeTask = null
+        transitionCheckTask = null
+        Logger.info("Shut down CustomBiomeHandler workers")
+    }
+
+    /**
+     * Worker task that checks for biome boundaries that contain each other
+     * and merges them based on priority.
+     */
+    private fun checkAndMergeBiomes() {
+        try {
+            Logger.info("Running biome merge check...")
+            val biomesToMerge = mutableListOf<Pair<CustomBiomeBoundary, CustomBiomeBoundary>>()
+
+            // Group biomes by world for more efficient checking
+            val biomesByWorld = activeBiomes.values.groupBy { it.worldName }
+
+            // For each world
+            for ((worldName, worldBiomes) in biomesByWorld) {
+                // Check each pair of biomes
+                for (containerCandidate in worldBiomes) {
+                    for (containedCandidate in worldBiomes) {
+                        // Skip self-comparison
+                        if (containerCandidate.uuid == containedCandidate.uuid) continue
+
+                        // If one contains the other and has higher priority, mark for merge
+                        if (containerCandidate.contains(containedCandidate) &&
+                            containerCandidate.priority > containedCandidate.priority
+                        ) {
+                            biomesToMerge.add(containerCandidate to containedCandidate)
+                        }
+                    }
+                }
+            }
+
+            // Process the merges
+            if (biomesToMerge.isNotEmpty()) {
+                Logger.info("Found ${biomesToMerge.size} biome areas to merge")
+                Defcon.instance.launch(Dispatchers.Default) {
+                    for ((container, contained) in biomesToMerge) {
+                        mergeCustomBiomes(container, contained)
+                    }
+                }
+            } else {
+                Logger.info("No biome areas need merging")
+            }
+        } catch (e: Exception) {
+            Logger.err("Error in biome merge worker: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Worker task that checks for biome transitions that need to be applied.
+     */
+    private fun checkBiomeTransitions() {
+        try {
+            Logger.info("Checking for biome transitions...")
+            val biomesToTransition = mutableListOf<Pair<CustomBiomeBoundary, CustomBiomeBoundary.BiomeTransition>>()
+
+            // Find biomes with pending transitions
+            for (biome in activeBiomes.values) {
+                val nextTransition = biome.getNextPendingTransition()
+                if (nextTransition != null) {
+                    biomesToTransition.add(biome to nextTransition)
+                }
+            }
+
+            // Process the transitions
+            if (biomesToTransition.isNotEmpty()) {
+                Logger.info("Found ${biomesToTransition.size} biome transitions to apply")
+                Defcon.instance.launch(Dispatchers.Default) {
+                    for ((biome, transition) in biomesToTransition) {
+                        applyBiomeTransition(biome, transition)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Logger.err("Error in biome transition worker: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Merges one biome area into another.
+     * The contained biome will be removed from the system.
+     */
+    private suspend fun mergeCustomBiomes(container: CustomBiomeBoundary, contained: CustomBiomeBoundary) {
+        try {
+            Logger.info("Merging biome ${contained.uuid} into ${container.uuid}")
+
+            // Remove the contained biome (it will be replaced by the container)
+            removeBiomeArea(contained.uuid)
+
+            // Update all players to reflect the changes
+            val world = Defcon.instance.server.getWorld(container.worldName)
+            if (world != null) {
+                for (player in world.players) {
+                    updatePlayerBiomeView(player)
+                }
+            }
+
+            Logger.info("Biome merge completed successfully")
+        } catch (e: Exception) {
+            Logger.err("Failed to merge biomes: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Applies a biome transition by updating the biome type and marking the transition as completed.
+     */
+    private suspend fun applyBiomeTransition(
+        biome: CustomBiomeBoundary,
+        transition: CustomBiomeBoundary.BiomeTransition
+    ) {
+        try {
+            Logger.info("Applying transition for biome ${biome.uuid} to ${transition.targetBiome}")
+
+            // Create updated biome with new biome type
+            val updatedBiome = biome.withBiome(transition.targetBiome)
+
+            // Mark this transition as completed
+            val updatedTransitions = biome.transitions.map {
+                if (it == transition) it.copy(completed = true) else it
+            }
+            val finalBiome = updatedBiome.withTransitions(updatedTransitions).withPriority(transition.targetPriority)
+
+            // Update in storage
+            val biomeSave = BiomeAreaSave.getSave(biome.worldName)
+            biomeSave.updateBiome(finalBiome)
+
+            // Update in memory
+            activeBiomes[biome.uuid] = finalBiome
+
+            // Update all players who can see this biome
+            for (playerId in playerVisibleBiomes.keys) {
+                val playerBiomes = playerVisibleBiomes[playerId] ?: continue
+                if (biome.uuid in playerBiomes) {
+                    updateClientSideBiomeChunks(playerId)
+                }
+            }
+
+            Logger.info("Biome transition applied successfully")
+        } catch (e: Exception) {
+            Logger.err("Failed to apply biome transition: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Schedules a biome transition to occur at a specific time.
+     */
+    suspend fun scheduleBiomeTransition(
+        biomeId: UUID,
+        targetBiome: NamespacedKey,
+        transitionTime: Instant,
+        targetPriority: Int = 0
+    ): Boolean = withContext(Dispatchers.Default) {
+        val biome = activeBiomes[biomeId] ?: return@withContext false
+
+        // Create a new transition
+        val newTransition = CustomBiomeBoundary.BiomeTransition(transitionTime, targetBiome, targetPriority)
+
+        // Add to existing transitions
+        val updatedTransitions = biome.transitions + newTransition
+        val updatedBiome = biome.withTransitions(updatedTransitions)
+
+        // Update in storage and memory
+        val biomeSave = BiomeAreaSave.getSave(biome.worldName)
+        biomeSave.updateBiome(updatedBiome)
+        activeBiomes[biomeId] = updatedBiome
+
+        return@withContext true
+    }
+
+    /**
+     * Updates the priority of a biome boundary.
+     */
+    suspend fun updateBiomePriority(biomeId: UUID, priority: Int): Boolean = withContext(Dispatchers.Default) {
+        val biome = activeBiomes[biomeId] ?: return@withContext false
+
+        // Create updated biome with new priority
+        val updatedBiome = biome.withPriority(priority)
+
+        // Update in storage and memory
+        val biomeSave = BiomeAreaSave.getSave(biome.worldName)
+        biomeSave.updateBiome(updatedBiome)
+        activeBiomes[biomeId] = updatedBiome
+
+        return@withContext true
+    }
 
     /**
      * Checks if a world's biomes have been loaded
@@ -97,9 +376,13 @@ object CustomBiomeHandler {
         val z = location.blockZ
         val worldName = location.world.name
 
-        return activeBiomes.values.find { boundary ->
+        // Find all biomes that contain this location
+        val matchingBiomes = activeBiomes.values.filter { boundary ->
             boundary.worldName == worldName && boundary.isInBounds(x, y, z)
         }
+
+        // If multiple biomes match, return the one with highest priority
+        return matchingBiomes.maxByOrNull { it.priority }
     }
 
     /**
@@ -110,7 +393,11 @@ object CustomBiomeHandler {
      */
     fun getPlayerVisibleBiomes(playerId: UUID): Set<CustomBiomeBoundary> {
         val biomeIds = playerVisibleBiomes[playerId] ?: return emptySet()
-        return biomeIds.mapNotNull { activeBiomes[it] }.toSet()
+        // Create a synchronized copy of the set to prevent concurrent modification during iteration
+        val biomeIdsCopy = synchronized(biomeIds) { biomeIds.toSet() }
+
+        // Now safely map over the copy
+        return biomeIdsCopy.mapNotNull { activeBiomes[it] }.toSet()
     }
 
     /**
@@ -136,6 +423,8 @@ object CustomBiomeHandler {
         lengthNegativeX: Int,
         lengthPositiveZ: Int,
         lengthNegativeZ: Int,
+        priority: Int = 0,
+        transitions: List<CustomBiomeBoundary.BiomeTransition> = emptyList()
     ): UUID = withContext(Dispatchers.Default) {
         // Validate input parameters
         require(lengthPositiveY >= 0) { "Positive Y length must be non-negative" }
@@ -175,7 +464,9 @@ object CustomBiomeHandler {
             maxY = maxY,
             minZ = minZ,
             maxZ = maxZ,
-            worldName = worldName
+            worldName = worldName,
+            priority = priority,
+            transitions = transitions
         )
 
         // Make sure the world is marked as loaded
@@ -230,30 +521,6 @@ object CustomBiomeHandler {
     }
 
     /**
-     * Creates a new custom biome area synchronously (for use in Bukkit API methods that can't be suspended).
-     * This is a convenience method that launches a coroutine but returns immediately.
-     */
-    fun createBiomeAreaSync(
-        center: Location,
-        biome: CustomBiome,
-        lengthPositiveY: Int,
-        lengthNegativeY: Int,
-        lengthPositiveX: Int,
-        lengthNegativeX: Int,
-        lengthPositiveZ: Int,
-        lengthNegativeZ: Int,
-        callback: (UUID) -> Unit = {}
-    ) {
-        Defcon.instance.launch(Dispatchers.Default) {
-            val biomeId = createBiomeArea(
-                center, biome, lengthPositiveY, lengthNegativeY,
-                lengthPositiveX, lengthNegativeX, lengthPositiveZ, lengthNegativeZ
-            )
-            callback(biomeId)
-        }
-    }
-
-    /**
      * Makes a specific biome visible to a player.
      */
     fun makeBiomeVisibleToPlayer(playerId: UUID, biomeId: UUID) {
@@ -290,17 +557,6 @@ object CustomBiomeHandler {
         // Remove from persistent storage
         val success = BiomeAreaSave.getSave(biome.worldName).delete(biome.id)
         return@withContext success
-    }
-
-    /**
-     * Removes a custom biome area synchronously (for use in Bukkit API methods).
-     * This is a convenience method that launches a coroutine but returns immediately.
-     */
-    fun removeBiomeAreaSync(biomeId: UUID, callback: (Boolean) -> Unit = {}) {
-        Defcon.instance.launch(Dispatchers.Default) {
-            val success = removeBiomeArea(biomeId)
-            callback(success)
-        }
     }
 
     /**

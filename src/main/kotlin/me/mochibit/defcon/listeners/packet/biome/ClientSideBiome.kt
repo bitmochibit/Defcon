@@ -36,8 +36,8 @@ class ClientSideBiome : PacketListener {
         val playerBiomes = CustomBiomeHandler.getPlayerVisibleBiomes(user.uuid)
         if (playerBiomes.isEmpty()) return
 
-        // Get the biome boundary for the player
-        val biomeBoundary = playerBiomes.first()
+        // Get the biome boundary for the player (with the highest priority)
+        val biomeBoundary = playerBiomes.maxByOrNull { it.priority } ?: return
 
         val chunkData = WrapperPlayServerChunkData(event)
         val chunkX = chunkData.column.x

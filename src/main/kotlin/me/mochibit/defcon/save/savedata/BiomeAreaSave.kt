@@ -70,6 +70,21 @@ class BiomeAreaSave private constructor(private val worldName: String) :
         return@withContext indexedArea
     }
 
+    suspend fun updateBiome(biome: CustomBiomeHandler.CustomBiomeBoundary): Boolean = withContext(Dispatchers.IO) {
+        val page = findAvailablePage()
+        currentPage = page
+        load()
+
+        val existingArea = schema.biomeAreas.find { it.id == biome.id }
+        if (existingArea != null) {
+            schema.biomeAreas.remove(existingArea)
+            schema.biomeAreas.add(biome.toSchema())
+            save()
+            return@withContext true
+        }
+        return@withContext false
+    }
+
     /**
      * Gets all biome boundaries across all pages
      */

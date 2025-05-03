@@ -58,7 +58,8 @@ class TransformationRule {
 
         val DIRT_TRANSFORMATIONS: EnumSet<Material> = EnumSet.of(
             Material.COARSE_DIRT,
-            Material.DIRT
+            Material.MUD,
+            Material.MUDDY_MANGROVE_ROOTS
         )
 
         val SLAB_TRANSFORMATIONS: EnumSet<Material> = EnumSet.of(

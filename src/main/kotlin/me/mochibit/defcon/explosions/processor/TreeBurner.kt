@@ -38,12 +38,9 @@ class TreeBurner(
         private const val LEAF_SUFFIX = "_LEAVES"
         private const val LOG_SUFFIX = "_LOG"
         private const val WOOD_SUFFIX = "_WOOD"
-        private val TERRAIN_TYPES = setOf(Material.GRASS_BLOCK, Material.DIRT, Material.PODZOL)
 
         // Optimized properties for the tree falling feature
         private const val MIN_POWER_FOR_AUTOMATIC_DESTRUCTION = 0.4
-
-        private const val BATCH_SIZE = 100
 
         // Maximum tree height to process
         private const val MAX_TREE_HEIGHT = 60
@@ -63,17 +60,11 @@ class TreeBurner(
     private val chunkCache = ChunkCache.getInstance(world)
     private val blockChanger = BlockChanger.getInstance(world)
 
-    // Cache for material lookups
-    private val materialCache = HashMap<Vector3i, Material>()
 
     // Batch processing for block changes
-    private val blockChanges = ConcurrentLinkedQueue<BlockChange>()
 
     suspend fun processTreeBurn(initialBlock: Vector3i, normalizedExplosionPower: Double) {
         try {
-            // Reset state for this tree processing
-            materialCache.clear()
-            blockChanges.clear()
 
             // Early exit if block is not part of a tree
             if (!isTreeBlock(initialBlock)) {
@@ -102,7 +93,7 @@ class TreeBurner(
                 when {
                     material.name.endsWith(LEAF_SUFFIX) -> {
                         // Process leaves - always remove them
-                        addBlockChange(initialBlock.x, y, initialBlock.z, Material.AIR)
+                        blockChanger.addBlockChange(initialBlock.x, y, initialBlock.z, Material.AIR, updateBlock = true)
                     }
 
                     material.name.endsWith(LOG_SUFFIX) -> {
@@ -118,8 +109,6 @@ class TreeBurner(
                 }
             }
 
-            // Apply any remaining block changes
-            applyBlockChanges()
         } catch (e: Exception) {
             // Log the error but prevent it from crashing the server
             println("Error in TreeBurner: ${e.message}")
@@ -184,7 +173,7 @@ class TreeBurner(
     ) {
         // Completely destroy logs if explosion power is strong enough
         if (normalizedExplosionPower > MIN_POWER_FOR_AUTOMATIC_DESTRUCTION) {
-            addBlockChange(x, y, z, Material.AIR)
+            blockChanger.addBlockChange(x, y, z, Material.AIR, updateBlock = true)
             return
         }
 
@@ -201,7 +190,7 @@ class TreeBurner(
         val newZ = (z + shockwaveDirection.z * tiltFactor).roundToInt()
 
         // Change the block and mark it as processed
-        addBlockChange(
+        blockChanger.addBlockChange(
             newX,
             y,
             newZ,
@@ -210,30 +199,7 @@ class TreeBurner(
 
         // Remove the original block if it moved
         if (newX != x || newZ != z) {
-            addBlockChange(x, y, z, Material.AIR)
+            blockChanger.addBlockChange(x, y, z, Material.AIR, updateBlock = true)
         }
-    }
-
-    // Add a block change to our batch
-    private suspend fun addBlockChange(x: Int, y: Int, z: Int, material: Material) {
-        blockChanges.add(
-            BlockChange(
-                x,
-                y,
-                z,
-                material
-            )
-        )
-
-        // Apply changes in batches
-        if (blockChanges.size >= BATCH_SIZE) {
-            applyBlockChanges()
-        }
-    }
-
-    // Apply all pending block changes
-    private suspend fun applyBlockChanges() {
-        blockChanger.addBlockChanges(blockChanges)
-        blockChanges.clear()
     }
 }

@@ -20,9 +20,11 @@
 package me.mochibit.defcon.explosions.types
 
 import com.github.shynixn.mccoroutine.bukkit.launch
+import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.biomes.CustomBiomeHandler
 import me.mochibit.defcon.biomes.definitions.BurningAirBiome
@@ -41,6 +43,7 @@ import me.mochibit.defcon.extensions.toVector3i
 import me.mochibit.defcon.radiation.RadiationAreaFactory
 import me.mochibit.defcon.threading.scheduling.runLaterAsync
 import org.bukkit.Location
+import java.time.Instant
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -105,26 +108,20 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                 val burningBiomeUUID = CustomBiomeHandler.createBiomeArea(
                     center,
                     BurningAirBiome,
-                    falloutRadius,
-                    craterRadius / 6,
-                    falloutRadius,
-                    falloutRadius,
-                    falloutRadius,
-                    falloutRadius
+                    lengthPositiveY = falloutRadius,
+                    lengthNegativeY = craterRadius / 6,
+                    lengthNegativeX = falloutRadius,
+                    lengthNegativeZ =  falloutRadius,
+                    lengthPositiveX = falloutRadius,
+                    lengthPositiveZ = falloutRadius,
+                    priority = 100,
                 )
 
-                delay(5.minutes)
-                CustomBiomeHandler.removeBiomeArea(burningBiomeUUID)
-
-                CustomBiomeHandler.createBiomeArea(
-                    center,
-                    NuclearFalloutBiome,
-                    falloutRadius,
-                    craterRadius / 6,
-                    falloutRadius,
-                    falloutRadius,
-                    falloutRadius,
-                    falloutRadius
+                CustomBiomeHandler.scheduleBiomeTransition(
+                    burningBiomeUUID,
+                    NuclearFalloutBiome.key,
+                    Instant.now().plusSeconds(1.minutes.inWholeSeconds),
+                    0
                 )
             }
 
@@ -133,6 +130,17 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
             }
 
             launch(Dispatchers.Default) {
+                val players = center.world.players
+                // Kill all the players within the crater radius instantly
+                for (player in players) {
+                    val playerDistance = player.location.distance(center)
+                    if (playerDistance < craterRadius) {
+                        withContext(Defcon.instance.minecraftDispatcher) {
+                            player.damage(1000.0)
+                        }
+                    }
+                }
+
                 val effectiveRadius = Crater(
                     center,
                     craterRadius,
@@ -141,12 +149,13 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                     TransformationRule(),
                     shockwaveHeight
                 ).create()
-                Shockwave(
+                val shockwaveJob = Shockwave(
                     center,
-                    effectiveRadius - 1,
+                    effectiveRadius-1,
                     shockwaveRadius.toInt(),
                     shockwaveHeight,
                 ).explode()
+                shockwaveJob.join()
             }
         }
 

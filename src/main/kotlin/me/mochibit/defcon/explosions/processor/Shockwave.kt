@@ -2,6 +2,7 @@ package me.mochibit.defcon.explosions.processor
 
 import com.github.shynixn.mccoroutine.bukkit.launch
 import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
+import io.ktor.util.collections.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import me.mochibit.defcon.Defcon
@@ -19,11 +20,12 @@ import org.bukkit.Particle
 import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
+import org.joml.SimplexNoise
 import org.joml.Vector3i
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.*
-import kotlin.random.Random
+import kotlin.time.Duration.Companion.seconds
 
 class Shockwave(
     private val center: Location,
@@ -79,6 +81,7 @@ class Shockwave(
     // Reusable work queues for better memory usage
     private val treeBlocks = ThreadLocal<ArrayList<Vector3i>>()
     private val nonTreeBlocks = ThreadLocal<ArrayList<Vector3i>>()
+
     // Data class for efficient circle point representation
     private data class CirclePoint(val cosValue: Double, val sinValue: Double)
 
@@ -87,260 +90,206 @@ class Shockwave(
         override fun removeEldestEntry(eldest: Map.Entry<K, V>): Boolean = size > capacity
     }
 
-
     private val playerEffectChannel = Channel<Pair<Player, Double>>(Channel.BUFFERED)
-    fun explode() {
-        val startTime = System.nanoTime()
 
-        // Use a dispatcher optimized for computational work
-        val explosionDispatcher = Dispatchers.Default
+    private val worldPlayers = ConcurrentSet<Player>()
 
-        val mainJob = Defcon.instance.launch {
-            // Create channels with appropriate capacity
-            val entityDamageChannel = Channel<Pair<List<Vector3i>, Double>>(Channel.BUFFERED)
-            val blockDestructionChannel = Channel<Pair<List<Vector3i>, Double>>(Channel.BUFFERED)
+    fun explode(): Job {
+        // Use a more focused dispatcher for high-priority tasks
+        val highPriorityDispatcher = Dispatchers.Default
+        val lowPriorityDispatcher = Dispatchers.IO
 
-            // Entity processing coroutine
-            val entityJob = launch(explosionDispatcher) {
-                val visitedEntities: MutableSet<Entity> = ConcurrentHashMap.newKeySet()
+        // Use bounded channels for entity damage to prevent memory pressure
+        // while keeping shockwave channel unlimited for maximum throughput
+        val entityDamageChannel = Channel<Pair<List<Vector3i>, Double>>(Channel.BUFFERED)
+        val blockDestructionChannel = Channel<Pair<List<Vector3i>, Double>>(Channel.BUFFERED)
+        val shockWaveColumnChannel = Channel<Pair<Int, List<Vector3i>>>(Channel.UNLIMITED)
 
-                for (data in entityDamageChannel) {
-                    processEntityDamage(data.first, data.second, visitedEntities)
-                    // Clear periodically to prevent memory growth
-                    if (visitedEntities.size > 1000) {
-                        visitedEntities.clear()
+
+        val shockwaveColumnsJob = Defcon.instance.launch(highPriorityDispatcher) {
+            for (radius in radiusStart..shockwaveRadius) {
+                val columns = generateShockwaveColumns(radius)
+                if (columns.isNotEmpty()) {
+                    shockWaveColumnChannel.send(Pair(radius, columns))
+                }
+
+                // Small yield to allow other high-priority tasks to run
+                yield()
+            }
+        }
+
+        val playerListUpdaterJob = Defcon.instance.launch(lowPriorityDispatcher) {
+            worldPlayers.addAll(Defcon.instance.server.onlinePlayers)
+            while (true) {
+                val newPlayers = Defcon.instance.server.onlinePlayers
+                for (newPlayer in newPlayers) {
+                    if (!worldPlayers.contains(newPlayer)) {
+                        worldPlayers.add(newPlayer)
                     }
                 }
+                // Remove players who are no longer online
+                worldPlayers.removeIf { player -> !player.isOnline }
+                delay(10.seconds)
             }
+        }
 
-            val playerEffectJob = launch(explosionDispatcher) {
-                for (effect in playerEffectChannel) {
-                    val player = effect.first
-                    val explosionPower = effect.second
-
-                    ExplosionSoundManager.playSounds(ExplosionSoundManager.DefaultSounds.ShockwaveHitSound, player)
-
-                    val inv = ((1f / explosionPower) * 3).toFloat()
-                    try {
-                        CameraShake(player, CameraShakeOptions(2.6f, 0.04f, 3.7f * inv, 3.0f * inv))
-                    } catch (e: Exception) {
-                        println("Error applying CameraShake: ${e.message}")
-                    }
-                }
+        // Process entity damage with high priority
+        val entityJob = Defcon.instance.launch(highPriorityDispatcher) {
+            for (data in entityDamageChannel) {
+                processEntityDamage(data.first, data.second)
             }
+        }
 
-            // Block destruction coroutine
-            val blockJob = launch(
-                explosionDispatcher +
-                        treeBlocks.asContextElement(ArrayList()) +
-                        nonTreeBlocks.asContextElement(ArrayList())
-            ) {
-                for (data in blockDestructionChannel) {
-                    processDestruction(data.first, data.second)
-                }
-            }
-
-            // Main shockwave propagation
-            withContext(explosionDispatcher) {
+        // Process player effects with high priority
+        val playerEffectJob = Defcon.instance.launch(highPriorityDispatcher) {
+            for (effect in playerEffectChannel) {
+                val player = effect.first
+                val explosionPower = effect.second
+                ExplosionSoundManager.playSounds(ExplosionSoundManager.DefaultSounds.ShockwaveHitSound, player)
+                val inv = ((1f / explosionPower) * 3).toFloat()
                 try {
-                    var lastProcessedRadius = radiusStart
+                    CameraShake(player, CameraShakeOptions(2.6f, 0.04f, 3.7f * inv, 3.0f * inv))
+                } catch (e: Exception) {
+                    println("Error applying CameraShake: ${e.message}")
+                }
+            }
+        }
 
-                    // Optimized speed multipliers
-                    val pvpSpeedMultiplier = 3.0
+        // Block destruction with lower priority and batch processing
+        val blockJob = Defcon.instance.launch(
+            lowPriorityDispatcher +
+                    treeBlocks.asContextElement(ArrayList()) +
+                    nonTreeBlocks.asContextElement(ArrayList())
+        ) {
+            for (data in blockDestructionChannel) {
+                processDestruction(data.first, data.second)
+            }
+        }
 
-                    while (lastProcessedRadius <= shockwaveRadius) {
-                        val elapsedSeconds = (System.nanoTime() - startTime) / 1_000_000_000.0
+        // The shockwave processor job - sends to entity channel first, then block channel
+        val shockwaveJob = Defcon.instance.launch(highPriorityDispatcher) {
+            for (shockwaveColumns in shockWaveColumnChannel) {
+                val (radius, columns) = shockwaveColumns
+                val explosionPower = MathFunctions.lerp(
+                    maxDestructionPower,
+                    minDestructionPower,
+                    radius / shockwaveRadius.toDouble()
+                )
+                val normalizedExplosionPower =
+                    remap(explosionPower, minDestructionPower, maxDestructionPower, 0.0, 1.0)
 
-                        // Calculate current wave positions
-                        val currentPvpRadius =
-                            (radiusStart + elapsedSeconds * shockwaveSpeed * pvpSpeedMultiplier).toInt()
-                                .coerceAtMost(shockwaveRadius)
+                if (columns.isNotEmpty()) {
+                    // Send to entity damage channel first (priority)
+                    entityDamageChannel.send(Pair(columns, normalizedExplosionPower))
 
-                        val currentDestructionRadius =
-                            (radiusStart + elapsedSeconds * shockwaveSpeed).toInt()
-                                .coerceAtMost(shockwaveRadius)
+                    // Then send to block destruction
+                    blockDestructionChannel.send(Pair(columns, normalizedExplosionPower))
+                }
+                processedRings.incrementAndGet()
+            }
+        }
 
-                        if (currentPvpRadius <= lastProcessedRadius) {
-                            delay(1)
-                            continue
-                        }
+        // Completion job remains similar to original
+        val completionJob = Defcon.instance.launch(lowPriorityDispatcher) {
+            // Ensure remaining work is completed
+            shockwaveColumnsJob.join()
+            shockwaveJob.join()
 
-                        // Process rings in batches for better throughput
-                        val radiusBatch = (lastProcessedRadius + 1..currentPvpRadius).toList()
+            playerListUpdaterJob.cancelAndJoin()
 
-                        // Concurrently process each radius in the batch
-                        radiusBatch.chunked(4).forEach { chunk ->
-                            coroutineScope {
-                                chunk.forEach { radius ->
-                                    launch {
-                                        val explosionPower = MathFunctions.lerp(
-                                            maxDestructionPower,
-                                            minDestructionPower,
-                                            radius / shockwaveRadius.toDouble()
-                                        )
-                                        val normalizedExplosionPower =
-                                            remap(explosionPower, minDestructionPower, maxDestructionPower, 0.0, 1.0)
 
-                                        // Use pre-computed columns if available
-                                        val columns = generateShockwaveColumns(radius)
+            // Close channels in order of priority
+            entityDamageChannel.close()
+            playerEffectChannel.close()
+            blockDestructionChannel.close()
+            shockWaveColumnChannel.close()
 
-                                        if (columns.isNotEmpty()) {
-                                            // PVP damage takes priority
-                                            entityDamageChannel.send(Pair(columns, normalizedExplosionPower))
+            // Wait for all processing to complete
+            entityJob.join()
+            playerEffectJob.join()
+            blockJob.join()
 
-                                            // Process destruction if in range
-                                            if (radius <= currentDestructionRadius) {
-                                                blockDestructionChannel.send(Pair(columns, normalizedExplosionPower))
-                                            }
-                                        }
+            // Mark as complete
+            cleanup()
+        }
 
-                                        processedRings.incrementAndGet()
-                                    }
-                                }
-                            }
-                        }
+        return completionJob
+    }
 
-                        lastProcessedRadius = currentPvpRadius
-                    }
-                } finally {
-                    // Close channels when done
-                    entityDamageChannel.close()
-                    blockDestructionChannel.close()
+    private suspend fun processEntityDamage(
+        columns: List<Vector3i>, explosionPower: Double
+    ) {
+        if (columns.isEmpty()) return
+        withContext(Dispatchers.IO) {
+            columns.forEach { col ->
+                particleLoc.x = col.x.toDouble()
+                particleLoc.y = (col.y + 1).toDouble()
+                particleLoc.z = col.z.toDouble()
+                world.spawnParticle(Particle.EXPLOSION, particleLoc, 0)
+            }
+        }
+        withContext(Dispatchers.IO) {
+            // Skip if no players to process
+            if (worldPlayers.isEmpty()) return@withContext
 
-                    // Ensure remaining work is completed
-                    entityJob.join()
-                    blockJob.join()
-                    playerEffectJob.join()
+            // Fast spatial lookup using grid
+            val spatialGrid = buildSpatialGrid(columns, 2)
 
-                    // Mark as complete
-                    cleanup()
+            // Process only entities near players
+            worldPlayers.forEach { player ->
+                // Process the player itself
+                val playerInRange = processEntityIfInRange(player, spatialGrid, explosionPower)
+                if (!playerInRange) return@forEach
+
+                // Get entities near the player
+                val nearbyEntities = withContext(Defcon.instance.minecraftDispatcher) {
+                    player.getNearbyEntities(10.0, 10.0, 10.0)
+                }
+
+                // Process each nearby entity
+                nearbyEntities.forEach { entity ->
+                    processEntityIfInRange(entity, spatialGrid, explosionPower)
                 }
             }
         }
     }
 
-    private suspend fun processEntityDamage(
-        columns: List<Vector3i>, explosionPower: Double, visitedEntities: MutableSet<Entity>
-    ) {
-        if (columns.isEmpty()) return
+    // Process a single entity if it's in range of any column
+    private suspend fun processEntityIfInRange(
+        entity: Entity,
+        spatialGrid: Map<Int, List<Vector3i>>,
+        explosionPower: Double
+    ): Boolean {
+        val entityX = entity.location.blockX
+        val entityY = entity.location.blockY
+        val entityZ = entity.location.blockZ
 
-        withContext(Dispatchers.IO) {
-            columns.chunked(30).forEach { chunk ->
-                chunk.forEach { col ->
-                    particleLoc.x = col.x.toDouble()
-                    particleLoc.y = (col.y + 1).toDouble()
-                    particleLoc.z = col.z.toDouble()
-                    world.spawnParticle(Particle.EXPLOSION, particleLoc, 0)
-                }
+        // Get grid cell and check entities within
+        val gridKey = ((entityX shr 2) shl 16) or (entityZ shr 2)
+        val columnsInCell = spatialGrid[gridKey] ?: return false
+
+        // Check if entity is near any column in the cell
+        for (column in columnsInCell) {
+            if (abs(entityX - column.x) <= 1 &&
+                entityY >= column.y - maximumDistanceForAction &&
+                entityY <= column.y + shockwaveHeight + maximumDistanceForAction &&
+                abs(entityZ - column.z) <= 1
+            ) {
+                applyExplosionEffects(entity, explosionPower.toFloat())
+                return true
             }
         }
-        withContext(Defcon.instance.minecraftDispatcher) {
-            // Calculate bounding box for entity detection - more efficient than individual checks
-            val bounds = calculateBoundingBox(columns, maximumDistanceForAction, shockwaveHeight)
-
-            // Get entities within the calculated bounds
-            val allEntities =
-                world.getNearbyEntities(bounds.center, bounds.halfWidth, bounds.halfHeight, bounds.halfDepth) {
-                    it !in visitedEntities
-                }
-
-            // Skip if no entities to process
-            if (allEntities.isEmpty()) return@withContext
-
-            // Fast spatial lookup using grid
-            val spatialGrid = buildSpatialGrid(columns, 2)
-
-            // Process entities with spatial grid for faster lookups
-            allEntities.forEach { entity ->
-                val entityX = entity.location.blockX
-                val entityY = entity.location.blockY
-                val entityZ = entity.location.blockZ
-
-                // Get grid cell and check entities within
-                val gridKey = ((entityX shr 2) shl 16) or (entityZ shr 2)
-                val columnsInCell = spatialGrid[gridKey]
-
-                if (columnsInCell != null) {
-                    // Check if entity is near any column in the cell
-                    for (column in columnsInCell) {
-                        if (abs(entityX - column.x) <= 1 &&
-                            entityY >= column.y - maximumDistanceForAction &&
-                            entityY <= column.y + shockwaveHeight + maximumDistanceForAction &&
-                            abs(entityZ - column.z) <= 1
-                        ) {
-                            applyExplosionEffects(entity, explosionPower.toFloat())
-                            visitedEntities.add(entity)
-                            break
-                        }
-                    }
-                }
-            }
-        }
+        return false
     }
 
     // Fast spatial grid for column lookups
     private fun buildSpatialGrid(columns: List<Vector3i>, cellSize: Int): Map<Int, List<Vector3i>> {
         val grid = HashMap<Int, MutableList<Vector3i>>(columns.size / 3)
-
         columns.forEach { column ->
             val gridKey = ((column.x shr cellSize) shl 16) or (column.z shr cellSize)
             grid.getOrPut(gridKey) { ArrayList() }.add(column)
         }
-
         return grid
-    }
-
-    // Calculate tight bounding box for entity detection
-    private data class BoundingBox(
-        val center: Location,
-        val halfWidth: Double,
-        val halfHeight: Double,
-        val halfDepth: Double
-    )
-
-    private fun calculateBoundingBox(columns: List<Vector3i>, verticalPadding: Double, height: Int): BoundingBox {
-        var minX = Int.MAX_VALUE
-        var minY = Int.MAX_VALUE
-        var minZ = Int.MAX_VALUE
-        var maxX = Int.MIN_VALUE
-        var maxY = Int.MIN_VALUE
-        var maxZ = Int.MIN_VALUE
-
-        // Find bounds in a single pass
-        columns.forEach { col ->
-            if (col.x < minX) minX = col.x
-            if (col.x > maxX) maxX = col.x
-            if (col.y < minY) minY = col.y
-            if (col.y > maxY) maxY = col.y
-            if (col.z < minZ) minZ = col.z
-            if (col.z > maxZ) maxZ = col.z
-        }
-
-        // Apply padding
-        minY -= verticalPadding.toInt()
-        maxY += height + verticalPadding.toInt()
-
-        // Add 1 block padding for entity collision boxes
-        minX -= 1
-        maxX += 1
-        minZ -= 1
-        maxZ += 1
-
-        // Calculate center and half dimensions
-        val centerX = (minX + maxX) / 2.0
-        val centerY = (minY + maxY) / 2.0
-        val centerZ = (minZ + maxZ) / 2.0
-
-        val halfWidth = (maxX - minX) / 2.0
-        val halfHeight = (maxY - minY) / 2.0
-        val halfDepth = (maxZ - minZ) / 2.0
-
-        return BoundingBox(
-            Location(world, centerX, centerY, centerZ),
-            halfWidth,
-            halfHeight,
-            halfDepth
-        )
     }
 
     private suspend fun applyExplosionEffects(entity: Entity, explosionPower: Float) {
@@ -348,28 +297,31 @@ class Shockwave(
         val dx = entity.location.x - center.x
         val dy = entity.location.y - center.y
         val dz = entity.location.z - center.z
-        val distance = sqrt(dx * dx + dy * dy + dz * dz)
-
-        // Safety check
-        if (distance < 0.1) return
 
         // Damage and knockback calculations
         val baseDamage = 80.0
 
         // Apply velocity directly rather than creating new vector
         val knockbackPower = explosionPower
-        val knockbackX = dx * knockbackPower
-        val knockbackY = dy * knockbackPower + 0.2
-        val knockbackZ = dz * knockbackPower
+        val knockbackX = knockbackPower / dx
+        val knockbackY = knockbackPower / dy + 1
+        val knockbackZ = knockbackPower / dz
 
-        entity.velocity.x = knockbackX
-        entity.velocity.y = knockbackY
-        entity.velocity.z = knockbackZ
+        val velocity = entity.velocity
+        velocity.x = knockbackX
+        velocity.y = knockbackY
+        velocity.z = knockbackZ
+
+        withContext(Defcon.instance.minecraftDispatcher) {
+            entity.velocity = velocity
+        }
 
         if (entity !is LivingEntity) return
 
         // Apply damage
-        entity.damage(baseDamage * explosionPower)
+        withContext(Defcon.instance.minecraftDispatcher) {
+            entity.damage(baseDamage * explosionPower)
+        }
 
         if (entity is Player) {
             playerEffectChannel.send(Pair(entity, explosionPower.toDouble()))
@@ -416,42 +368,6 @@ class Shockwave(
         }
     }
 
-    private suspend fun processBlock(
-        blockLocation: Vector3i,
-        normalizedExplosionPower: Double
-    ) {
-        // Skip if power is too low
-        if (normalizedExplosionPower < 0.05) return
-
-        // Enhanced penetration with exponential scaling for more realistic results
-        val powerFactor = normalizedExplosionPower.pow(1.2)
-        val basePenetration = (powerFactor * 12).roundToInt().coerceIn(1, 15)
-
-        // Create deterministic but varied penetration based on position
-        val positionSeed = (blockLocation.x * 73) xor (blockLocation.z * 31) xor (blockLocation.y * 13)
-        val random = Random(positionSeed)
-
-        // Randomize penetration
-        val varianceFactor = (normalizedExplosionPower * 0.6).coerceIn(0.2, 0.5)
-        val distanceNormalized = 1.0 - normalizedExplosionPower.coerceIn(0.0, 1.0)
-        val randomOffset =
-            (random.nextDouble() * 2 - 1) * basePenetration * varianceFactor * (1 - distanceNormalized * 0.5)
-
-        // Calculate max penetration
-        val maxPenetration = (basePenetration + randomOffset).roundToInt()
-            .coerceIn(max(1, (basePenetration * 0.7).toInt()), (basePenetration * 1.4).toInt())
-
-        // Optimized wall detection
-        val isWall = detectWall(blockLocation.x, blockLocation.y, blockLocation.z) ||
-                detectWall(blockLocation.x, blockLocation.y - 1, blockLocation.z)
-
-        // Process differently based on structure type
-        if (isWall) {
-            processWall(blockLocation, normalizedExplosionPower, random)
-        } else {
-            processRoof(blockLocation, normalizedExplosionPower, maxPenetration, random)
-        }
-    }
 
     // Fast wall detection using cached materials
     private fun detectWall(x: Int, y: Int, z: Int): Boolean {
@@ -467,9 +383,55 @@ class Shockwave(
         }
     }
 
-    // Process vertical walls more efficiently
+    private suspend fun processBlock(
+        blockLocation: Vector3i,
+        normalizedExplosionPower: Double
+    ) {
+        // Skip if power is too low - lowering threshold to allow more distant effects
+        if (normalizedExplosionPower < 0.02) return
+
+        // Enhanced penetration with exponential scaling for more realistic results
+        val powerFactor = normalizedExplosionPower.pow(1.2)
+        val basePenetration = (powerFactor * 12).roundToInt().coerceIn(1, 15)
+
+
+        // Use simplex noise for more natural terrain-like variation
+        val noiseX = blockLocation.x * 0.1
+        val noiseY = blockLocation.y * 0.1
+        val noiseZ = blockLocation.z * 0.1
+
+        // Generate noise values in range [-1, 1]
+        val noise = SimplexNoise.noise(noiseX.toFloat(), noiseY.toFloat(), noiseZ.toFloat())
+
+        // Use noise for variation (transforms noise from [-1,1] to [0,1] range)
+        val noiseFactor = (noise + 1) * 0.5
+
+        // Randomize penetration with noise
+        val varianceFactor = (normalizedExplosionPower * 0.6).coerceIn(0.2, 0.5)
+        val distanceNormalized = 1.0 - normalizedExplosionPower.coerceIn(0.0, 1.0)
+
+        // Use noise instead of random for more coherent patterns
+        val randomOffset = (noiseFactor * 2 - 1) * basePenetration * varianceFactor * (1 - distanceNormalized * 0.5)
+
+        // Calculate max penetration - ensure at least 1 block penetration even at low power
+        val maxPenetration = (basePenetration + randomOffset).roundToInt()
+            .coerceIn(1, (basePenetration * 1.4).toInt())
+
+        // Optimized wall detection
+        val isWall = detectWall(blockLocation.x, blockLocation.y, blockLocation.z) ||
+                detectWall(blockLocation.x, blockLocation.y - 1, blockLocation.z)
+
+        // Process differently based on structure type
+        if (isWall) {
+            processWall(blockLocation, normalizedExplosionPower)
+        } else {
+            processRoof(blockLocation, normalizedExplosionPower, maxPenetration)
+        }
+    }
+
+    // Process vertical walls more efficiently with simplex noise
     private suspend fun processWall(
-        blockLocation: Vector3i, normalizedExplosionPower: Double, random: Random
+        blockLocation: Vector3i, normalizedExplosionPower: Double
     ) {
         // Return if already processed
         if (isBlockProcessed(blockLocation.x, blockLocation.y, blockLocation.z)) return
@@ -495,8 +457,11 @@ class Shockwave(
             // Stop at liquids
             if (blockType in liquidMaterials) break
 
+            // Use simplex noise for material determination
+            val noiseValue = (SimplexNoise.noise(x * 0.3f, currentY * 0.3f, z * 0.3f) + 1) * 0.5
+
             // Determine final material
-            val finalMaterial = if (depth > 0 && random.nextDouble() < normalizedExplosionPower) {
+            val finalMaterial = if (depth > 0 && noiseValue < normalizedExplosionPower) {
                 transformationRule.transformMaterial(blockType, normalizedExplosionPower)
             } else {
                 Material.AIR
@@ -511,14 +476,13 @@ class Shockwave(
                 finalMaterial,
                 shouldCopyData,
                 (finalMaterial == Material.AIR && currentY == startY) || detectAttached(x, currentY, z)
-
             )
         }
     }
 
-    // Process roof/floor structures with optimized algorithm
+    // Process roof/floor structures with optimized algorithm and simplex noise
     private suspend fun processRoof(
-        blockLocation: Vector3i, normalizedExplosionPower: Double, maxPenetration: Int, random: Random
+        blockLocation: Vector3i, normalizedExplosionPower: Double, maxPenetration: Int
     ) {
         var currentY = blockLocation.y
         var currentPower = normalizedExplosionPower
@@ -530,23 +494,49 @@ class Shockwave(
         val x = blockLocation.x
         val z = blockLocation.z
 
-        // Create horizontal offsets for irregular patterns
+        // Create horizontal offsets for irregular patterns using simplex noise
         val maxOffset = ((normalizedExplosionPower * 3) + 1).toInt().coerceAtLeast(1)
 
-        // Pre-generate offsets - more efficient than allocating during iteration
+        // Pre-generate offsets using simplex noise - more coherent patterns
         val offsetX = IntArray(maxPenetration)
         val offsetZ = IntArray(maxPenetration)
 
         for (i in 0 until maxPenetration) {
             val levelVariance = min(1.0, i * 0.15 + normalizedExplosionPower * 0.2)
-            if (random.nextDouble() < 0.3 + levelVariance) {
-                offsetX[i] = random.nextInt(-maxOffset, maxOffset + 1)
-                offsetZ[i] = random.nextInt(-maxOffset, maxOffset + 1)
+
+            // Use noise for offsets
+            val noiseX = SimplexNoise.noise(x * 0.2f, (currentY - i) * 0.2f, z * 0.2f)
+            val noiseZ = SimplexNoise.noise(x * 0.2f, (currentY - i) * 0.2f + 100, z * 0.2f)
+
+            if (abs(noiseX) < 0.7 - levelVariance) {
+                offsetX[i] = (noiseX * maxOffset).toInt()
+                offsetZ[i] = (noiseZ * maxOffset).toInt()
+            }
+        }
+
+        // Surface effect - always apply some surface damage even at low power
+        if (normalizedExplosionPower >= 0.02 && normalizedExplosionPower < 0.05) {
+            // For very low power explosions, still create surface effects
+            val surfaceNoise = (SimplexNoise.noise(x * 0.5f, currentY * 0.5f, z * 0.5f) + 1) * 0.5
+            if (surfaceNoise < normalizedExplosionPower * 10) {  // Scale up chance for low power
+                val blockType = chunkCache.getBlockMaterial(x, currentY, z)
+                if (blockType != Material.AIR && blockType !in transformBlacklist && blockType !in liquidMaterials) {
+                    // Apply surface transformation
+                    val surfaceMaterial = if (surfaceNoise < normalizedExplosionPower * 5) {
+                        Material.AIR
+                    } else {
+                        transformationRule.transformMaterial(blockType, normalizedExplosionPower * 0.5)
+                    }
+
+                    val shouldCopyData =
+                        surfaceMaterial in slabs || surfaceMaterial in walls || surfaceMaterial in stairs
+                    blockChanger.addBlockChange(x, currentY, z, surfaceMaterial, shouldCopyData, true)
+                }
             }
         }
 
         // Main penetration loop
-        while (penetrationCount < maxPenetration && currentPower > 0.08 && currentY > 0) {
+        while (penetrationCount < maxPenetration && currentPower > 0.05 && currentY > 0) {
             // Calculate current position with offset
             val currentX = if (penetrationCount < offsetX.size) x + offsetX[penetrationCount] else x
             val currentZ = if (penetrationCount < offsetZ.size) z + offsetZ[penetrationCount] else z
@@ -566,7 +556,7 @@ class Shockwave(
                         ) {
                             processRoofBlock(
                                 x, currentY, z, straightBlockType,
-                                currentPower, penetrationCount, maxPenetration, random
+                                currentPower, penetrationCount, maxPenetration
                             )
                         }
                     }
@@ -581,7 +571,7 @@ class Shockwave(
                         if (straightBlockType != Material.AIR) {
                             processRoofBlock(
                                 x, currentY, z, straightBlockType,
-                                currentPower, penetrationCount, maxPenetration, random
+                                currentPower, penetrationCount, maxPenetration
                             )
                         }
                     }
@@ -591,11 +581,21 @@ class Shockwave(
                     var foundSolid = false
 
                     val searchAttempts = (3 + normalizedExplosionPower.pow(2) * 3).toInt()
-                    if (random.nextDouble() < 0.6 + normalizedExplosionPower * 0.2 && searchRadius > 1) {
+
+                    // Use noise to decide if we search
+                    val searchNoise = (SimplexNoise.noise(currentX * 0.3f, currentY * 0.3f, currentZ * 0.3f) + 1) * 0.5
+
+                    if (searchNoise < 0.6 + normalizedExplosionPower * 0.2 && searchRadius > 1) {
                         // Try to find nearby solid blocks
                         for (attempt in 0 until searchAttempts) {
-                            val randX = currentX + random.nextInt(-searchRadius, searchRadius + 1)
-                            val randZ = currentZ + random.nextInt(-searchRadius, searchRadius + 1)
+                            // Use noise for more natural search patterns
+                            val noiseOffsetX =
+                                SimplexNoise.noise(attempt * 0.5f, currentY * 0.2f, currentZ * 0.2f) * searchRadius
+                            val noiseOffsetZ =
+                                SimplexNoise.noise(currentX * 0.2f, attempt * 0.5f, currentZ * 0.2f) * searchRadius
+
+                            val randX = currentX + noiseOffsetX.toInt()
+                            val randZ = currentZ + noiseOffsetZ.toInt()
 
                             val maxSearchDepth = (10.0 + normalizedExplosionPower * 15.0).toInt()
                             val solidY = rayCaster.cachedRayTrace(randX, currentY, randZ, maxSearchDepth.toDouble())
@@ -608,8 +608,7 @@ class Shockwave(
                                         chunkCache.getBlockMaterial(randX, solidY, randZ),
                                         currentPower * 0.8,
                                         penetrationCount,
-                                        maxPenetration,
-                                        random
+                                        maxPenetration
                                     )
                                     foundSolid = true
                                     break
@@ -642,16 +641,15 @@ class Shockwave(
                 // Process the current block
                 processRoofBlock(
                     currentX, currentY, currentZ, blockType,
-                    currentPower, penetrationCount, maxPenetration, random
+                    currentPower, penetrationCount, maxPenetration
                 )
 
                 // Move down and update state
                 currentY--
 
-                // Apply power decay with slight randomization
-                val powerDecayFactor = powerDecay +
-                        (random.nextDouble() * 0.1 - 0.05) +
-                        (normalizedExplosionPower * 0.08)
+                // Apply power decay with slight randomization based on noise
+                val noiseDecay = (SimplexNoise.noise(currentX * 0.2f, currentY * 0.2f, currentZ * 0.2f) + 1) * 0.05
+                val powerDecayFactor = powerDecay + noiseDecay + (normalizedExplosionPower * 0.08)
 
                 currentPower *= powerDecayFactor.coerceIn(0.7, 0.95)
                 penetrationCount++
@@ -663,42 +661,48 @@ class Shockwave(
         }
     }
 
-    // Process individual roof blocks efficiently
+    // Process individual roof blocks efficiently with simplex noise
     private suspend fun processRoofBlock(
         x: Int, y: Int, z: Int,
         blockType: Material,
         power: Double,
         penetrationCount: Int,
         maxPenetration: Int,
-        random: Random
     ) {
-        // Add randomness to power with minimal calculation
-        val adjustedPower = (power + (random.nextDouble() * 0.2 - 0.1) * power).coerceIn(0.0, 1.0)
+        // Use simplex noise for power adjustment
+        val noiseValue = (SimplexNoise.noise(x * 0.4f, y * 0.4f, z * 0.4f) + 1) * 0.5
+        val adjustedPower = (power + (noiseValue * 0.2 - 0.1) * power).coerceIn(0.0, 1.0)
         val penetrationRatio = penetrationCount.toDouble() / maxPenetration
 
-        // Fast material selection using efficient branching
+        // Fast material selection using efficient branching with noise influence
         val finalMaterial = when {
-            // Surface layers - always air
-            penetrationRatio < 0.3 -> Material.AIR
+            // Surface layers - mostly air but allow some blocks to remain with very low power
+            penetrationRatio < 0.3 -> {
+                if (noiseValue < 0.1 && adjustedPower < 0.3) {
+                    transformationRule.transformMaterial(blockType, adjustedPower * 0.5)
+                } else {
+                    Material.AIR
+                }
+            }
 
             // High power explosions create more cavities deeper
-            adjustedPower > 0.7 && random.nextDouble() < adjustedPower * 0.9 -> Material.AIR
+            adjustedPower > 0.7 && noiseValue < adjustedPower * 0.9 -> Material.AIR
 
             // Mid-depth with medium-high power - mix of air and debris
             penetrationRatio < 0.6 && adjustedPower > 0.5 -> {
-                if (random.nextDouble() < adjustedPower * 0.8) Material.AIR
+                if (noiseValue < adjustedPower * 0.8) Material.AIR
                 else transformationRule.transformMaterial(blockType, adjustedPower * 0.8)
             }
 
             // Deeper layers - scattered blocks/rubble pattern
             penetrationRatio >= 0.6 -> {
-                if (random.nextDouble() < 0.7 - (adjustedPower * 0.3))
+                if (noiseValue < 0.7 - (adjustedPower * 0.3))
                     transformationRule.transformMaterial(blockType, adjustedPower)
                 else Material.AIR
             }
 
-            // Random destruction pockets
-            random.nextDouble() < adjustedPower * 0.8 -> Material.AIR
+            // Noise-based destruction pockets
+            noiseValue < adjustedPower * 0.8 -> Material.AIR
 
             // Some blocks remain slightly transformed
             else -> transformationRule.transformMaterial(blockType, adjustedPower * 0.6)
@@ -706,15 +710,29 @@ class Shockwave(
 
         // Optimize physics update flags
         val updatePhysics = penetrationCount == 0 ||
-                (finalMaterial != Material.AIR && random.nextDouble() < 0.2)
+                (finalMaterial != Material.AIR && noiseValue < 0.2)
 
         val shouldCopyData = finalMaterial in slabs ||
                 finalMaterial in walls ||
                 finalMaterial in stairs
 
         // Add to block change queue
+        if (!isBlockProcessed(x, y + 1, z)) {
+            val topBlock = chunkCache.getBlockMaterial(x, y + 1, z)
+            if ((topBlock != Material.AIR && !topBlock.isSolid) && topBlock !in liquidMaterials) {
+                if (blockType.isFlammable) {
+                    blockChanger.addBlockChange(x, y + 1, z, Material.FIRE, updateBlock = true)
+                } else {
+                    val topBlockMat = transformationRule.transformMaterial(topBlock, adjustedPower)
+                    blockChanger.addBlockChange(x, y + 1, z, topBlockMat, shouldCopyData, updateBlock = false)
+                }
+
+            }
+        }
+
         blockChanger.addBlockChange(x, y, z, finalMaterial, shouldCopyData, updatePhysics)
     }
+
 
     // Generate shockwave columns with optimized algorithm
     private fun generateShockwaveColumns(radius: Int): List<Vector3i> {

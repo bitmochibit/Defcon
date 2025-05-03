@@ -113,7 +113,6 @@ class Crater(
 
 
     private suspend fun applyChanges(craterShape: Map<Pair<Int, Int>, Int>): Int {
-        var effectiveRadius = 0.0
 
         // Step 1: Create the crater hole (set blocks to air)
         for ((pos, floorY) in craterShape) {
@@ -124,36 +123,29 @@ class Crater(
                 if (!isBlockProcessed(x, y, z)) {
                     val blockType = chunkCache.getBlockMaterial(x, y, z)
                     if (!blockType.isAir && blockType !in TransformationRule.BLOCK_TRANSFORMATION_BLACKLIST) {
-                        blockChanger.addBlockChange(x,y,z, Material.AIR, updateBlock = true)
-
-                        // Track the effective radius at surface level
-                        if (y == centerY) {
-                            val dx = (x - centerX).toDouble()
-                            val dz = (z - centerZ).toDouble()
-                            val distance = sqrt(dx * dx + dz * dz)
-                            effectiveRadius = max(effectiveRadius, distance)
-                        }
+                        blockChanger.addBlockChange(x,y,z, Material.AIR, updateBlock = false)
                     }
                 }
             }
         }
 
         // Step 2: Apply ray-cast scorching effects
-        applyRayCastScorching(craterShape)
+        val effectiveRadius = applyRayCastScorching(craterShape)
 
         // Step 3: Apply rim scorch effects
         applyRimScorching(craterShape)
 
-        return ceil(effectiveRadius).toInt()
+        return  effectiveRadius
     }
 
     /**
      * Applies scorching by casting a ray downward from each floor point of the crater
      * and replacing the first solid block found
      */
-    private suspend fun applyRayCastScorching(craterShape: Map<Pair<Int, Int>, Int>) {
+    private suspend fun applyRayCastScorching(craterShape: Map<Pair<Int, Int>, Int>): Int {
         val scorchProcessed = HashSet<Long>()
 
+        var effectiveRadiusSquared = 0.0
         for ((pos, floorY) in craterShape) {
             val (x, z) = pos
 
@@ -183,12 +175,17 @@ class Crater(
                 ) {
                     // Using normalized distance directly for all points including center
                     val scorchMaterial = selectScorchMaterial(normalizedDist, x, z)
-                    blockChanger.addBlockChange(x, targetY, z, scorchMaterial, updateBlock = true)
+                    blockChanger.addBlockChange(x, targetY, z, scorchMaterial, updateBlock = false)
                     scorchProcessed.add(Geometry.packIntegerCoordinates(x, targetY, z))
+
+                    val dx = (x - centerX).toDouble()
+                    val dz = (z - centerZ).toDouble()
+                    effectiveRadiusSquared = max(effectiveRadiusSquared, dx * dx + dz * dz)
                     break // Stop ray casting after finding first solid block
                 }
             }
         }
+        return sqrt(effectiveRadiusSquared).roundToInt()
     }
 
     /**

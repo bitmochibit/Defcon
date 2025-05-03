@@ -13,6 +13,8 @@ import org.joml.Vector3i
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Lightweight block change representation
@@ -37,10 +39,9 @@ class BlockChanger private constructor(
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     // Configuration properties with more aggressive defaults
-    private var blocksPerBatch = 25000
-    private var processingInterval = 1L
-    private var chunkBatchSize = 1000
-    private var workerCount = 16
+    private var blocksPerBatch = 30000
+    private var processingInterval = 1.seconds
+    private var workerCount = 6
 
     // Stats tracking
     private val totalProcessed = AtomicLong(0)
@@ -345,7 +346,7 @@ class BlockChanger private constructor(
      */
     fun configure(
         newBlocksPerBatch: Int? = null,
-        newProcessingInterval: Long? = null,
+        newProcessingInterval: Duration? = null,
         newMaxQueueSize: Int? = null,
         newWorkerCount: Int? = null,
         newChunkBatchSize: Int? = null
@@ -353,8 +354,7 @@ class BlockChanger private constructor(
         var needRestart = false
 
         newBlocksPerBatch?.let { if (it > 0) blocksPerBatch = it }
-        newProcessingInterval?.let { if (it >= 0) processingInterval = it }
-        newChunkBatchSize?.let { if (it > 0) chunkBatchSize = it }
+        newProcessingInterval?.let { if (it.inWholeSeconds >= 0) processingInterval = it }
 
         // Worker count requires restart if changed
         newWorkerCount?.let {
