@@ -34,3 +34,14 @@ For sounds and gui effects, the plugin will automatically generate a resource pa
   - [ ] Pumps 
 - 🛡️ Supported Plugins
   - [ ] WorldGuard (protection and tags)
+
+## ⚠️ Responsibility Disclaimer
+
+This plugin is intended for entertainment purposes only and does not promote, endorse, or encourage real-world violence, warfare, or the use of nuclear weapons. The in-game mechanics are purely fictional and should not be interpreted as realistic or educational regarding nuclear technology.
+
+By using this plugin, you acknowledge that:
+- The developers are not responsible for any misuse, misinterpretation, or consequences arising from the use of this plugin.
+- This plugin is not intended to simulate or represent real nuclear events, effects, or consequences accurately.
+- Any damage, data loss, or unintended consequences within your game, server, or system resulting from the use of this plugin are solely your responsibility.
+
+_If you do not agree with these terms, please refrain from using this plugin._
