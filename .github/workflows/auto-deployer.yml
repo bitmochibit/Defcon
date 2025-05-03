@@ -15,6 +15,14 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: gradle
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1
+      - name: Generate Gradle wrapper if missing
+        run: |
+          if [ ! -f "./gradlew" ] || [ ! -d "./gradle/wrapper" ]; then
+            echo "Gradle wrapper missing. Generating..."
+            gradle wrapper
+          fi
       - name: Make gradlew executable
         run: chmod +x ./gradlew
       - name: Setup Gradle
