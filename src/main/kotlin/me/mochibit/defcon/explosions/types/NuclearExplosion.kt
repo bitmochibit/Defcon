@@ -22,16 +22,17 @@ package me.mochibit.defcon.explosions.types
 import com.github.shynixn.mccoroutine.bukkit.launch
 import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.biomes.CustomBiomeHandler
 import me.mochibit.defcon.biomes.definitions.BurningAirBiome
 import me.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
+import me.mochibit.defcon.classes.PluginConfiguration
 import me.mochibit.defcon.effects.nuclear.CondensationCloudVFX
 import me.mochibit.defcon.effects.nuclear.NuclearExplosionVFX
 import me.mochibit.defcon.effects.nuclear.NuclearFogVFX
+import me.mochibit.defcon.enums.ConfigurationStorage
 import me.mochibit.defcon.explosions.ExplosionComponent
 import me.mochibit.defcon.explosions.TransformationRule
 import me.mochibit.defcon.explosions.effects.BlindFlashEffect
@@ -43,8 +44,8 @@ import me.mochibit.defcon.extensions.toVector3i
 import me.mochibit.defcon.radiation.RadiationAreaFactory
 import me.mochibit.defcon.threading.scheduling.runLaterAsync
 import org.bukkit.Location
+import org.joml.Vector3i
 import java.time.Instant
-import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -53,13 +54,30 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
     Explosion(center) {
     override fun explode() {
         Defcon.instance.launch {
-            val shockwaveRadius = nuclearComponent.blastPower * 800
-            val shockwaveHeight = (nuclearComponent.blastPower * 100 * 3).roundToInt()
-            val craterRadius = (shockwaveRadius / 2).roundToInt().coerceIn(20, 180)
+            val pluginConfiguration = PluginConfiguration.get(ConfigurationStorage.Config).config
 
-            val falloutRadius = (shockwaveRadius * 2).roundToInt()
+            val configShockwave = pluginConfiguration.getInt("nuke_shockwave_radius")
+            val configShockwaveHeight = pluginConfiguration.getInt("nuke_shockwave_height")
+            val configCrater = pluginConfiguration.getInt("nuke_crater_radius")
+            val configFallout = pluginConfiguration.getInt("nuke_fallout_radius")
+            val configFlashReach = pluginConfiguration.getInt("nuke_flash_radius")
+            val configThermalRadius = pluginConfiguration.getInt("nuke_thermal_radius")
+            val configSoundSpeed = pluginConfiguration.getInt("nuke_sound_speed")
 
-            val flashReach = (nuclearComponent.thermalPower * 1000).roundToInt()
+            val configFalloutSpreadAir = pluginConfiguration.getInt("nuke_fallout_spread_air")
+            val configFalloutSpreadUnderground = pluginConfiguration.getInt("nuke_fallout_spread_underground")
+
+            val shockwaveRadius = if (configShockwave <= 0) 800 else configShockwave
+            val shockwaveHeight = if (configShockwave <= 0) 300 else configShockwaveHeight
+            val craterRadius = if (configCrater <= 0) 180 else configCrater
+            val falloutRadius = if (configFallout <= 0) 1600 else configFallout
+            val flashReach = if (configFlashReach <= 0) 1000 else configFlashReach
+            val thermalRadius = if (configThermalRadius <= 0) 1000 else configThermalRadius
+            val soundSpeed = if (configSoundSpeed <= 0) 50 else configSoundSpeed
+
+            val falloutSpreadAir = if (configFalloutSpreadAir <= 0) 150 else configFalloutSpreadAir
+            val falloutSpreadUnderground =
+                if (configFalloutSpreadUnderground <= 0) 30 else configFalloutSpreadUnderground
 
             // VFX
             val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
@@ -75,7 +93,6 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                 val blindEffect = BlindFlashEffect(center, flashReach, 200, duration)
                 blindEffect.start()
 
-                val thermalRadius = (nuclearComponent.thermalPower * 1000).roundToInt()
                 val thermalRadiationBurn = ThermalRadiationBurn(center, thermalRadius, duration = 30.seconds)
                 thermalRadiationBurn.start()
             }
@@ -100,7 +117,7 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                     ExplosionSoundManager.DefaultSounds.DistantExplosion,
                     players,
                     center,
-                    50f,
+                    soundSpeed.toFloat(),
                 )
             }
 
@@ -111,7 +128,7 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                     lengthPositiveY = falloutRadius,
                     lengthNegativeY = craterRadius / 6,
                     lengthNegativeX = falloutRadius,
-                    lengthNegativeZ =  falloutRadius,
+                    lengthNegativeZ = falloutRadius,
                     lengthPositiveX = falloutRadius,
                     lengthPositiveZ = falloutRadius,
                     priority = 100,
@@ -126,7 +143,19 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
             }
 
             runLaterAsync(1.minutes) {
-                RadiationAreaFactory.fromCenter(center.toVector3i(), center.world, 5.0, 20000)
+                RadiationAreaFactory.fromCenter(
+                    center.toVector3i(), center.world, 5.0, 20000,
+                    Vector3i(
+                        falloutRadius,
+                        falloutSpreadAir,
+                        falloutRadius
+                    ),
+                    Vector3i(
+                        -falloutRadius,
+                        -falloutSpreadUnderground,
+                        -falloutRadius
+                    ),
+                )
             }
 
             launch(Dispatchers.Default) {
@@ -151,8 +180,8 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                 ).create()
                 val shockwaveJob = Shockwave(
                     center,
-                    effectiveRadius-1,
-                    shockwaveRadius.toInt(),
+                    effectiveRadius - 1,
+                    shockwaveRadius,
                     shockwaveHeight,
                 ).explode()
                 shockwaveJob.join()

@@ -6,3 +6,16 @@ pack_format_fallback:
 
 # Resource pack server port, this is the port that the server will use to serve the resource pack
 resource_pack_server_port: 8000
+
+
+# Configuration for the nuke size (IT WILL BE REMOVED SOON)
+nuke_shockwave_radius: 800 # The radius of the shockwave
+nuke_shockwave_height: 300 # The height of the structures that gets under the shockwave
+nuke_crater_radius: 180 # The radius of the crater
+nuke_fallout_radius: 1600 # The radius of the fallout
+nuke_flash_radius: 1000 # The radius of the flash (blindness)
+nuke_thermal_radius: 1000 # The radius of the thermal (you will be set on fire)
+nuke_sound_speed: 50 # The speed of the sound (in blocks per second)
+
+nuke_fallout_spread_air: 150 # The radius of the fallout spread in the air
+nuke_fallout_spread_underground: 30 # The radius of the fallout spread underground
