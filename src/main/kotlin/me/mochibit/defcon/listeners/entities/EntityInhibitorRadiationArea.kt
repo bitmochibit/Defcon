@@ -45,8 +45,10 @@ class EntityInhibitorRadiationArea: Listener {
                 entity.remove()
             }
             BurningAirBiome.asBukkitBiome.key -> {
-                entity.fireTicks = 2.minutes.toTicks().toInt()
+                event.isCancelled = true
+                entity.remove()
             }
+            else -> {}
         }
     }
 }

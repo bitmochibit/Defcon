@@ -13,8 +13,12 @@ import org.joml.Vector3i
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.max
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 
 /**
  * Lightweight block change representation
@@ -31,6 +35,7 @@ data class BlockChange(
 
 /**
  * Optimized BlockChanger using Kotlin Channels and Coroutines for efficient processing
+ * with adaptive performance pacing
  */
 class BlockChanger private constructor(
     private val world: World,
@@ -41,7 +46,22 @@ class BlockChanger private constructor(
     // Configuration properties with more aggressive defaults
     private var blocksPerBatch = 30000
     private var processingInterval = 1.seconds
-    private var workerCount = 6
+    private var workerCount = 4
+
+    // Performance monitoring settings
+    private var performanceMonitoringEnabled = true
+    private var targetTickTime = 50.milliseconds  // Target 50ms per tick (20 TPS)
+    private var adaptationThreshold = 80.milliseconds  // Start adapting at 80ms tick time (indicates server stress)
+    private var adaptationFactor = 0.8  // Reduce by 20% when server is under stress
+    private var recoveryFactor = 1.05  // Increase by 5% when server is performing well
+    private var minBlocksPerBatch = 1000  // Don't go below this value
+    private var adaptationCheckInterval = 5.seconds  // How often to check and adapt
+    private var originalBlocksPerBatch = blocksPerBatch  // Store original value for recovery
+
+    // Performance monitoring state
+    private var lastAdaptationTime: TimeMark = TimeSource.Monotonic.markNow()
+    private var currentTickTime = 0.milliseconds
+    private var adaptationActive = false
 
     // Stats tracking
     private val totalProcessed = AtomicLong(0)
@@ -53,10 +73,14 @@ class BlockChanger private constructor(
     // Single shared channel for all workers
     private lateinit var blockChannel: Channel<BlockChange>
     private var processingJobs = mutableListOf<Job>()
+    private var monitoringJob: Job? = null
 
     init {
         initializeChannel()
         startProcessing()
+        if (performanceMonitoringEnabled) {
+            startPerformanceMonitoring()
+        }
     }
 
     /**
@@ -65,6 +89,66 @@ class BlockChanger private constructor(
     private fun initializeChannel() {
         // Create a single buffered channel with high capacity
         blockChannel = Channel(Channel.UNLIMITED)
+    }
+
+    /**
+     * Start monitoring server performance and adapting processing rate
+     */
+    private fun startPerformanceMonitoring() {
+        monitoringJob = scope.launch(plugin.minecraftDispatcher) {
+            while (isActive && processingActive.get()) {
+                // Measure performance on the main thread
+                val startTime = TimeSource.Monotonic.markNow()
+
+                // This delay of 1 tick allows us to measure how long it takes for the server to process a tick
+                delay(1)  // Wait for one server tick
+
+                // Calculate time it took for the tick to complete
+                currentTickTime = startTime.elapsedNow()
+
+                // Adapt processing rate if needed
+                adaptProcessingRate()
+
+                // Wait before checking again
+                delay(adaptationCheckInterval)
+            }
+        }
+    }
+
+    /**
+     * Adapt processing rate based on server performance
+     */
+    private fun adaptProcessingRate() {
+        if (!performanceMonitoringEnabled || lastAdaptationTime.elapsedNow() < adaptationCheckInterval) {
+            return
+        }
+
+        lastAdaptationTime = TimeSource.Monotonic.markNow()
+
+        when {
+            // Server under stress - reduce processing rate
+            currentTickTime > adaptationThreshold -> {
+                val newBatchSize = max((blocksPerBatch * adaptationFactor).toInt(), minBlocksPerBatch)
+
+                if (newBatchSize < blocksPerBatch) {
+                    blocksPerBatch = newBatchSize
+                    adaptationActive = true
+                    // No logging to avoid additional overhead when server is already stressed
+                }
+            }
+
+            // Server performing well and adaptation was active - gradually recover
+            currentTickTime < targetTickTime && adaptationActive -> {
+                val newBatchSize = (blocksPerBatch * recoveryFactor).toInt()
+
+                if (newBatchSize <= originalBlocksPerBatch) {
+                    blocksPerBatch = newBatchSize
+                } else {
+                    blocksPerBatch = originalBlocksPerBatch
+                    adaptationActive = false
+                }
+            }
+        }
     }
 
     /**
@@ -349,12 +433,40 @@ class BlockChanger private constructor(
         newProcessingInterval: Duration? = null,
         newMaxQueueSize: Int? = null,
         newWorkerCount: Int? = null,
-        newChunkBatchSize: Int? = null
+        newChunkBatchSize: Int? = null,
+        newPerformanceMonitoringEnabled: Boolean? = null,
+        newTargetTickTime: Duration? = null,
+        newAdaptationThreshold: Duration? = null,
+        newAdaptationFactor: Double? = null,
+        newRecoveryFactor: Double? = null,
+        newMinBlocksPerBatch: Int? = null,
+        newAdaptationCheckInterval: Duration? = null
     ) {
         var needRestart = false
+        var restartMonitoring = false
 
-        newBlocksPerBatch?.let { if (it > 0) blocksPerBatch = it }
-        newProcessingInterval?.let { if (it.inWholeSeconds >= 0) processingInterval = it }
+        // Store original batch size for adaptive scaling
+        if (newBlocksPerBatch != null && newBlocksPerBatch > 0) {
+            blocksPerBatch = newBlocksPerBatch
+            originalBlocksPerBatch = newBlocksPerBatch
+        }
+
+        newProcessingInterval?.let { if (it.inWholeMilliseconds >= 0) processingInterval = it }
+
+        // Performance monitoring configuration
+        newPerformanceMonitoringEnabled?.let {
+            if (performanceMonitoringEnabled != it) {
+                performanceMonitoringEnabled = it
+                restartMonitoring = true
+            }
+        }
+
+        newTargetTickTime?.let { if (it.inWholeMilliseconds > 0) targetTickTime = it }
+        newAdaptationThreshold?.let { if (it.inWholeMilliseconds > 0) adaptationThreshold = it }
+        newAdaptationFactor?.let { if (it > 0 && it <= 1.0) adaptationFactor = it }
+        newRecoveryFactor?.let { if (it >= 1.0) recoveryFactor = it }
+        newMinBlocksPerBatch?.let { if (it > 0) minBlocksPerBatch = it }
+        newAdaptationCheckInterval?.let { if (it.inWholeMilliseconds > 0) adaptationCheckInterval = it }
 
         // Worker count requires restart if changed
         newWorkerCount?.let {
@@ -368,6 +480,15 @@ class BlockChanger private constructor(
             shutdown()
             initializeChannel() // Recreate channel with new capacity
             startProcessing()
+            if (performanceMonitoringEnabled) {
+                startPerformanceMonitoring()
+            }
+        } else if (restartMonitoring) {
+            monitoringJob?.cancel()
+            monitoringJob = null
+            if (performanceMonitoringEnabled) {
+                startPerformanceMonitoring()
+            }
         }
     }
 
@@ -379,10 +500,28 @@ class BlockChanger private constructor(
     }
 
     /**
+     * Get current server performance metrics
+     */
+    fun getPerformanceMetrics(): Map<String, Any> {
+        return mapOf(
+            "currentTickTime" to currentTickTime.toString(),
+            "adaptationActive" to adaptationActive,
+            "currentBlocksPerBatch" to blocksPerBatch,
+            "originalBlocksPerBatch" to originalBlocksPerBatch,
+            "targetTickTime" to targetTickTime.toString(),
+            "adaptationThreshold" to adaptationThreshold.toString()
+        )
+    }
+
+    /**
      * Stop processing and clean up resources
      */
     fun shutdown() {
         processingActive.set(false)
+
+        // Cancel performance monitoring
+        monitoringJob?.cancel()
+        monitoringJob = null
 
         // Cancel all processing jobs
         scope.launch {

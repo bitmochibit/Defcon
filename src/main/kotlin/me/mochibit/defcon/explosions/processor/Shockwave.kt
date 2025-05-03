@@ -494,26 +494,6 @@ class Shockwave(
         val x = blockLocation.x
         val z = blockLocation.z
 
-        // Create horizontal offsets for irregular patterns using simplex noise
-        val maxOffset = ((normalizedExplosionPower * 3) + 1).toInt().coerceAtLeast(1)
-
-        // Pre-generate offsets using simplex noise - more coherent patterns
-        val offsetX = IntArray(maxPenetration)
-        val offsetZ = IntArray(maxPenetration)
-
-        for (i in 0 until maxPenetration) {
-            val levelVariance = min(1.0, i * 0.15 + normalizedExplosionPower * 0.2)
-
-            // Use noise for offsets
-            val noiseX = SimplexNoise.noise(x * 0.2f, (currentY - i) * 0.2f, z * 0.2f)
-            val noiseZ = SimplexNoise.noise(x * 0.2f, (currentY - i) * 0.2f + 100, z * 0.2f)
-
-            if (abs(noiseX) < 0.7 - levelVariance) {
-                offsetX[i] = (noiseX * maxOffset).toInt()
-                offsetZ[i] = (noiseZ * maxOffset).toInt()
-            }
-        }
-
         // Surface effect - always apply some surface damage even at low power
         if (normalizedExplosionPower >= 0.02 && normalizedExplosionPower < 0.05) {
             // For very low power explosions, still create surface effects
@@ -538,104 +518,26 @@ class Shockwave(
         // Main penetration loop
         while (penetrationCount < maxPenetration && currentPower > 0.05 && currentY > 0) {
             // Calculate current position with offset
-            val currentX = if (penetrationCount < offsetX.size) x + offsetX[penetrationCount] else x
-            val currentZ = if (penetrationCount < offsetZ.size) z + offsetZ[penetrationCount] else z
+            val currentX = x
+            val currentZ = z
 
             // Skip if already processed
-            if (isBlockProcessed(currentX, currentY, currentZ)) {
+            if (!isBlockProcessed(currentX, currentY, currentZ)) {
                 val blockType = chunkCache.getBlockMaterial(currentX, currentY, currentZ)
-
-                // Handle special cases
-                if (blockType in transformBlacklist || blockType in liquidMaterials) {
-                    // Try continuing in straight line if offset led to invalid block
-                    if (currentX != x || currentZ != z) {
-                        val straightBlockType = chunkCache.getBlockMaterial(x, currentY, z)
-                        if (straightBlockType !in transformBlacklist &&
-                            straightBlockType !in liquidMaterials &&
-                            straightBlockType != Material.AIR
-                        ) {
-                            processRoofBlock(
-                                x, currentY, z, straightBlockType,
-                                currentPower, penetrationCount, maxPenetration
-                            )
-                        }
-                    }
-                    break
-                }
 
                 // Handle air blocks
                 if (blockType == Material.AIR) {
-                    // Try straight line if offset led to air
-                    if (currentX != x || currentZ != z) {
-                        val straightBlockType = chunkCache.getBlockMaterial(x, currentY, z)
-                        if (straightBlockType != Material.AIR) {
-                            processRoofBlock(
-                                x, currentY, z, straightBlockType,
-                                currentPower, penetrationCount, maxPenetration
-                            )
-                        }
-                    }
 
-                    // Enhanced search for solid blocks
-                    val searchRadius = (normalizedExplosionPower * 4).toInt().coerceAtLeast(1)
-                    var foundSolid = false
 
-                    val searchAttempts = (3 + normalizedExplosionPower.pow(2) * 3).toInt()
+                    val maxSearchDepth = (10.0 + normalizedExplosionPower * 15.0).toInt()
+                    val nextSolidY =
+                        rayCaster.cachedRayTrace(currentX, currentY, currentZ, maxSearchDepth.toDouble())
 
-                    // Use noise to decide if we search
-                    val searchNoise = (SimplexNoise.noise(currentX * 0.3f, currentY * 0.3f, currentZ * 0.3f) + 1) * 0.5
+                    if (nextSolidY < currentY - maxSearchDepth) break // Too far down
 
-                    if (searchNoise < 0.6 + normalizedExplosionPower * 0.2 && searchRadius > 1) {
-                        // Try to find nearby solid blocks
-                        for (attempt in 0 until searchAttempts) {
-                            // Use noise for more natural search patterns
-                            val noiseOffsetX =
-                                SimplexNoise.noise(attempt * 0.5f, currentY * 0.2f, currentZ * 0.2f) * searchRadius
-                            val noiseOffsetZ =
-                                SimplexNoise.noise(currentX * 0.2f, attempt * 0.5f, currentZ * 0.2f) * searchRadius
-
-                            val randX = currentX + noiseOffsetX.toInt()
-                            val randZ = currentZ + noiseOffsetZ.toInt()
-
-                            val maxSearchDepth = (10.0 + normalizedExplosionPower * 15.0).toInt()
-                            val solidY = rayCaster.cachedRayTrace(randX, currentY, randZ, maxSearchDepth.toDouble())
-
-                            if (solidY > currentY - maxSearchDepth) {
-                                // Process this new position
-                                if (!isBlockProcessed(randX, solidY, randZ)) {
-                                    processRoofBlock(
-                                        randX, solidY, randZ,
-                                        chunkCache.getBlockMaterial(randX, solidY, randZ),
-                                        currentPower * 0.8,
-                                        penetrationCount,
-                                        maxPenetration
-                                    )
-                                    foundSolid = true
-                                    break
-                                }
-                            }
-                        }
-                    }
-
-                    if (!foundSolid) {
-                        // Try to find next solid block directly below
-                        val maxSearchDepth = (10.0 + normalizedExplosionPower * 15.0).toInt()
-                        val nextSolidY =
-                            rayCaster.cachedRayTrace(currentX, currentY, currentZ, maxSearchDepth.toDouble())
-
-                        if (nextSolidY < currentY - maxSearchDepth) break // Too far down
-
-                        // Jump to next solid block
-                        currentY = nextSolidY
-                        currentPower *= 0.7
-                        continue
-                    } else {
-                        // Move on after processing alternative path
-                        currentY--
-                        penetrationCount++
-                        currentPower *= powerDecay
-                        continue
-                    }
+                    // Jump to next solid block
+                    currentY = nextSolidY
+                    currentPower *= 0.7
                 }
 
                 // Process the current block
@@ -719,7 +621,7 @@ class Shockwave(
         // Add to block change queue
         if (!isBlockProcessed(x, y + 1, z)) {
             val topBlock = chunkCache.getBlockMaterial(x, y + 1, z)
-            if ((topBlock != Material.AIR && !topBlock.isSolid) && topBlock !in liquidMaterials) {
+            if ((topBlock != Material.AIR && (topBlock in TransformationRule.PLANTS || topBlock in TransformationRule.LIGHT_WEIGHT_BLOCKS)) && topBlock !in liquidMaterials) {
                 if (blockType.isFlammable) {
                     blockChanger.addBlockChange(x, y + 1, z, Material.FIRE, updateBlock = true)
                 } else {
@@ -734,8 +636,12 @@ class Shockwave(
     }
 
 
-    // Generate shockwave columns with optimized algorithm
     private fun generateShockwaveColumns(radius: Int): List<Vector3i> {
+        // For small radii, use Bresenham's circle algorithm for complete coverage
+        if (radius <= 20) {
+            return generateBresenhamCircle(radius)
+        }
+
         // Retrieve from cache if available
         circleCache[radius]?.let { cachedPoints ->
             // Reuse cached points but generate new Vector3i list
@@ -766,6 +672,54 @@ class Shockwave(
 
         // Generate columns from circle points
         return generateColumnsFromCirclePoints(circlePoints, radius)
+    }
+
+    // Implement Bresenham's circle algorithm for complete circle coverage
+    private fun generateBresenhamCircle(radius: Int): List<Vector3i> {
+        val result = ArrayList<Vector3i>()
+        val centerX = center.blockX
+        val centerZ = center.blockZ
+
+        var x = 0
+        var z = radius
+        var d = 3 - 2 * radius
+
+        // Add initial points
+        addCirclePoints(centerX, centerZ, x, z, result)
+
+        while (z >= x) {
+            x++
+
+            if (d > 0) {
+                z--
+                d = d + 4 * (x - z) + 10
+            } else {
+                d = d + 4 * x + 6
+            }
+
+            addCirclePoints(centerX, centerZ, x, z, result)
+        }
+
+        return result
+    }
+
+    // Helper to add all 8 symmetric points of the circle
+    private fun addCirclePoints(centerX: Int, centerZ: Int, x: Int, z: Int, result: ArrayList<Vector3i>) {
+        // Add all 8 octants
+        addPoint(centerX + x, centerZ + z, result)
+        addPoint(centerX - x, centerZ + z, result)
+        addPoint(centerX + x, centerZ - z, result)
+        addPoint(centerX - x, centerZ - z, result)
+        addPoint(centerX + z, centerZ + x, result)
+        addPoint(centerX - z, centerZ + x, result)
+        addPoint(centerX + z, centerZ - x, result)
+        addPoint(centerX - z, centerZ - x, result)
+    }
+
+    private fun addPoint(x: Int, z: Int, result: ArrayList<Vector3i>) {
+        // Get height using chunk cache
+        val highestY = chunkCache.highestBlockYAt(x, z)
+        result.add(Vector3i(x, highestY, z))
     }
 
     // Generate columns from cached circle points
