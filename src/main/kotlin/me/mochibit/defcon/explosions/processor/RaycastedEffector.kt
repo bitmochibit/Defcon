@@ -1,10 +1,8 @@
 package me.mochibit.defcon.explosions.processor
 
 import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
-import io.ktor.utils.io.core.*
 import kotlinx.coroutines.withContext
 import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.extensions.ticks
 import me.mochibit.defcon.threading.scheduling.intervalAsync
 import me.mochibit.defcon.threading.scheduling.runLater
 import org.bukkit.FluidCollisionMode
@@ -14,6 +12,7 @@ import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import org.bukkit.util.BoundingBox
 import org.bukkit.util.Vector
+import java.io.Closeable
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.PI

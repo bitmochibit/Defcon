@@ -1,8 +1,10 @@
+import net.minecrell.pluginyml.paper.PaperPluginDescription
 import java.time.Instant
 
 // Dependency versions - centralized for easier management
 object Versions {
     const val KOTLIN = "2.1.20"
+    const val KOTLINX_COROUTINES = "1.10.2"
     const val KTOR = "3.1.2"
     const val PAPER_API = "1.21.4-R0.1-SNAPSHOT"
     const val PACKET_EVENTS = "2.7.0"
@@ -16,20 +18,15 @@ object Versions {
     val JAVA_VERSION = JavaVersion.VERSION_21
 }
 
-application {
-    mainClass.set("me.mochibit.defcon.Defcon")
-}
-
 plugins {
     kotlin("jvm") version "2.1.20"
-    id("io.ktor.plugin") version "3.1.2"
     id("com.gradleup.shadow") version "9.0.0-beta12"
     id("xyz.jpenilla.run-paper") version "2.3.1"
-    id("de.eldoria.plugin-yml.paper") version "0.7.1"
+    id("de.eldoria.plugin-yml.bukkit") version "0.7.1"
 }
 
 group = "me.mochibit"
-version = "1.3.5-SNAPSHOT"
+version = "1.3.5a-SNAPSHOT"
 
 // Project metadata
 description = "A plugin that adds nuclear energy, along with its advantages and dangers"
@@ -63,14 +60,19 @@ java {
 }
 
 // Plugin.yml generation
-paper {
+bukkit {
     main = "me.mochibit.defcon.Defcon"
-    apiVersion = "1.19"
+    apiVersion = "1.21"
     name = "Defcon"
     version = project.version.toString()
     description = project.description
     authors = listOf("MochiBit")
     website = "https://github.com/mochibit/defcon"
+
+//    loader = "me.mochibit.defcon.plugin.loader.DefconLoader"
+
+//    generateLibrariesJson = true
+
 //    serverDependencies {
 //        register("packetevents") {
 //            load = PaperPluginDescription.RelativeLoadOrder.BEFORE
@@ -78,6 +80,7 @@ paper {
 //        }
 //    }
 
+    depend = listOf("packetevents")
 
     permissions {
         register("defcon.admin") {
@@ -105,27 +108,25 @@ repositories {
 dependencies {
     // Server API - compileOnly to avoid bundling
     compileOnly("io.papermc.paper:paper-api:${Versions.PAPER_API}")
-    implementation("com.github.retrooper", "packetevents-${PacketEvents.PLATFORM}", Versions.PACKET_EVENTS)
+    compileOnly("com.github.retrooper", "packetevents-${PacketEvents.PLATFORM}", Versions.PACKET_EVENTS)
 
     // Libraries to be shaded
     implementation("com.jeff-media:custom-block-data:${Versions.CUSTOM_BLOCK_DATA}")
+
+    // Reflection api
     implementation("org.reflections:reflections:0.10.2") {
         exclude(group = "org.slf4j")
         exclude(group = "com.google.code.findbugs")
     }
-
-    // Ktor
-    implementation("io.ktor", "ktor-server-core", Versions.KTOR)
-    implementation("io.ktor","ktor-server-host-common", Versions.KTOR)
-    implementation("io.ktor", "ktor-server-netty", Versions.KTOR)
+    library("org.jetbrains.kotlinx", "kotlinx-coroutines-core", Versions.KOTLINX_COROUTINES)
 
     // Coroutines
-    implementation("com.github.shynixn.mccoroutine", "mccoroutine-bukkit-api", Versions.MCCOROUTINE)
-    implementation("com.github.shynixn.mccoroutine", "mccoroutine-bukkit-core",Versions.MCCOROUTINE)
+    library("com.github.shynixn.mccoroutine", "mccoroutine-bukkit-api", Versions.MCCOROUTINE)
+    library("com.github.shynixn.mccoroutine", "mccoroutine-bukkit-core", Versions.MCCOROUTINE)
 
-    implementation(kotlin("stdlib-jdk8", Versions.KOTLIN))
-    implementation(kotlin("reflect", Versions.KOTLIN))
-    implementation("com.google.code.gson:gson:${Versions.GSON}")
+    library(kotlin("stdlib", Versions.KOTLIN))
+    library(kotlin("reflect", Versions.KOTLIN))
+    library("com.google.code.gson:gson:${Versions.GSON}")
 
     // Testing
     testImplementation(kotlin("test", Versions.KOTLIN))
@@ -190,14 +191,12 @@ tasks.shadowJar {
     archiveVersion.set(project.version.toString())
 
 //  Relocate dependencies
-    relocate("com.github.retrooper.packetevents", "me.mochibit.lib.packetevents")
     relocate("com.jeff_media.customblockdata", "me.mochibit.lib.customblockdata")
-    relocate("com.github.shynixn.mccoroutine", "me.mochibit.lib.mccoroutine")
 
 //  Minimize JAR size
     minimize {
         exclude(dependency("org.jetbrains.kotlin:.*"))
-        exclude(dependency("com.github.shynixn.mccoroutine:.*"))
+        exclude(dependency("org.jetbrains.kotlinx:.*"))
     }
 
     // Exclude unnecessary files

@@ -2,7 +2,6 @@ package me.mochibit.defcon.explosions.processor
 
 import com.github.shynixn.mccoroutine.bukkit.launch
 import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
-import io.ktor.util.collections.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import me.mochibit.defcon.Defcon
@@ -92,7 +91,7 @@ class Shockwave(
 
     private val playerEffectChannel = Channel<Pair<Player, Double>>(Channel.BUFFERED)
 
-    private val worldPlayers = ConcurrentSet<Player>()
+    private val worldPlayers = ConcurrentHashMap.newKeySet<Player>()
 
     fun explode(): Job {
         // Use a more focused dispatcher for high-priority tasks

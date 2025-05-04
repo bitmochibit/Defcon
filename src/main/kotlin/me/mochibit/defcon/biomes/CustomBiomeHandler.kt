@@ -1,7 +1,6 @@
 package me.mochibit.defcon.biomes
 
 import com.github.shynixn.mccoroutine.bukkit.launch
-import io.ktor.utils.io.core.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -12,6 +11,7 @@ import me.mochibit.defcon.threading.scheduling.intervalAsync
 import org.bukkit.Location
 import org.bukkit.NamespacedKey
 import org.bukkit.entity.Player
+import java.io.Closeable
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
