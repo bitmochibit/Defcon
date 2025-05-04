@@ -1,0 +1,21 @@
+name: Defcon
+version: 1.3.5a-SNAPSHOT
+main: me.mochibit.defcon.Defcon
+description: "A plugin that adds nuclear energy, along with its advantages and dangers"
+authors:
+  - MochiBit
+website: https://github.com/mochibit/defcon
+depend:
+  - packetevents
+libraries:
+  - org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2
+  - com.github.shynixn.mccoroutine:mccoroutine-bukkit-api:2.22.0
+  - com.github.shynixn.mccoroutine:mccoroutine-bukkit-core:2.22.0
+  - org.jetbrains.kotlin:kotlin-stdlib:2.1.20
+  - org.jetbrains.kotlin:kotlin-reflect:2.1.20
+  - com.google.code.gson:gson:2.10.1
+permissions:
+  defcon.admin:
+    description: Gives access to all Defcon admin commands
+    default: op
+api-version: "1.21"

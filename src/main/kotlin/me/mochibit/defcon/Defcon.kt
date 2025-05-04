@@ -37,8 +37,8 @@ import org.bukkit.plugin.java.JavaPlugin
 class Defcon : JavaPlugin() {
     override fun onLoad() {
         _instance = this
-        PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this))
-        PacketEvents.getAPI().load()
+//        PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this))
+//        PacketEvents.getAPI().load()
 
         EventRegister.registerPacketListeners()
         info("Defcon is starting up ☢️")
@@ -46,7 +46,7 @@ class Defcon : JavaPlugin() {
 
     override fun onEnable() {
         ResourcePackServer.startServer()
-        PacketEvents.getAPI().init()
+//        PacketEvents.getAPI().init()
         info("Plugin is enabled! Configuring...")
         PluginConfiguration.initializeAll()
 
@@ -85,7 +85,7 @@ class Defcon : JavaPlugin() {
     override fun onDisable() {
         PluginConfiguration.saveAll()
         NotificationManager.saveNotifications()
-        PacketEvents.getAPI().terminate()
+//        PacketEvents.getAPI().terminate()
         ResourcePackServer.stopServer()
         CustomBiomeHandler.shutdown()
         info("Plugin disabled!")

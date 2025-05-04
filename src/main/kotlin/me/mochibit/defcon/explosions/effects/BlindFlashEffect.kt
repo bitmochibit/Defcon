@@ -1,7 +1,6 @@
 package me.mochibit.defcon.explosions.effects
 
 import com.github.shynixn.mccoroutine.bukkit.launch
-import io.ktor.utils.io.core.*
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.explosions.processor.RaycastedEffector
 import me.mochibit.defcon.extensions.toTicks
@@ -19,6 +18,7 @@ import org.bukkit.potion.PotionEffectType
 import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
+import java.io.Closeable
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.sqrt

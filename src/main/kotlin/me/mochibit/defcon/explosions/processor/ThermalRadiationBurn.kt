@@ -21,7 +21,6 @@ package me.mochibit.defcon.explosions.processor
 
 import com.github.shynixn.mccoroutine.bukkit.launch
 import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
-import io.ktor.utils.io.core.*
 import kotlinx.coroutines.withContext
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.extensions.toTicks
@@ -36,6 +35,7 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.Damageable
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
+import java.io.Closeable
 import java.util.*
 import kotlin.math.max
 import kotlin.math.min
