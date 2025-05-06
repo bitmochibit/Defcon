@@ -21,11 +21,12 @@ package me.mochibit.defcon.particles.emitter
 
 
 import me.mochibit.defcon.utils.MathFunctions
+import org.joml.Vector3d
 import org.joml.Vector3f
 import kotlin.math.*
 
 abstract class EmitterShape {
-    abstract fun maskLoc(location: Vector3f)
+    abstract fun maskLoc(location: Vector3d)
 }
 
 class SphereShape(
@@ -38,7 +39,7 @@ class SphereShape(
     var excludedXZRadius: Double? = null, // Radius to exclude in the XZ plane
     var excludedYRadius: Double? = null,  // Radius to exclude in the Y axis
 ) : EmitterShape() {
-    override fun maskLoc(location: Vector3f) {
+    override fun maskLoc(location: Vector3d) {
         if (minY > maxY) {
             minY = maxY.also { maxY = minY }
         }
@@ -77,7 +78,7 @@ class SphereShape(
         z = z.coerceIn(minXZ, maxXZ)
         y = y.coerceIn(minY, maxY)
 
-        location.add(x.toFloat(), y.toFloat(), z.toFloat())
+        location.add(x, y, z)
     }
 }
 
@@ -114,7 +115,7 @@ class SphereSurfaceShape(
             field = value
         }
 
-    override fun maskLoc(location: Vector3f) {
+    override fun maskLoc(location: Vector3d) {
         // Generate random spherical coordinates within the adjusted ranges
         val theta = Math.random() * MathFunctions.TAU // Azimuthal angle in [0, 2π]
         val phi = if (skipBottomFace) {
@@ -154,7 +155,7 @@ class SphereSurfaceShape(
 
 
         // Set the location directly
-        location.add(x.toFloat(), y.toFloat(), z.toFloat())
+        location.add(x, y, z)
     }
 }
 
@@ -170,7 +171,7 @@ class CylinderShape(
     var excludedXZRadius: Double? = null, // Radius to exclude in the XZ plane
 
 ) : EmitterShape() {
-    override fun maskLoc(location: Vector3f) {
+    override fun maskLoc(location: Vector3d) {
         // Generate a random point within the bounds of a cylinder
         val theta = Math.random() * MathFunctions.TAU // Azimuthal angle in [0, 2π]
         val r = Math.random() // Random radius factor for points inside the cylinder
@@ -193,9 +194,9 @@ class CylinderShape(
         z = z.coerceIn(minZ, maxZ)
 
         location.add(
-            x.toFloat(),
-            h.toFloat(),
-            z.toFloat()
+            x,
+            h,
+            z
         )
     }
 }
@@ -204,7 +205,7 @@ class RingSurfaceShape(
     var ringRadius: Float,  // Radius from the center to the center of the tube
     var tubeRadius: Float   // Radius of the tube
 ) : EmitterShape() {
-    override fun maskLoc(location: Vector3f) {
+    override fun maskLoc(location: Vector3d) {
         // Generate random angles for the ring and tube
         val theta = Math.random() * MathFunctions.TAU // Angle around the ring's central axis
         val phi = Math.random() * MathFunctions.TAU   // Angle around the tube's circular cross-section
@@ -215,7 +216,7 @@ class RingSurfaceShape(
         val z = (ringRadius + tubeRadius * cos(phi)) * sin(theta)
 
         // Set the location to the calculated point
-        location.add(x.toFloat(), y.toFloat(), z.toFloat())
+        location.add(x, y, z)
     }
 }
 

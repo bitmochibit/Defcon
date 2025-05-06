@@ -41,7 +41,7 @@ import kotlin.reflect.typeOf
  */
 abstract class ParticleInstance(
     private val particleProperties: GenericParticleProperties,
-    protected val position: Vector3d,
+    val position: Vector3d,
     private var velocity: Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
     private var damping: Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
     private var acceleration: Vector3f = Vector3f(0.0f, 0.0f, 0.0f)
@@ -181,7 +181,7 @@ abstract class ParticleInstance(
         /**
          * Create a particle instance from template - optimized for bulk creation
          */
-        fun fromTemplate(particleTemplate: AbstractParticle, location: Vector3f): ParticleInstance {
+        fun fromTemplate(particleTemplate: AbstractParticle): ParticleInstance {
             val particleProperties = particleTemplate.particleProperties.clone().apply {
                 color = adjustColor(this.color ?: Color.RED, particleTemplate)
             }
@@ -195,7 +195,6 @@ abstract class ParticleInstance(
 
             return TextDisplayParticleInstance(
                 particleProperties as TextDisplayParticleProperties,
-                Vector3d(location.x.toDouble(), location.y.toDouble(), location.z.toDouble()),
             ).apply {
                 setVelocity(particleTemplate.initialVelocity)
                 setAcceleration(particleTemplate.initialAcceleration)

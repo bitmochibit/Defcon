@@ -5,6 +5,7 @@ import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.EmitterShape
 import me.mochibit.defcon.particles.templates.AbstractParticle
 import me.mochibit.defcon.threading.scheduling.runLater
+import org.joml.Matrix4d
 import org.joml.Matrix4f
 import org.joml.Vector3f
 import kotlin.time.Duration
@@ -20,7 +21,7 @@ open class ParticleComponent(
     private var lifecycledSupport: Lifecycled? = colorSupplier as? Lifecycled
 
     // Matrix transformation for particleEmitter
-    val transform: Matrix4f
+    val transform: Matrix4d
         get() = particleEmitter.transform
 
     var visible: Boolean
@@ -77,7 +78,7 @@ open class ParticleComponent(
     /**
      * Rotates the particle emitter around an axis by a specified angle.
      */
-    fun rotate(axis: Vector3f, angle: Float): ParticleComponent {
+    fun rotate(axis: Vector3f, angle: Double): ParticleComponent {
         transform.rotate(angle, axis, transform)
         return this
     }

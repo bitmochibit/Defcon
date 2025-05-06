@@ -19,8 +19,8 @@
 
 package me.mochibit.defcon.particles.mutators
 
-import org.joml.Vector3f
+import org.joml.Vector3d
 
 abstract class AbstractShapeMutator {
-    abstract fun mutateLoc(location: Vector3f)
+    abstract fun mutateLoc(location: Vector3d)
 }

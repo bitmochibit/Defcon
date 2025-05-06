@@ -21,6 +21,7 @@ package me.mochibit.defcon.particles.mutators
 
 import me.mochibit.defcon.utils.ChunkCache
 import org.bukkit.Location
+import org.joml.Vector3d
 import org.joml.Vector3f
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
@@ -37,7 +38,7 @@ class FloorSnapper(
     private val cachedMinY: ConcurrentMap<Pair<Int, Int>, Float> = ConcurrentHashMap()
     private val chunkCache = ChunkCache.getInstance(center.world)
 
-    override fun mutateLoc(location: Vector3f) {
+    override fun mutateLoc(location: Vector3d) {
         val x = location.x().toInt()
         val z = location.z().toInt()
 

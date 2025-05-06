@@ -19,10 +19,9 @@
 
 package me.mochibit.defcon.particles.emitter
 
-import org.bukkit.Location
-import org.joml.Vector3f
+import org.joml.Vector3d
 
 object PointShape : EmitterShape() {
-    override fun maskLoc(location: Vector3f) {}
+    override fun maskLoc(location: Vector3d) {}
 
 }

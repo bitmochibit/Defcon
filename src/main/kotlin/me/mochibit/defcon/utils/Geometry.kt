@@ -192,7 +192,7 @@ object Geometry {
     }
 
     fun packIntegerCoordinates(x: Int, y: Int, z: Int): Long {
-        return(x.toLong() and 0x1FFFFF) or ((y.toLong() and 0x1FFFFF) shl 21) or ((z.toLong() and 0x1FFFFF) shl 42)
+        return (x.toLong() and 0x1FFFFF) or ((y.toLong() and 0x1FFFFF) shl 21) or ((z.toLong() and 0x1FFFFF) shl 42)
     }
 
     fun unpackIntegerCoordinates(packed: Long): Triple<Int, Int, Int> {
@@ -200,6 +200,19 @@ object Geometry {
         val y = ((packed shr 21) and 0x1FFFFF).toInt()
         val z = ((packed shr 42) and 0x1FFFFF).toInt()
         return Triple(x, y, z)
+    }
+
+
+    fun packCoordinates(x: Int, z: Int): Long {
+        return (x.toLong() shl 32) or (z.toLong() and 0xFFFFFFFFL)
+    }
+
+    fun unpackX(packed: Long): Int {
+        return (packed shr 32).toInt()
+    }
+
+    fun unpackZ(packed: Long): Int {
+        return (packed and 0xFFFFFFFFL).toInt()
     }
 
     fun wangNoise(x: Int, y: Int, z: Int): Double {

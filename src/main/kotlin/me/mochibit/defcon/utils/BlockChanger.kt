@@ -87,8 +87,7 @@ class BlockChanger private constructor(
      * Initialize the channel system
      */
     private fun initializeChannel() {
-        // Create a single buffered channel with high capacity
-        blockChannel = Channel(Channel.UNLIMITED)
+        blockChannel = Channel(Channel.BUFFERED)
     }
 
     /**
