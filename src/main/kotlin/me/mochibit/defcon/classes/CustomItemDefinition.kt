@@ -24,13 +24,12 @@ import me.mochibit.defcon.enums.ItemDataKey
 import me.mochibit.defcon.interfaces.PluginItem
 import me.mochibit.defcon.utils.ColorUtils
 import me.mochibit.defcon.utils.MetaManager
+import me.mochibit.defcon.utils.versionGreaterOrEqualThan
 import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
-import org.bukkit.event.inventory.InventoryType
 import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemStack
-import org.bukkit.inventory.meta.components.EquippableComponent
 
 /**
  * This class defines a definitions item
@@ -42,7 +41,10 @@ class CustomItemDefinition(
     name: String,
     override val description: String?,
     override val minecraftId: String,
+
     override val itemModel: NamespacedKey?,
+    override val itemModelId: Int?,
+
     override val equipSlot: EquipmentSlot,
     override val customBlockId: String?,
     override val isUsable: Boolean,
@@ -83,21 +85,26 @@ class CustomItemDefinition(
             MetaManager.setItemData(itemMeta, ItemDataKey.Droppable, isDroppable)
             MetaManager.setItemData(itemMeta, ItemDataKey.Transportable, isTransportable)
             MetaManager.setItemData(itemMeta, ItemDataKey.Behaviour, behaviour.name)
+            MetaManager.setItemData(itemMeta, ItemDataKey.EquipSlotName, equipSlot.name)
 
             if (customBlockId != null) {
                 MetaManager.setItemData(itemMeta, ItemDataKey.CustomBlockId, customBlockId)
             }
 
-            itemModel?.let {
-                itemMeta.itemModel = it
+            if (versionGreaterOrEqualThan("1.21.3")) {
+                itemModel?.let {
+                    itemMeta.itemModel = it
+                }
+
+                val component = itemMeta.equippable
+                component.slot = equipSlot
+
+                itemMeta.setEquippable(component)
+            } else {
+                itemModelId?.let {
+                    itemMeta.setCustomModelData(it)
+                }
             }
-
-            println(equipSlot)
-
-            val component = itemMeta.equippable
-            component.slot = equipSlot
-
-            itemMeta.setEquippable(component)
 
             customItem.setItemMeta(itemMeta)
 

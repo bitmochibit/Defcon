@@ -6,7 +6,9 @@
 # item-description: The description of the item.
 
 # item-minecraft-id: The minecraft id of the item.
-# item-data-model-id: The id of the data model of the item.
+# legacy-minecraft-id: The legacy id of the item (for older versions of Minecraft).
+# item-model: The model of the item to be used in the resource pack
+# item-model-id: The model id of the item to be used in the resource pack (legacy)
 # definitions-block-id: Let the system know that this item is a definitions block.
 
 # is-usable: If true, the item can be used to consume other items.
@@ -48,7 +50,9 @@ gas-mask:
   item-name: "Gas mask"
   item-description: "Protects you from toxic gases"
   item-minecraft-id: LEATHER_HELMET
+  legacy-minecraft-id: LEATHER_BOOTS # A different item because if you equip the helmet it isn't visible as a model (<= 1.21.1)
   item-model: "leather_gas_mask"
+  item-model-id: 1
   is-usable: true
   is-equipable: true
   equip-slot: "head"
@@ -61,7 +65,6 @@ geiger:
   item-name: "<gradient:#34e89e:#0f3443>Geiger Counter</gradient>"
   item-description: "This item measures the radiation levels"
   item-minecraft-id: COMPASS
-  item-data-model-id: 1
   is-usable: true
   is-equipable: false
   is-droppable: true

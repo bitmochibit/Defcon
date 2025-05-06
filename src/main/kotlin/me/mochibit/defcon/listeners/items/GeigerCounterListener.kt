@@ -21,7 +21,7 @@ package me.mochibit.defcon.listeners.items
 
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.enums.ItemBehaviour
-import me.mochibit.defcon.events.customitems.GeigerDetectEvent
+import me.mochibit.defcon.events.geiger.GeigerDetectEvent
 import me.mochibit.defcon.extensions.getBehaviour
 import org.bukkit.Bukkit
 import org.bukkit.Sound

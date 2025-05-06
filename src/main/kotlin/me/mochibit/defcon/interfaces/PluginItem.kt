@@ -37,6 +37,8 @@ interface PluginItem {
 
     // Characteristics
     val itemModel: NamespacedKey?
+    val itemModelId: Int?
+
     val equipSlot: EquipmentSlot
     val customBlockId: String?
     val isUsable: Boolean

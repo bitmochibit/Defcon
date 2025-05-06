@@ -161,7 +161,6 @@ object CustomBiomeHandler {
      */
     private fun checkAndMergeBiomes() {
         try {
-            Logger.info("Running biome merge check...")
             val biomesToMerge = mutableListOf<Pair<CustomBiomeBoundary, CustomBiomeBoundary>>()
 
             // Group biomes by world for more efficient checking
@@ -187,14 +186,11 @@ object CustomBiomeHandler {
 
             // Process the merges
             if (biomesToMerge.isNotEmpty()) {
-                Logger.info("Found ${biomesToMerge.size} biome areas to merge")
                 Defcon.instance.launch(Dispatchers.Default) {
                     for ((container, contained) in biomesToMerge) {
                         mergeCustomBiomes(container, contained)
                     }
                 }
-            } else {
-                Logger.info("No biome areas need merging")
             }
         } catch (e: Exception) {
             Logger.err("Error in biome merge worker: ${e.message}")
@@ -207,7 +203,6 @@ object CustomBiomeHandler {
      */
     private fun checkBiomeTransitions() {
         try {
-            Logger.info("Checking for biome transitions...")
             val biomesToTransition = mutableListOf<Pair<CustomBiomeBoundary, CustomBiomeBoundary.BiomeTransition>>()
 
             // Find biomes with pending transitions
@@ -220,7 +215,6 @@ object CustomBiomeHandler {
 
             // Process the transitions
             if (biomesToTransition.isNotEmpty()) {
-                Logger.info("Found ${biomesToTransition.size} biome transitions to apply")
                 Defcon.instance.launch(Dispatchers.Default) {
                     for ((biome, transition) in biomesToTransition) {
                         applyBiomeTransition(biome, transition)
@@ -239,7 +233,6 @@ object CustomBiomeHandler {
      */
     private suspend fun mergeCustomBiomes(container: CustomBiomeBoundary, contained: CustomBiomeBoundary) {
         try {
-            Logger.info("Merging biome ${contained.uuid} into ${container.uuid}")
 
             // Remove the contained biome (it will be replaced by the container)
             removeBiomeArea(contained.uuid)
@@ -252,7 +245,6 @@ object CustomBiomeHandler {
                 }
             }
 
-            Logger.info("Biome merge completed successfully")
         } catch (e: Exception) {
             Logger.err("Failed to merge biomes: ${e.message}")
             e.printStackTrace()
@@ -267,7 +259,6 @@ object CustomBiomeHandler {
         transition: CustomBiomeBoundary.BiomeTransition
     ) {
         try {
-            Logger.info("Applying transition for biome ${biome.uuid} to ${transition.targetBiome}")
 
             // Create updated biome with new biome type
             val updatedBiome = biome.withBiome(transition.targetBiome)
@@ -293,7 +284,6 @@ object CustomBiomeHandler {
                 }
             }
 
-            Logger.info("Biome transition applied successfully")
         } catch (e: Exception) {
             Logger.err("Failed to apply biome transition: ${e.message}")
             e.printStackTrace()
@@ -697,7 +687,6 @@ object CustomBiomeHandler {
      * This should be called when a world is unloaded.
      */
     fun unloadBiomesForWorld(worldName: String) {
-        Logger.info("Unloading biomes for world: $worldName")
 
         // Find all biomes in this world
         val biomesToRemove = activeBiomes.values
@@ -717,6 +706,5 @@ object CustomBiomeHandler {
         }
 
         loadedWorlds.remove(worldName)
-        Logger.info("Unloaded ${biomesToRemove.size} biomes for world: $worldName")
     }
 }

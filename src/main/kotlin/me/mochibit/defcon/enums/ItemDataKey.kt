@@ -27,7 +27,7 @@ enum class ItemDataKey(val key: NamespacedKey) {
     StackSize(NamespacedKey(Defcon.namespace, "item-stack-size")),
     Usable(NamespacedKey(Defcon.namespace, "item-usable")),
     Equipable(NamespacedKey(Defcon.namespace, "item-equipable")),
-    EquipSlotNumber(NamespacedKey(Defcon.namespace, "item-equip-slot-number")),
+    EquipSlotName(NamespacedKey(Defcon.namespace, "item-equip-slot-name")),
     Droppable(NamespacedKey(Defcon.namespace, "item-droppable")),
     Transportable(NamespacedKey(Defcon.namespace, "item-transportable")),
     Behaviour(NamespacedKey(Defcon.namespace, "item-behaviour")),

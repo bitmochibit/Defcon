@@ -23,13 +23,17 @@ import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.events.customitems.GeigerDetectEvent
+import me.mochibit.defcon.events.geiger.GeigerDetectEvent
 import me.mochibit.defcon.events.radiationarea.RadiationSuffocationEvent
 import me.mochibit.defcon.player.PlayerData
 import me.mochibit.defcon.save.savedata.PlayerDataSave
 import me.mochibit.defcon.threading.scheduling.intervalAsync
+import me.mochibit.defcon.utils.versionGreaterOrEqualThan
 import org.bukkit.Bukkit
 import org.bukkit.GameMode
+import org.bukkit.NamespacedKey
+import org.bukkit.Registry
+import org.bukkit.attribute.Attribute.MAX_HEALTH
 import kotlin.time.Duration.Companion.seconds
 
 object RadiationManager {
@@ -73,9 +77,13 @@ object RadiationManager {
                     playerData.radiationLevel.apply {
                         if (this <= 0) return@apply
 
-                        val maxHealthAttribute = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)
-                        maxHealthAttribute?.baseValue = 20.0 - this.coerceAtMost(20.0)
-
+                        if (versionGreaterOrEqualThan("1.21.3")) {
+                            player.getAttribute(MAX_HEALTH)
+                        } else {
+                            player.getAttribute(Registry.ATTRIBUTE.getOrThrow(NamespacedKey.minecraft("generic.max_health")))
+                        }?.let {
+                            it.baseValue = 20.0 - this.coerceAtMost(20.0)
+                        }
                         if (this > 5.0) {
                             player.addPotionEffect(
                                 org.bukkit.potion.PotionEffect(

@@ -11,6 +11,7 @@
 package me.mochibit.defcon.registers
 
 import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.Defcon.Logger.err
 import me.mochibit.defcon.Defcon.Logger.info
 import me.mochibit.defcon.Defcon.Logger.warn
 import me.mochibit.defcon.customassets.fonts.AbstractCustomFont
@@ -19,6 +20,7 @@ import me.mochibit.defcon.customassets.items.ModelData
 import me.mochibit.defcon.customassets.sounds.AbstractCustomSound
 import me.mochibit.defcon.registers.packformat.FormatReader
 import me.mochibit.defcon.server.ResourcePackServer
+import me.mochibit.defcon.utils.versionGreaterOrEqualThan
 import net.kyori.adventure.resource.ResourcePackInfo
 import org.json.simple.JSONArray
 import org.json.simple.JSONObject
@@ -100,7 +102,7 @@ object ResourcePackRegister : PackRegister(true) {
 
             return ResourcePackInfo.resourcePackInfo()
                 .uri(URI.create("http://127.0.0.1:${ResourcePackServer.port}/resourcepack.zip"))
-                .hash(resourcePackHash ?: "0")
+                .hash(hash)
                 .build()
                 .also {
                     localResourcePackInfo = it
@@ -284,17 +286,26 @@ object ResourcePackRegister : PackRegister(true) {
             val customItemModels = Reflections("$packageName.customassets.items.definitions")
                 .getSubTypesOf(AbstractCustomItemModel::class.java)
 
-            for (itemModelClass in customItemModels) {
-                try {
-                    val itemModelInstance = itemModelClass.getDeclaredConstructor().newInstance()
 
-                    createItemModelFile(minecraftPath, itemModelInstance.modelData)
-                } catch (e: Exception) {
-                    info("Error processing item model ${itemModelClass.simpleName}: ${e.message}")
+            if (versionGreaterOrEqualThan("1.21.3")) {
+                for (itemModelClass in customItemModels) {
+                    try {
+                        val itemModelInstance = itemModelClass.getDeclaredConstructor().newInstance()
+                        createItemModelFile(minecraftPath, itemModelInstance.modelData)
+                    } catch (e: Exception) {
+                        err("Error processing item model ${itemModelClass.simpleName}: ${e.message}")
+                        e.printStackTrace()
+                    }
                 }
+            } else {
+                createItemCustomModelDataFile(
+                    minecraftPath,
+                    targetModelsPath,
+                    customItemModels.map { it.getDeclaredConstructor().newInstance() })
             }
         } catch (e: Exception) {
-            info("Error processing custom item models: ${e.message}")
+            err("Error processing custom item models: ${e.message}")
+            e.printStackTrace()
         }
     }
 
@@ -305,13 +316,99 @@ object ResourcePackRegister : PackRegister(true) {
         targetMinecraftPath: Path,
         modelData: ModelData,
     ) {
-        val model = JSONObject()
-        model["type"] = modelData.type
-        model["model"] = modelData.model
+        val modelOuter = JSONObject()
+        modelOuter["model"] = JSONObject().apply {
+            put("type", modelData.type)
+            put("model", modelData.model)
+        }
 
+        val itemsDirectory = targetMinecraftPath.resolve("items")
+        Files.createDirectories(itemsDirectory)
+
+        val filePath = itemsDirectory.resolve("${modelData.name}.json")
         Files.write(
-            targetMinecraftPath.resolve("items/${modelData.name}.json"),
-            model.toJSONString().toByteArray()
+            filePath,
+            modelOuter.toJSONString().toByteArray()
         )
+    }
+
+
+    private fun createItemCustomModelDataFile(
+        targetMinecraftPath: Path,
+        targetModelPath: Path,
+        model: List<AbstractCustomItemModel>,
+    ) {
+        // Group by original item
+        val groupedModels = model.groupBy(keySelector = { it.legacyModelData.originalItem })
+
+        val itemsDirectory = targetMinecraftPath.resolve("items")
+        Files.createDirectories(itemsDirectory)
+
+        for ((originalItem, itemModels) in groupedModels) {
+            // Compatible with newer version data
+            val itemModelJson = JSONObject()
+            itemModelJson["model"] = JSONObject().apply {
+                put("type", "minecraft:range_dispatch")
+                put("property", "minecraft:custom_model_data")
+                put("entries", JSONArray().apply {
+                    for (itemModel in itemModels) {
+                        add(JSONObject().apply {
+                            put("threshold", itemModel.legacyModelData.customModelData)
+                            put("model", JSONObject().apply {
+                                put("type", "minecraft:model")
+                                put("model", itemModel.legacyModelData.model)
+                            })
+                        })
+                    }
+                })
+                put("fallback", JSONObject().apply {
+                    put("type", "minecraft:model")
+                    put("model", "minecraft:item/${originalItem.name.lowercase()}")
+                })
+            }
+            info("Writing model data (COMPAT for >= 1.21.4) for ${originalItem.name.lowercase()}")
+            Files.write(
+                itemsDirectory.resolve("${originalItem.name.lowercase()}.json"),
+                itemModelJson.toJSONString().toByteArray()
+            )
+
+            // Legacy item model data
+            val legacyModelJson = JSONObject()
+            legacyModelJson["parent"] = "item/generated"
+            legacyModelJson["textures"] = JSONObject().apply {
+                for (itemModel in itemModels) {
+                    for ((layer, texture) in itemModel.legacyModelData.textures) {
+                        this[layer] = texture
+                    }
+                }
+            }
+
+            legacyModelJson["overrides"] = JSONArray().apply {
+                for (baseItemOverrides in itemModels.first().legacyModelData.overrides) {
+                    val defaultModelOverride = JSONObject()
+                    defaultModelOverride["predicate"] = JSONObject().apply {
+                        put(baseItemOverrides.predicate.key, baseItemOverrides.predicate.value)
+                    }
+                    defaultModelOverride["model"] = baseItemOverrides.model
+
+                    this.add(defaultModelOverride)
+                }
+
+                for (itemModel in itemModels) {
+                    val override = JSONObject()
+                    override["predicate"] = JSONObject().apply {
+                        put("custom_model_data", itemModel.legacyModelData.customModelData)
+                    }
+
+                    override["model"] = itemModel.legacyModelData.model
+                    this.add(override)
+                }
+            }
+            info("Writing legacy model data for ${originalItem.name.lowercase()}")
+            Files.write(
+                targetModelPath.resolve("item/${originalItem.name.lowercase()}.json"),
+                legacyModelJson.toJSONString().toByteArray()
+            )
+        }
     }
 }

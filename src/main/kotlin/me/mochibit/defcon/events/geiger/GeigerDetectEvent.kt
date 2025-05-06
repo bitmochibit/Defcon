@@ -17,9 +17,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.events.customitems
+package me.mochibit.defcon.events.geiger
 
-import me.mochibit.defcon.radiation.RadiationArea
 import org.bukkit.entity.HumanEntity
 import org.bukkit.event.Event
 import org.bukkit.event.HandlerList

@@ -13,6 +13,8 @@ import org.bukkit.entity.Player
 import org.joml.Matrix4f
 import org.joml.Vector3f
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -56,7 +58,7 @@ class ParticleEmitter(
     private val positionCursor: Vector3f = Vector3f()
 
     // Thread-safe collections for particles and player tracking
-    private val particles = ConcurrentVectorList<ParticleInstance>(maxParticles)
+    private val particles = CopyOnWriteArrayList<ParticleInstance>()
     private val particlesToRemove = ObjectArrayList<ParticleInstance>(200)
     private val visiblePlayers = ConcurrentHashMap<Player, Int>(32) // Player -> LOD level
 
@@ -92,53 +94,6 @@ class ParticleEmitter(
     // Worker threads for parallel processing
     private val workThreads = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
 
-    /**
-     * Thread-safe vector list implementation for concurrent access
-     */
-    private class ConcurrentVectorList<T>(initialCapacity: Int) {
-        private val backingList = ArrayList<T>(initialCapacity)
-        private val lock = Any()
-
-        fun add(element: T) {
-            synchronized(lock) {
-                backingList.add(element)
-            }
-        }
-
-        fun size(): Int {
-            synchronized(lock) {
-                return backingList.size
-            }
-        }
-
-        fun removeAll(elements: Collection<T>): Boolean {
-            synchronized(lock) {
-                return backingList.removeAll(elements.toSet())
-            }
-        }
-
-        fun forEach(action: (T) -> Unit) {
-            val snapshot: List<T>
-            synchronized(lock) {
-                snapshot = ArrayList(backingList)
-            }
-            snapshot.forEach(action)
-        }
-
-        fun getRange(start: Int, end: Int): List<T> {
-            synchronized(lock) {
-                val actualEnd = backingList.size.coerceAtMost(end)
-                if (start >= actualEnd) return emptyList()
-                return ArrayList(backingList.subList(start, actualEnd))
-            }
-        }
-
-        fun isEmpty(): Boolean {
-            synchronized(lock) {
-                return backingList.isEmpty()
-            }
-        }
-    }
 
     /**
      * Spawn a new particle with optimized position and velocity calculations
@@ -278,7 +233,7 @@ class ParticleEmitter(
         }
 
         // Process particles in parallel batches for large collections
-        val size = particles.size()
+        val size = particles.size
         if (size > BATCH_SIZE && workThreads > 1) {
             val batchSize = size / workThreads
             val futures = ArrayList<java.util.concurrent.Future<*>>(workThreads)
@@ -289,7 +244,7 @@ class ParticleEmitter(
                 val end = if (i == workThreads - 1) size else (i + 1) * batchSize
 
                 val future = executor.submit {
-                    val particleBatch = particles.getRange(start, end)
+                    val particleBatch = particles.slice(start until end)
                     updateParticleRange(particleBatch, delta.toDouble(), players)
                 }
                 futures.add(future)
@@ -302,7 +257,7 @@ class ParticleEmitter(
             executor.shutdown()
         } else {
             // For smaller collections, process in a single batch
-            val particleBatch = particles.getRange(0, size)
+            val particleBatch = particles.slice(0 until size)
             updateParticleRange(particleBatch, delta.toDouble(), players)
         }
 
@@ -332,12 +287,8 @@ class ParticleEmitter(
                         val end = minOf(i + batchSize, clientSideParticles.size)
                         val batch = clientSideParticles.subList(i, end)
 
-                        val destroyPacket = WrapperPlayServerDestroyEntities(
-                            *(batch.map { it.particleID }.toIntArray())
-                        )
-
                         for (player in getPlayersInRange()) {
-                            PacketEvents.getAPI().playerManager.sendPacket(player, destroyPacket)
+                            ClientSideParticleInstance.destroyParticlesInBatch(player, batch)
                         }
                     }
 
@@ -414,6 +365,13 @@ class ParticleEmitter(
                         it.sendDespawnPacket(player)
                     }
                 }
+            }
+        }
+
+        // For each visible player that is not in the playersToUpdate map, send despawn packets
+        visiblePlayers.keys.forEach { player ->
+            if (!playersToUpdate.containsKey(player)) {
+                ClientSideParticleInstance.destroyParticlesInBatch(player, particles)
             }
         }
 

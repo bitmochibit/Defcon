@@ -26,7 +26,7 @@ plugins {
 }
 
 group = "me.mochibit"
-version = "1.3.5a-SNAPSHOT"
+version = "1.3.5b-SNAPSHOT"
 
 // Project metadata
 description = "A plugin that adds nuclear energy, along with its advantages and dangers"

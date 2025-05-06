@@ -57,7 +57,7 @@ class Defcon : JavaPlugin() {
         NotificationManager.startBroadcastTask()
 
         /* Register all plugin's listeners */
-        EventRegister.registerListeners()
+        EventRegister.registerAllListeners()
 
         /* Register definitions items */
         if (!ItemRegister().registerItems()) {

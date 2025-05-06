@@ -23,6 +23,7 @@ package me.mochibit.defcon.biomes
 
 import io.papermc.paper.registry.RegistryAccess
 import io.papermc.paper.registry.RegistryKey
+import me.mochibit.defcon.Defcon.Logger.warn
 import me.mochibit.defcon.biomes.data.*
 import me.mochibit.defcon.biomes.enums.PrecipitationType
 import me.mochibit.defcon.biomes.enums.TemperatureModifier
@@ -41,7 +42,14 @@ abstract class CustomBiome {
             return NamespacedKey.fromString(biomeKey) ?: NamespacedKey("minecraft", "forest")
         }
 
-    val asBukkitBiome by lazy {RegistryAccess.registryAccess().getRegistry(RegistryKey.BIOME).getOrThrow(key)}
+    val asBukkitBiome by lazy {
+        try {
+            RegistryAccess.registryAccess().getRegistry(RegistryKey.BIOME).getOrThrow(key)
+        } catch (e: Exception) {
+            warn("Biome $biomeKey not found in registry. Defaulting to minecraft:forest (probably you didn't restart the server for datapack installation)")
+            RegistryAccess.registryAccess().getRegistry(RegistryKey.BIOME).getOrThrow(NamespacedKey.fromString("minecraft:forest")!!)
+        }
+    }
 
     // Default values from FOREST biome
     var temperature = 0.7f

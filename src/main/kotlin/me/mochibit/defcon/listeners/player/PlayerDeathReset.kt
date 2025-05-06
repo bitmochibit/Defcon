@@ -22,8 +22,12 @@ package me.mochibit.defcon.listeners.player
 import com.github.shynixn.mccoroutine.bukkit.asyncDispatcher
 import com.github.shynixn.mccoroutine.bukkit.launch
 import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.save.savedata.PlayerDataSave
+import me.mochibit.defcon.utils.versionGreaterOrEqualThan
 import org.bukkit.Bukkit
+import org.bukkit.NamespacedKey
+import org.bukkit.Registry
 import org.bukkit.attribute.Attribute.*
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -38,10 +42,18 @@ class PlayerDeathReset : Listener {
             // Get the player's UUID
             val player = event.player
 
+            ParticleEmitter
+
             // Reset the player's data
             playerDataSave.savePlayerData(player, 0.0)
-            // Reset the player's max health
-            player.getAttribute(MAX_HEALTH)?.baseValue = 20.0
+
+            if (versionGreaterOrEqualThan("1.21.3")) {
+                player.getAttribute(MAX_HEALTH)
+            } else {
+                player.getAttribute(Registry.ATTRIBUTE.getOrThrow(NamespacedKey.minecraft("generic.max_health")))
+            }?.let {
+                it.baseValue = 20.0
+            }
         }
     }
 }

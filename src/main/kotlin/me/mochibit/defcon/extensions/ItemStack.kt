@@ -41,8 +41,8 @@ fun ItemStack.isEquipable(): Boolean {
     return this.getItemData<Boolean>(ItemDataKey.Equipable) ?: false
 }
 
-fun ItemStack.equipSlotNumber(): Int {
-    return this.getItemData<Int>(ItemDataKey.EquipSlotNumber) ?: 0
+fun ItemStack.equipSlotName(): String {
+    return this.getItemData<String>(ItemDataKey.EquipSlotName) ?: "HAND"
 }
 
 fun ItemStack.isDroppable(): Boolean {

@@ -45,6 +45,20 @@ abstract class ClientSideParticleInstance(
     acceleration: Vector3f = Vector3f(0.0f, 0.0f, 0.0f)
 ) : ParticleInstance(particleProperties, position, velocity, damping, acceleration) {
 
+    companion object {
+        fun destroyParticlesInBatch(
+            player: Player,
+            particles: Collection<ParticleInstance>,
+        ) {
+            val packetAPI = PacketEvents.getAPI().playerManager
+            val destroyPacket = WrapperPlayServerDestroyEntities(
+                *(particles.filterIsInstance<ClientSideParticleInstance>().map { it.particleID }.toIntArray())
+            )
+            packetAPI.sendPacket(player, destroyPacket)
+        }
+    }
+
+
     private val destroyPacket by lazy { WrapperPlayServerDestroyEntities(particleID) }
 
     /**

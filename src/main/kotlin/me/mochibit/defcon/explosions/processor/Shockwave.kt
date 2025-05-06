@@ -78,8 +78,8 @@ class Shockwave(
     private val particleLoc = Location(world, 0.0, 0.0, 0.0)
 
     // Reusable work queues for better memory usage
-    private val treeBlocks = ThreadLocal<ArrayList<Vector3i>>()
-    private val nonTreeBlocks = ThreadLocal<ArrayList<Vector3i>>()
+    private val treeBlocks = Channel<Pair<Vector3i, Double>>(Channel.UNLIMITED)
+    private val nonTreeBlocks = Channel<Pair<Vector3i, Double>>(Channel.UNLIMITED)
 
     // Data class for efficient circle point representation
     private data class CirclePoint(val cosValue: Double, val sinValue: Double)
@@ -111,7 +111,6 @@ class Shockwave(
                 if (columns.isNotEmpty()) {
                     shockWaveColumnChannel.send(Pair(radius, columns))
                 }
-
                 // Small yield to allow other high-priority tasks to run
                 yield()
             }
@@ -156,12 +155,32 @@ class Shockwave(
 
         // Block destruction with lower priority and batch processing
         val blockJob = Defcon.instance.launch(
-            lowPriorityDispatcher +
-                    treeBlocks.asContextElement(ArrayList()) +
-                    nonTreeBlocks.asContextElement(ArrayList())
+            lowPriorityDispatcher
         ) {
             for (data in blockDestructionChannel) {
-                processDestruction(data.first, data.second)
+                val columns = data.first
+                val explosionPower = data.second
+                for (location in columns) {
+                    if (treeBurner.isTreeBlock(location)) {
+                        treeBlocks.send(Pair(location, explosionPower))
+                        treeBurner.getTreeTerrain(location)
+                            .let { treeBlocks.send(Pair(it, explosionPower)) }
+                    } else {
+                        nonTreeBlocks.send(Pair(location, explosionPower))
+                    }
+                }
+            }
+        }
+
+        val treeBlocksJob = Defcon.instance.launch(lowPriorityDispatcher) {
+            for (treeBlock in treeBlocks) {
+                treeBurner.processTreeBurn(treeBlock.first, treeBlock.second)
+            }
+        }
+
+        val nonTreeBlocksJob = Defcon.instance.launch(lowPriorityDispatcher) {
+            for (nonTreeBlock in nonTreeBlocks) {
+                processBlock(nonTreeBlock.first, nonTreeBlock.second)
             }
         }
 
@@ -206,6 +225,8 @@ class Shockwave(
             // Wait for all processing to complete
             entityJob.join()
             playerEffectJob.join()
+            treeBlocksJob.join()
+            nonTreeBlocksJob.join()
             blockJob.join()
 
             // Mark as complete
@@ -326,47 +347,6 @@ class Shockwave(
             playerEffectChannel.send(Pair(entity, explosionPower.toDouble()))
         }
     }
-
-    private suspend fun processDestruction(locations: List<Vector3i>, explosionPower: Double) {
-        coroutineScope {
-            // Reuse arrays for better memory efficiency
-            val treeBlocksLocal = treeBlocks.get()
-            val nonTreeBlocksLocal = nonTreeBlocks.get()
-            treeBlocksLocal.clear()
-            nonTreeBlocksLocal.clear()
-
-            // Initial separation of tree and non-tree blocks
-            locations.forEach { location ->
-                if (treeBurner.isTreeBlock(location)) {
-                    treeBlocksLocal.add(location)
-                    treeBurner.getTreeTerrain(location).let { nonTreeBlocksLocal.add(it) }
-                } else {
-                    nonTreeBlocksLocal.add(location)
-                }
-            }
-
-            // Process tree blocks first
-            if (treeBlocksLocal.isNotEmpty()) {
-                launch {
-                    treeBlocksLocal.chunked(100).forEach { chunk ->
-                        chunk.forEach { treeBlock ->
-                            treeBurner.processTreeBurn(treeBlock, explosionPower)
-                        }
-                    }
-                }
-            }
-
-            // Process regular blocks in parallel batches
-            nonTreeBlocksLocal.chunked(1000).map { chunk ->
-                launch {
-                    chunk.forEach { location ->
-                        processBlock(location, explosionPower)
-                    }
-                }
-            }.joinAll()
-        }
-    }
-
 
     // Fast wall detection using cached materials
     private fun detectWall(x: Int, y: Int, z: Int): Boolean {
@@ -765,8 +745,8 @@ class Shockwave(
         chunkCache.cleanupCache()
 
         // Release cached data when no longer needed
-        treeBlocks.remove()
-        nonTreeBlocks.remove()
+        treeBlocks.close()
+        nonTreeBlocks.close()
 
         processedBlocks.clear()
         circleCache.clear()
