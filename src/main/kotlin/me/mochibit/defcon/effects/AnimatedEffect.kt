@@ -22,7 +22,7 @@ package me.mochibit.defcon.effects
 import me.mochibit.defcon.lifecycle.CycledObject
 import me.mochibit.defcon.observer.Loadable
 
-abstract class AnimatedEffect(maxAliveTick: Int = 200, protected var effectComponents: MutableList<EffectComponent> = mutableListOf()) : CycledObject(maxAliveTick), Loadable<Unit>
+abstract class AnimatedEffect(maxAliveTick: Long = 200, protected var effectComponents: MutableList<EffectComponent> = mutableListOf()) : CycledObject(maxAliveTick), Loadable<Unit>
 {
     override var isLoaded: Boolean = false
     override val observers: MutableList<(Unit) -> Unit> = mutableListOf()

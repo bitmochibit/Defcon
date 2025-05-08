@@ -33,6 +33,7 @@ import kotlin.math.roundToInt
 class TreeBurner(
     private val world: World,
     private val center: Vector3i,
+    private val maxExplosionPower : Double,
 ) {
     companion object {
         private const val LEAF_SUFFIX = "_LEAVES"
@@ -63,8 +64,9 @@ class TreeBurner(
 
     // Batch processing for block changes
 
-    suspend fun processTreeBurn(initialBlock: Vector3i, normalizedExplosionPower: Double) {
+    suspend fun processTreeBurn(initialBlock: Vector3i, explosionPower: Double) {
         try {
+            val normalizedExplosionPower = explosionPower / maxExplosionPower
 
             // Early exit if block is not part of a tree
             if (!isTreeBlock(initialBlock)) {

@@ -1,7 +1,7 @@
 /*
  *
  * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
+ * Copyright (c) 2024-2025 mochibit.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.effects.nuclear
+package me.mochibit.defcon.effects.explosion.nuclear
 
 import me.mochibit.defcon.effects.AnimatedEffect
 import me.mochibit.defcon.effects.ParticleComponent
@@ -38,7 +38,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
     private var currentHeight = 0.0f
     private var riseSpeed = 5.0f
 
-    private val coreCloud: ParticleComponent = ParticleComponent(
+    private val coreCloud = ParticleComponent(
         ParticleEmitter(
             center, 8000.0,
             emitterShape = SphereShape(
@@ -54,7 +54,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
     )
 
 
-    private val secondaryCloud: ParticleComponent = ParticleComponent(
+    private val secondaryCloud = ParticleComponent(
         ParticleEmitter(
             center, 8000.0,
             emitterShape = SphereSurfaceShape(
@@ -69,7 +69,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
             .velocity(Vector3f(0.0f, .8f, 0.0f))
     )
 
-    private val tertiaryCloud: ParticleComponent = ParticleComponent(
+    private val tertiaryCloud = ParticleComponent(
         ParticleEmitter(
             center, 8000.0,
             emitterShape = SphereSurfaceShape(
@@ -85,7 +85,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
         true
     )
 
-    private val quaterniaryCloud: ParticleComponent = ParticleComponent(
+    private val quaterniaryCloud = ParticleComponent(
         ParticleEmitter(
             center, 8000.0,
             emitterShape = SphereSurfaceShape(
@@ -102,7 +102,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
     )
         .translate(Vector3f(0.0f, -5.0f, 0.0f))
 
-    private val coreNeck: ParticleComponent = ParticleComponent(
+    private val coreNeck = ParticleComponent(
         ParticleEmitter(
             center, 8000.0,
             emitterShape = CylinderShape(
@@ -117,7 +117,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
     )
         .translate(Vector3f(0.0f, -30.0f, 0.0f))
 
-    private val neckCone: ParticleComponent = ParticleComponent(
+    private val neckCone = ParticleComponent(
         ParticleEmitter(
             center, 8000.0,
             emitterShape = SphereShape(
@@ -138,7 +138,7 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
         .setVisibilityAfterDelay(true, 30.seconds)
         .applyRadialVelocityFromCenter(Vector3f(5.0f, 0f, 5.0f))
 
-    private val stem: ParticleComponent = ParticleComponent(
+    private val stem = ParticleComponent(
         ParticleEmitter(
             center, 8000.0,
             emitterShape = CylinderShape(
@@ -154,8 +154,8 @@ class NuclearExplosionVFX(private val nuclearComponent: ExplosionComponent, val 
             .velocity(Vector3f(0.0f, 1.0f, 0.0f))
     )
 
-    private val stemShape = stem.shape as CylinderShape
-    private val neckConeShape = neckCone.shape as SphereShape
+    private val stemShape = stem.shape
+    private val neckConeShape = neckCone.shape
 
 
     init {

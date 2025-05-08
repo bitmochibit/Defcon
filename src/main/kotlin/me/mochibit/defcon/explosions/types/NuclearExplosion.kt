@@ -29,17 +29,14 @@ import me.mochibit.defcon.biomes.CustomBiomeHandler
 import me.mochibit.defcon.biomes.definitions.BurningAirBiome
 import me.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
 import me.mochibit.defcon.classes.PluginConfiguration
-import me.mochibit.defcon.effects.nuclear.CondensationCloudVFX
-import me.mochibit.defcon.effects.nuclear.NuclearExplosionVFX
-import me.mochibit.defcon.effects.nuclear.NuclearFogVFX
+import me.mochibit.defcon.effects.explosion.nuclear.CondensationCloudVFX
+import me.mochibit.defcon.effects.explosion.nuclear.NuclearExplosionVFX
+import me.mochibit.defcon.effects.explosion.nuclear.NuclearFogVFX
 import me.mochibit.defcon.enums.ConfigurationStorage
 import me.mochibit.defcon.explosions.ExplosionComponent
 import me.mochibit.defcon.explosions.TransformationRule
 import me.mochibit.defcon.explosions.effects.BlindFlashEffect
-import me.mochibit.defcon.explosions.processor.Crater
-import me.mochibit.defcon.explosions.processor.ExplosionSoundManager
-import me.mochibit.defcon.explosions.processor.Shockwave
-import me.mochibit.defcon.explosions.processor.ThermalRadiationBurn
+import me.mochibit.defcon.explosions.processor.*
 import me.mochibit.defcon.extensions.toVector3i
 import me.mochibit.defcon.radiation.RadiationAreaFactory
 import me.mochibit.defcon.threading.scheduling.runLaterAsync
@@ -159,6 +156,17 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
             }
 
             launch(Dispatchers.Default) {
+                EntityShockwave(
+                    center,
+                    shockwaveHeight,
+                    craterRadius / 6,
+                    shockwaveRadius,
+                    craterRadius / 4,
+                    50f
+                ).process()
+            }
+
+            launch(Dispatchers.Default) {
                 val players = center.world.players
                 // Kill all the players within the crater radius instantly
                 for (player in players) {
@@ -175,9 +183,11 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                     craterRadius,
                     craterRadius / 6,
                     craterRadius,
-                    TransformationRule(),
+                    TransformationRule(8.0),
                     shockwaveHeight
                 ).create()
+
+
                 val shockwaveJob = Shockwave(
                     center,
                     effectiveRadius - 1,

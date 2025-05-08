@@ -38,8 +38,8 @@ import org.joml.Vector3f
 class TextDisplayParticleInstance(
     particleProperties: TextDisplayParticleProperties,
     position: Vector3d = Vector3d(0.0, 0.0, 0.0),
-    velocity: Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
-    damping: Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
+    velocity: Vector3d = Vector3d(0.0, 0.0, 0.0),
+    damping: Vector3d = Vector3d(0.0, 0.0, 0.0),
     acceleration: Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
 ) : ClientSideParticleInstance(particleProperties, position, velocity, damping, acceleration) {
 

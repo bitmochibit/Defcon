@@ -23,7 +23,10 @@ import org.bukkit.Material
 import java.util.*
 import kotlin.random.Random
 
-class TransformationRule {
+class TransformationRule(
+    private val maxExplosionPower : Double,
+)
+{
     companion object {
         // Using EnumSet for better performance with enum types
         val BLOCK_TRANSFORMATION_BLACKLIST: Set<Material> = EnumSet.of(
@@ -203,8 +206,9 @@ class TransformationRule {
     private val random = Random.Default
 
     // Main transformation function
-    fun transformMaterial(currentMaterial: Material, normalizedExplosionPower: Double): Material {
-        // Early return for blacklisted materials
+    fun transformMaterial(currentMaterial: Material, explosionPower: Double): Material {
+        val normalizedExplosionPower = explosionPower / maxExplosionPower
+
         if (currentMaterial in BLOCK_TRANSFORMATION_BLACKLIST) {
             return currentMaterial
         }

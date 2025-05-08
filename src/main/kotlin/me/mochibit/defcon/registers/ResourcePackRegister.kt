@@ -22,6 +22,7 @@ import me.mochibit.defcon.registers.packformat.FormatReader
 import me.mochibit.defcon.server.ResourcePackServer
 import me.mochibit.defcon.utils.versionGreaterOrEqualThan
 import net.kyori.adventure.resource.ResourcePackInfo
+import net.kyori.adventure.text.minimessage.MiniMessage
 import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import org.json.simple.parser.JSONParser
@@ -136,11 +137,10 @@ object ResourcePackRegister : PackRegister(true) {
             Files.createDirectories(localAssetsPath)
             Files.createDirectories(minecraftPath)
             Files.createDirectories(fontPath)
-
             // Create .mcmeta file
             val mcmetaContent = createMcmetaJson(
                 FormatReader.packFormat.resourceVersion,
-                "Defcon auto-generated resource pack"
+                "Defcon resource pack - auto generated",
             )
             Files.write(Paths.get("$tempPath/pack.mcmeta"), mcmetaContent.toByteArray())
 
@@ -173,9 +173,16 @@ object ResourcePackRegister : PackRegister(true) {
             val jarFile = javaClass.protectionDomain.codeSource.location.toURI().path
             JarFile(jarFile).use { jar ->
                 val fontEntry = jar.getEntry("assets/defcon/fonts/default.json")
+                val packEntry = jar.getEntry("assets/pack.png")
                 fontEntry?.let {
                     jar.getInputStream(it).use { input ->
                         Files.copy(input, fontPath.resolve("default.json"), StandardCopyOption.REPLACE_EXISTING)
+                    }
+                }
+
+                packEntry?.let {
+                    jar.getInputStream(it).use { input ->
+                        Files.copy(input, Paths.get("$tempPath/pack.png"), StandardCopyOption.REPLACE_EXISTING)
                     }
                 }
             }

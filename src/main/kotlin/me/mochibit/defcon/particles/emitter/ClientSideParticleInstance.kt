@@ -40,8 +40,8 @@ import java.util.*
 abstract class ClientSideParticleInstance(
     particleProperties: DisplayParticleProperties,
     position: Vector3d,
-    velocity: Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
-    damping: Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
+    velocity: Vector3d = Vector3d(0.0, 0.0, 0.0),
+    damping: Vector3d = Vector3d(0.0, 0.0, 0.0),
     acceleration: Vector3f = Vector3f(0.0f, 0.0f, 0.0f)
 ) : ParticleInstance(particleProperties, position, velocity, damping, acceleration) {
 

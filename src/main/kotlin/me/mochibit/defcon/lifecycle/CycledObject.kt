@@ -25,7 +25,7 @@ import me.mochibit.defcon.Defcon
 import org.bukkit.Bukkit
 import kotlin.coroutines.CoroutineContext
 
-abstract class CycledObject(private val maxAliveTicks: Int = 200) : Lifecycled {
+abstract class CycledObject(private val maxAliveTicks: Long = 200) : Lifecycled {
     private var isDestroyed = false
     var tickAlive: Double = 0.0
     private var lastTickTime = System.currentTimeMillis()

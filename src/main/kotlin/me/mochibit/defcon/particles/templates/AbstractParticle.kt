@@ -31,7 +31,7 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
     var locationConsumer: ((location: Vector3d) -> Unit)? = null; private set
     var playersSupplier: (() -> Collection<Player>)? = null; private set
     var initialVelocity: Vector3f = Vector3f(0f, 0f, 0f); private set
-    var initialDamping: Vector3f = Vector3f(0f, 0f, 0f); private set
+    var initialDamping: Vector3d = Vector3d(0.0, 0.0, 0.0); private set
     var initialAcceleration: Vector3f = Vector3f(0f, 0f, 0f); private set
     var initialAccelerationTicks = 0; private set
     var randomizeColorBrightness = true; private set
@@ -44,7 +44,7 @@ abstract class AbstractParticle(val particleProperties: GenericParticlePropertie
 
     fun accelerationTicks(ticks: Int) = apply { initialAccelerationTicks = ticks }
     fun acceleration(vector3: Vector3f) = apply { initialAcceleration = vector3 }
-    fun damping(vector3: Vector3f) = apply { initialDamping = vector3 }
+    fun damping(vector3: Vector3d) = apply { initialDamping = vector3 }
     fun velocity(vector3: Vector3f) = apply { initialVelocity = vector3 }
     fun randomizeColorBrightness(randomize: Boolean) = apply { randomizeColorBrightness = randomize }
     fun displacement(vector3: Vector3f) = apply { displacement = vector3 }

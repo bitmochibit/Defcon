@@ -19,6 +19,7 @@
 
 package me.mochibit.defcon.vertexgeometry.particle
 
+import me.mochibit.defcon.particles.emitter.EmitterShape
 import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.particles.templates.AbstractParticle
 import me.mochibit.defcon.vertexgeometry.VertexShapeBuilder
@@ -27,9 +28,9 @@ import me.mochibit.defcon.vertexgeometry.vertexes.Vertex
 import org.bukkit.*
 import kotlin.random.Random
 
-class ParticleShape(
+class ParticleShape<T: EmitterShape>(
     var particle: AbstractParticle,
-    val emitter : ParticleEmitter,
+    val emitter : ParticleEmitter<T>,
     shapeBuilder: VertexShapeBuilder, spawnPoint: Location
 ) : AbstractShape(shapeBuilder, spawnPoint) {
     override fun buildVertexes(): Array<Vertex> {

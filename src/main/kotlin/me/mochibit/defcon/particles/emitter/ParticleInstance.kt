@@ -33,8 +33,6 @@ import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 import kotlin.math.sign
-import kotlin.reflect.KClass
-import kotlin.reflect.typeOf
 
 /**
  * Base particle instance that manages state and physics
@@ -42,8 +40,8 @@ import kotlin.reflect.typeOf
 abstract class ParticleInstance(
     private val particleProperties: GenericParticleProperties,
     val position: Vector3d,
-    private var velocity: Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
-    private var damping: Vector3f = Vector3f(0.0f, 0.0f, 0.0f),
+    var velocity: Vector3d = Vector3d(0.0, 0.0, 0.0),
+    private var damping: Vector3d = Vector3d(0.0, 0.0, 0.0),
     private var acceleration: Vector3f = Vector3f(0.0f, 0.0f, 0.0f)
 ) {
     private var life: Int = 0
@@ -54,7 +52,7 @@ abstract class ParticleInstance(
     private var removed = false
 
     private val isMoving
-        get() = velocity.x != 0f || velocity.y != 0f || velocity.z != 0f ||
+        get() = velocity.x != 0.0 || velocity.y != 0.0 || velocity.z != 0.0 ||
                 acceleration.x != 0f || acceleration.y != 0f || acceleration.z != 0f
 
     private val dampingFactor = Vector3f()
@@ -71,7 +69,7 @@ abstract class ParticleInstance(
      * Apply a damping factor to the particle instance.
      * @param damping The damping factor to apply.
      */
-    fun setDamping(damping: Vector3f) {
+    fun setDamping(damping: Vector3d) {
         this.damping.set(damping.x, damping.y, damping.z)
     }
 
@@ -87,16 +85,8 @@ abstract class ParticleInstance(
      * Increases the velocity of the particle instance.
      * @param velocity The new velocity.
      */
-    fun addVelocity(velocity: Vector3f) {
+    fun addVelocity(velocity: Vector3d) {
         this.velocity.add(velocity.x, velocity.y, velocity.z)
-    }
-
-    /**
-     * Set the velocity of the particle instance.
-     * @param velocity The new velocity.
-     */
-    fun setVelocity(velocity: Vector3f) {
-        this.velocity.set(velocity.x, velocity.y, velocity.z)
     }
 
     /**
@@ -118,12 +108,12 @@ abstract class ParticleInstance(
             }
 
             // Apply damping to velocity - reuse dampingFactor vector
-            if (damping.x != 0f || damping.y != 0f || damping.z != 0f) {
+            if (damping.x != 0.0 || damping.y != 0.0 || damping.z != 0.0) {
                 // Calculate damping factor with sign preservation
                 dampingFactor.set(
-                    if (velocity.x != 0f) minOf(abs(velocity.x), damping.x) * sign(velocity.x) else 0f,
-                    if (velocity.y != 0f) minOf(abs(velocity.y), damping.y) * sign(velocity.y) else 0f,
-                    if (velocity.z != 0f) minOf(abs(velocity.z), damping.z) * sign(velocity.z) else 0f
+                    if (velocity.x != 0.0) minOf(abs(velocity.x), damping.x) * sign(velocity.x) else 0.0,
+                    if (velocity.y != 0.0) minOf(abs(velocity.y), damping.y) * sign(velocity.y) else 0.0,
+                    if (velocity.z != 0.0) minOf(abs(velocity.z), damping.z) * sign(velocity.z) else 0.0
                 )
                 velocity.sub(dampingFactor)
             }
@@ -181,7 +171,9 @@ abstract class ParticleInstance(
         /**
          * Create a particle instance from template - optimized for bulk creation
          */
-        fun fromTemplate(particleTemplate: AbstractParticle): ParticleInstance {
+        fun fromTemplate(
+            particleTemplate: AbstractParticle,
+        ): ParticleInstance {
             val particleProperties = particleTemplate.particleProperties.clone().apply {
                 color = adjustColor(this.color ?: Color.RED, particleTemplate)
             }
@@ -196,7 +188,6 @@ abstract class ParticleInstance(
             return TextDisplayParticleInstance(
                 particleProperties as TextDisplayParticleProperties,
             ).apply {
-                setVelocity(particleTemplate.initialVelocity)
                 setAcceleration(particleTemplate.initialAcceleration)
                 setDamping(particleTemplate.initialDamping)
             }

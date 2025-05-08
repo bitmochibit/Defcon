@@ -3,7 +3,9 @@ package me.mochibit.defcon.explosions.processor
 import com.github.shynixn.mccoroutine.bukkit.launch
 import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.*
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.explosions.TransformationRule
 import me.mochibit.defcon.explosions.effects.CameraShake
@@ -12,18 +14,23 @@ import me.mochibit.defcon.extensions.toVector3i
 import me.mochibit.defcon.observer.Completable
 import me.mochibit.defcon.observer.CompletionDispatcher
 import me.mochibit.defcon.utils.*
-import me.mochibit.defcon.utils.MathFunctions.remap
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.Particle
 import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
+import org.bukkit.util.Vector
 import org.joml.SimplexNoise
 import org.joml.Vector3i
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.math.*
+import kotlin.math.abs
+import kotlin.math.pow
+import kotlin.math.sqrt
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 class Shockwave(
@@ -32,11 +39,11 @@ class Shockwave(
     private val shockwaveRadius: Int,
     private val shockwaveHeight: Int,
     private val shockwaveSpeed: Long = 1000L,
-    private val transformationRule: TransformationRule = TransformationRule(),
+    private val minDestructionPower: Double = 2.0,
+    private val maxDestructionPower: Double = 5.0,
+    private val transformationRule: TransformationRule = TransformationRule(maxDestructionPower),
 ) : Completable by CompletionDispatcher() {
     private val maximumDistanceForAction = 4.0
-    private val maxDestructionPower = 5.0
-    private val minDestructionPower = 2.0
     private val world = center.world
 
     // Cache rule sets for faster access
@@ -47,11 +54,8 @@ class Shockwave(
     private val walls = TransformationRule.WALLS
     private val stairs = TransformationRule.STAIRS
 
-    // Use LRU cache with fixed size to limit memory usage
-    private val circleCache = LRUCache<Int, Array<CirclePoint>>(100)
-
     // Services
-    private val treeBurner = TreeBurner(world, center.toVector3i())
+    private val treeBurner = TreeBurner(world, center.toVector3i(), maxDestructionPower)
     private val chunkCache = ChunkCache.getInstance(world)
     private val rayCaster = RayCaster(world)
     private val blockChanger = BlockChanger.getInstance(world)
@@ -74,277 +78,58 @@ class Shockwave(
         return !processedBlocks.add(Geometry.packIntegerCoordinates(x, y, z))
     }
 
-    // For rapid particle spawning
-    private val particleLoc = Location(world, 0.0, 0.0, 0.0)
-
-    // Reusable work queues for better memory usage
-    private val treeBlocks = Channel<Pair<Vector3i, Double>>(Channel.UNLIMITED)
-    private val nonTreeBlocks = Channel<Pair<Vector3i, Double>>(Channel.UNLIMITED)
-
-    // Data class for efficient circle point representation
-    private data class CirclePoint(val cosValue: Double, val sinValue: Double)
-
-    // LRU Cache implementation for circle points
-    private class LRUCache<K, V>(private val capacity: Int) : LinkedHashMap<K, V>(capacity, 0.75f, true) {
-        override fun removeEldestEntry(eldest: Map.Entry<K, V>): Boolean = size > capacity
-    }
-
-    private val playerEffectChannel = Channel<Pair<Player, Double>>(Channel.BUFFERED)
-
-    private val worldPlayers = ConcurrentHashMap.newKeySet<Player>()
-
     fun explode(): Job {
-        // Use a more focused dispatcher for high-priority tasks
-        val highPriorityDispatcher = Dispatchers.Default
-        val lowPriorityDispatcher = Dispatchers.IO
+        val blockProcessingDispatcher = Dispatchers.Default
 
-        // Use bounded channels for entity damage to prevent memory pressure
-        // while keeping shockwave channel unlimited for maximum throughput
-        val entityDamageChannel = Channel<Pair<List<Vector3i>, Double>>(Channel.BUFFERED)
-        val blockDestructionChannel = Channel<Pair<List<Vector3i>, Double>>(Channel.BUFFERED)
-        val shockWaveColumnChannel = Channel<Pair<Int, List<Vector3i>>>(Channel.UNLIMITED)
+        val ringCounter = AtomicInteger(0)
+
+        return Defcon.instance.launch(Dispatchers.Default) {
+            try {
+                // Original visual/block shockwave processing at normal speed
+                for (radius in radiusStart..shockwaveRadius) {
+                    val radiusProgress = radius.toDouble() / shockwaveRadius.toDouble()
+                    val explosionPower = MathFunctions.lerp(
+                        maxDestructionPower,
+                        minDestructionPower,
+                        radiusProgress
+                    )
+
+                    // Generate columns for this radius and process visual effects and blocks
+                    val columns = generateShockwaveCircleAsFlow(radius).buffer(128).toList()
 
 
-        val shockwaveColumnsJob = Defcon.instance.launch(highPriorityDispatcher) {
-            for (radius in radiusStart..shockwaveRadius) {
-                val columns = generateShockwaveColumns(radius)
-                if (columns.isNotEmpty()) {
-                    shockWaveColumnChannel.send(Pair(radius, columns))
-                }
-                // Small yield to allow other high-priority tasks to run
-                yield()
-            }
-        }
+                    // Process blocks in parallel (don't wait)
+                    launch(blockProcessingDispatcher) {
+                        // Split tree blocks from regular blocks
+                        val (treeBlocks, nonTreeBlocks) = columns.partition { treeBurner.isTreeBlock(it) }
 
-        val playerListUpdaterJob = Defcon.instance.launch(lowPriorityDispatcher) {
-            worldPlayers.addAll(Defcon.instance.server.onlinePlayers)
-            while (true) {
-                val newPlayers = Defcon.instance.server.onlinePlayers
-                for (newPlayer in newPlayers) {
-                    if (!worldPlayers.contains(newPlayer)) {
-                        worldPlayers.add(newPlayer)
+                        // Process tree blocks in parallel batches
+                        treeBlocks.chunked(32).forEach { chunk ->
+                            launch {
+                                chunk.forEach { location ->
+                                    treeBurner.processTreeBurn(location, explosionPower)
+                                    treeBurner.processTreeBurn(treeBurner.getTreeTerrain(location), explosionPower)
+                                }
+                            }
+                        }
+
+                        // Process non-tree blocks in parallel batches
+                        nonTreeBlocks.chunked(32).forEach { chunk ->
+                            launch {
+                                chunk.forEach { location ->
+                                    processBlock(location, explosionPower)
+                                }
+                            }
+                        }
                     }
+
+                    ringCounter.incrementAndGet()
+                    delay(1.milliseconds)
                 }
-                // Remove players who are no longer online
-                worldPlayers.removeIf { player -> !player.isOnline }
-                delay(10.seconds)
+            } finally {
+                processedRings.set(ringCounter.get())
+                cleanup()
             }
-        }
-
-        // Process entity damage with high priority
-        val entityJob = Defcon.instance.launch(highPriorityDispatcher) {
-            for (data in entityDamageChannel) {
-                processEntityDamage(data.first, data.second)
-            }
-        }
-
-        // Process player effects with high priority
-        val playerEffectJob = Defcon.instance.launch(highPriorityDispatcher) {
-            for (effect in playerEffectChannel) {
-                val player = effect.first
-                val explosionPower = effect.second
-                ExplosionSoundManager.playSounds(ExplosionSoundManager.DefaultSounds.ShockwaveHitSound, player)
-                val inv = ((1f / explosionPower) * 3).toFloat()
-                try {
-                    CameraShake(player, CameraShakeOptions(2.6f, 0.04f, 3.7f * inv, 3.0f * inv))
-                } catch (e: Exception) {
-                    println("Error applying CameraShake: ${e.message}")
-                }
-            }
-        }
-
-        // Block destruction with lower priority and batch processing
-        val blockJob = Defcon.instance.launch(
-            lowPriorityDispatcher
-        ) {
-            for (data in blockDestructionChannel) {
-                val columns = data.first
-                val explosionPower = data.second
-                for (location in columns) {
-                    if (treeBurner.isTreeBlock(location)) {
-                        treeBlocks.send(Pair(location, explosionPower))
-                        treeBurner.getTreeTerrain(location)
-                            .let { treeBlocks.send(Pair(it, explosionPower)) }
-                    } else {
-                        nonTreeBlocks.send(Pair(location, explosionPower))
-                    }
-                }
-            }
-        }
-
-        val treeBlocksJob = Defcon.instance.launch(lowPriorityDispatcher) {
-            for (treeBlock in treeBlocks) {
-                treeBurner.processTreeBurn(treeBlock.first, treeBlock.second)
-            }
-        }
-
-        val nonTreeBlocksJob = Defcon.instance.launch(lowPriorityDispatcher) {
-            for (nonTreeBlock in nonTreeBlocks) {
-                processBlock(nonTreeBlock.first, nonTreeBlock.second)
-            }
-        }
-
-        // The shockwave processor job - sends to entity channel first, then block channel
-        val shockwaveJob = Defcon.instance.launch(highPriorityDispatcher) {
-            for (shockwaveColumns in shockWaveColumnChannel) {
-                val (radius, columns) = shockwaveColumns
-                val explosionPower = MathFunctions.lerp(
-                    maxDestructionPower,
-                    minDestructionPower,
-                    radius / shockwaveRadius.toDouble()
-                )
-                val normalizedExplosionPower =
-                    remap(explosionPower, minDestructionPower, maxDestructionPower, 0.0, 1.0)
-
-                if (columns.isNotEmpty()) {
-                    // Send to entity damage channel first (priority)
-                    entityDamageChannel.send(Pair(columns, normalizedExplosionPower))
-
-                    // Then send to block destruction
-                    blockDestructionChannel.send(Pair(columns, normalizedExplosionPower))
-                }
-                processedRings.incrementAndGet()
-            }
-        }
-
-        // Completion job remains similar to original
-        val completionJob = Defcon.instance.launch(lowPriorityDispatcher) {
-            // Ensure remaining work is completed
-            shockwaveColumnsJob.join()
-            shockwaveJob.join()
-
-            playerListUpdaterJob.cancelAndJoin()
-
-
-            // Close channels in order of priority
-            entityDamageChannel.close()
-            playerEffectChannel.close()
-            blockDestructionChannel.close()
-            shockWaveColumnChannel.close()
-
-            // Wait for all processing to complete
-            entityJob.join()
-            playerEffectJob.join()
-            treeBlocksJob.join()
-            nonTreeBlocksJob.join()
-            blockJob.join()
-
-            // Mark as complete
-            cleanup()
-        }
-
-        return completionJob
-    }
-
-    private suspend fun processEntityDamage(
-        columns: List<Vector3i>, explosionPower: Double
-    ) {
-        if (columns.isEmpty()) return
-        withContext(Dispatchers.IO) {
-            columns.forEach { col ->
-                particleLoc.x = col.x.toDouble()
-                particleLoc.y = (col.y + 1).toDouble()
-                particleLoc.z = col.z.toDouble()
-                world.spawnParticle(Particle.EXPLOSION, particleLoc, 0)
-            }
-        }
-        withContext(Dispatchers.IO) {
-            // Skip if no players to process
-            if (worldPlayers.isEmpty()) return@withContext
-
-            // Fast spatial lookup using grid
-            val spatialGrid = buildSpatialGrid(columns, 2)
-
-            // Process only entities near players
-            worldPlayers.forEach { player ->
-                // Process the player itself
-                val playerInRange = processEntityIfInRange(player, spatialGrid, explosionPower)
-                if (!playerInRange) return@forEach
-
-                // Get entities near the player
-                val nearbyEntities = withContext(Defcon.instance.minecraftDispatcher) {
-                    player.getNearbyEntities(10.0, 10.0, 10.0)
-                }
-
-                // Process each nearby entity
-                nearbyEntities.forEach { entity ->
-                    processEntityIfInRange(entity, spatialGrid, explosionPower)
-                }
-            }
-        }
-    }
-
-    // Process a single entity if it's in range of any column
-    private suspend fun processEntityIfInRange(
-        entity: Entity,
-        spatialGrid: Map<Int, List<Vector3i>>,
-        explosionPower: Double
-    ): Boolean {
-        val entityX = entity.location.blockX
-        val entityY = entity.location.blockY
-        val entityZ = entity.location.blockZ
-
-        // Get grid cell and check entities within
-        val gridKey = ((entityX shr 2) shl 16) or (entityZ shr 2)
-        val columnsInCell = spatialGrid[gridKey] ?: return false
-
-        // Check if entity is near any column in the cell
-        for (column in columnsInCell) {
-            if (abs(entityX - column.x) <= 1 &&
-                entityY >= column.y - maximumDistanceForAction &&
-                entityY <= column.y + shockwaveHeight + maximumDistanceForAction &&
-                abs(entityZ - column.z) <= 1
-            ) {
-                applyExplosionEffects(entity, explosionPower.toFloat())
-                return true
-            }
-        }
-        return false
-    }
-
-    // Fast spatial grid for column lookups
-    private fun buildSpatialGrid(columns: List<Vector3i>, cellSize: Int): Map<Int, List<Vector3i>> {
-        val grid = HashMap<Int, MutableList<Vector3i>>(columns.size / 3)
-        columns.forEach { column ->
-            val gridKey = ((column.x shr cellSize) shl 16) or (column.z shr cellSize)
-            grid.getOrPut(gridKey) { ArrayList() }.add(column)
-        }
-        return grid
-    }
-
-    private suspend fun applyExplosionEffects(entity: Entity, explosionPower: Float) {
-        // Calculate knockback efficiently
-        val dx = entity.location.x - center.x
-        val dy = entity.location.y - center.y
-        val dz = entity.location.z - center.z
-
-        // Damage and knockback calculations
-        val baseDamage = 80.0
-
-        // Apply velocity directly rather than creating new vector
-        val knockbackPower = explosionPower
-        val knockbackX = knockbackPower / dx
-        val knockbackY = knockbackPower / dy + 1
-        val knockbackZ = knockbackPower / dz
-
-        val velocity = entity.velocity
-        velocity.x = knockbackX
-        velocity.y = knockbackY
-        velocity.z = knockbackZ
-
-        withContext(Defcon.instance.minecraftDispatcher) {
-            entity.velocity = velocity
-        }
-
-        if (entity !is LivingEntity) return
-
-        // Apply damage
-        withContext(Defcon.instance.minecraftDispatcher) {
-            entity.damage(baseDamage * explosionPower)
-        }
-
-        if (entity is Player) {
-            playerEffectChannel.send(Pair(entity, explosionPower.toDouble()))
         }
     }
 
@@ -366,46 +151,9 @@ class Shockwave(
         blockLocation: Vector3i,
         normalizedExplosionPower: Double
     ) {
-        // Skip if power is too low - lowering threshold to allow more distant effects
-        if (normalizedExplosionPower < 0.02) return
-
-        // Enhanced penetration with exponential scaling for more realistic results
-        val powerFactor = normalizedExplosionPower.pow(1.2)
-        val basePenetration = (powerFactor * 12).roundToInt().coerceIn(1, 15)
-
-
-        // Use simplex noise for more natural terrain-like variation
-        val noiseX = blockLocation.x * 0.1
-        val noiseY = blockLocation.y * 0.1
-        val noiseZ = blockLocation.z * 0.1
-
-        // Generate noise values in range [-1, 1]
-        val noise = SimplexNoise.noise(noiseX.toFloat(), noiseY.toFloat(), noiseZ.toFloat())
-
-        // Use noise for variation (transforms noise from [-1,1] to [0,1] range)
-        val noiseFactor = (noise + 1) * 0.5
-
-        // Randomize penetration with noise
-        val varianceFactor = (normalizedExplosionPower * 0.6).coerceIn(0.2, 0.5)
-        val distanceNormalized = 1.0 - normalizedExplosionPower.coerceIn(0.0, 1.0)
-
-        // Use noise instead of random for more coherent patterns
-        val randomOffset = (noiseFactor * 2 - 1) * basePenetration * varianceFactor * (1 - distanceNormalized * 0.5)
-
-        // Calculate max penetration - ensure at least 1 block penetration even at low power
-        val maxPenetration = (basePenetration + randomOffset).roundToInt()
-            .coerceIn(1, (basePenetration * 1.4).toInt())
-
-        // Optimized wall detection
-        val isWall = detectWall(blockLocation.x, blockLocation.y, blockLocation.z) ||
-                detectWall(blockLocation.x, blockLocation.y - 1, blockLocation.z)
-
-        // Process differently based on structure type
-        if (isWall) {
-            processWall(blockLocation, normalizedExplosionPower)
-        } else {
-            processRoof(blockLocation, normalizedExplosionPower, maxPenetration)
-        }
+        val material = world.getBlockData(blockLocation.x, blockLocation.y, blockLocation.z).material
+        val transformedMat = transformationRule.transformMaterial(material, normalizedExplosionPower)
+        blockChanger.addBlockChange(blockLocation, transformedMat)
     }
 
     // Process vertical walls more efficiently with simplex noise
@@ -614,129 +362,66 @@ class Shockwave(
         blockChanger.addBlockChange(x, y, z, finalMaterial, shouldCopyData, updatePhysics)
     }
 
-
-    private fun generateShockwaveColumns(radius: Int): List<Vector3i> {
-        // For small radii, use Bresenham's circle algorithm for complete coverage
-        if (radius <= 20) {
-            return generateBresenhamCircle(radius)
-        }
-
-        // Retrieve from cache if available
-        circleCache[radius]?.let { cachedPoints ->
-            // Reuse cached points but generate new Vector3i list
-            return generateColumnsFromCirclePoints(cachedPoints, radius)
-        }
-
-        // Calculate appropriate point density based on radius
-        val circumference = 2 * Math.PI * radius
-        val density = if (radius <= 15) {
-            6 // Higher density for small explosions
-        } else if (radius <= 50) {
-            4 // Medium density
-        } else {
-            max(2, min(3, 200 / radius)) // Lower density for large explosions
-        }
-
-        val steps = (circumference * density).toInt().coerceAtLeast(8)
-        val angleIncrement = 2 * Math.PI / steps
-
-        // Pre-calculate sin/cos values
-        val circlePoints = Array(steps) { i ->
-            val angle = angleIncrement * i
-            CirclePoint(cos(angle), sin(angle))
-        }
-
-        // Cache for future use
-        circleCache[radius] = circlePoints
-
-        // Generate columns from circle points
-        return generateColumnsFromCirclePoints(circlePoints, radius)
-    }
-
-    // Implement Bresenham's circle algorithm for complete circle coverage
-    private fun generateBresenhamCircle(radius: Int): List<Vector3i> {
-        val result = ArrayList<Vector3i>()
+    private fun generateShockwaveCircleAsFlow(radius: Int): Flow<Vector3i> = flow {
+        // Get center coordinates
         val centerX = center.blockX
         val centerZ = center.blockZ
 
+        // Special case for radius 0
+        if (radius == 0) {
+            val highestY = chunkCache.highestBlockYAt(centerX, centerZ)
+            emit(Vector3i(centerX, highestY, centerZ))
+            return@flow
+        }
+
+        // Bresenham's circle algorithm implementation
         var x = 0
         var z = radius
-        var d = 3 - 2 * radius
+        var d = 1 - radius
 
-        // Add initial points
-        addCirclePoints(centerX, centerZ, x, z, result)
+        // Process points as we go
+        while (x <= z) {
+            // Process all 8-way symmetric points
+            val pointsToProcess = listOf(
+                Pair(x, z), Pair(z, x),
+                Pair(z, -x), Pair(x, -z),
+                Pair(-x, -z), Pair(-z, -x),
+                Pair(-z, x), Pair(-x, z)
+            )
 
-        while (z >= x) {
-            x++
-
-            if (d > 0) {
-                z--
-                d = d + 4 * (x - z) + 10
+            // Handle potential duplicates when x == z
+            val uniquePoints = if (x == z) {
+                pointsToProcess.take(4) // Take only half the points when x == z to avoid duplicates
             } else {
-                d = d + 4 * x + 6
+                pointsToProcess
             }
 
-            addCirclePoints(centerX, centerZ, x, z, result)
+            // Process each point
+            uniquePoints.forEach { (xOffset, zOffset) ->
+                try {
+                    // Apply center offset to coordinates
+                    val worldX = centerX + xOffset
+                    val worldZ = centerZ + zOffset
+
+                    val highestY = chunkCache.highestBlockYAt(worldX, worldZ)
+                    emit(Vector3i(worldX, highestY, worldZ))
+                } catch (e: Exception) {
+                    // Log the error but continue processing other points
+                    Defcon.instance.logger.warning("Error processing point ($xOffset, $zOffset): ${e.message}")
+                }
+            }
+
+            // Move to next point using Bresenham's circle algorithm
+            x++
+            if (d < 0) {
+                d += 2 * x + 1
+            } else {
+                z--
+                d += 2 * (x - z) + 1
+            }
         }
-
-        return result
     }
 
-    // Helper to add all 8 symmetric points of the circle
-    private fun addCirclePoints(centerX: Int, centerZ: Int, x: Int, z: Int, result: ArrayList<Vector3i>) {
-        // Add all 8 octants
-        addPoint(centerX + x, centerZ + z, result)
-        addPoint(centerX - x, centerZ + z, result)
-        addPoint(centerX + x, centerZ - z, result)
-        addPoint(centerX - x, centerZ - z, result)
-        addPoint(centerX + z, centerZ + x, result)
-        addPoint(centerX - z, centerZ + x, result)
-        addPoint(centerX + z, centerZ - x, result)
-        addPoint(centerX - z, centerZ - x, result)
-    }
-
-    private fun addPoint(x: Int, z: Int, result: ArrayList<Vector3i>) {
-        // Get height using chunk cache
-        val highestY = chunkCache.highestBlockYAt(x, z)
-        result.add(Vector3i(x, highestY, z))
-    }
-
-    // Generate columns from cached circle points
-    private fun generateColumnsFromCirclePoints(points: Array<CirclePoint>, radius: Int): List<Vector3i> {
-        // Pre-allocate result array with exact size
-        val result = ArrayList<Vector3i>(points.size)
-
-        // Prepare for batch chunk loading
-        val chunkCoordinates = HashSet<Long>()
-
-        // First pass: identify all chunks that need to be loaded
-        points.forEach { (cosVal, sinVal) ->
-            val x = (center.blockX + radius * cosVal).toInt()
-            val z = (center.blockZ + radius * sinVal).toInt()
-
-            // Pack chunk coordinates for efficient storage
-            val chunkKey = (x shr 4).toLong() shl 32 or ((z shr 4).toLong() and 0xFFFFFFFFL)
-            chunkCoordinates.add(chunkKey)
-        }
-
-        // Batch load all needed chunks
-//        if (chunkCoordinates.size <= 64) { // Avoid excessive chunk loading
-//            chunkCache.preloadChunks(chunkCoordinates)
-//        }
-
-        // Second pass: generate Vector3i for each point
-        points.forEach { (cosVal, sinVal) ->
-            val x = (center.blockX + radius * cosVal).toInt()
-            val z = (center.blockZ + radius * sinVal).toInt()
-
-            // Get height using chunk cache
-            val highestY = chunkCache.highestBlockYAt(x, z)
-
-            result.add(Vector3i(x, highestY, z))
-        }
-
-        return result
-    }
 
     // Clean up resources
     private fun cleanup() {
@@ -744,13 +429,7 @@ class Shockwave(
         // Clean up services
         chunkCache.cleanupCache()
 
-        // Release cached data when no longer needed
-        treeBlocks.close()
-        nonTreeBlocks.close()
-
         processedBlocks.clear()
-        circleCache.clear()
-
         // Signal completion
         complete()
     }

@@ -1,7 +1,7 @@
 /*
  *
  * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
+ * Copyright (c) 2024-2025 mochibit.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -17,15 +17,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.effects.nuclear
+package me.mochibit.defcon.effects.explosion.nuclear
 
 import me.mochibit.defcon.effects.AnimatedEffect
 import me.mochibit.defcon.effects.ParticleComponent
 import me.mochibit.defcon.effects.TemperatureComponent
 import me.mochibit.defcon.explosions.ExplosionComponent
 import me.mochibit.defcon.extensions.toVector3f
-import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.CylinderShape
+import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.particles.mutators.FloorSnapper
 import me.mochibit.defcon.particles.templates.definition.ExplosionDustParticle
 import org.bukkit.Location
@@ -35,7 +35,7 @@ class NuclearFogVFX(private val nuclearComponent: ExplosionComponent, private va
     AnimatedEffect(3600) {
 
 
-    private val nuclearFog: ParticleComponent = ParticleComponent(
+    private val nuclearFog = ParticleComponent(
         ParticleEmitter(
             center, 3000.0,
             emitterShape = CylinderShape(
@@ -56,7 +56,7 @@ class NuclearFogVFX(private val nuclearComponent: ExplosionComponent, private va
         Vector3f(-2f, -1.0f, -2f)
     )
 
-    private val uprisingSmoke : ParticleComponent = ParticleComponent(
+    private val uprisingSmoke = ParticleComponent(
         ParticleEmitter(
             center, 3000.0,
             emitterShape = CylinderShape(
@@ -76,7 +76,7 @@ class NuclearFogVFX(private val nuclearComponent: ExplosionComponent, private va
         Vector3f(-1.5f, -1f, -1.5f)
     )
 
-    private val foot : ParticleComponent = ParticleComponent(
+    private val foot = ParticleComponent(
         particleEmitter = ParticleEmitter(
             center, 3000.0,
             emitterShape = CylinderShape(

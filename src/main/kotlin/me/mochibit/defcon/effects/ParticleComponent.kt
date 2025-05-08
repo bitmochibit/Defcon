@@ -1,20 +1,19 @@
 package me.mochibit.defcon.effects
 
 import me.mochibit.defcon.lifecycle.Lifecycled
-import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.particles.emitter.EmitterShape
+import me.mochibit.defcon.particles.emitter.ParticleEmitter
 import me.mochibit.defcon.particles.templates.AbstractParticle
 import me.mochibit.defcon.threading.scheduling.runLater
 import org.joml.Matrix4d
-import org.joml.Matrix4f
 import org.joml.Vector3f
 import kotlin.time.Duration
 
 /**
  * Represents an effect component that manages particle emission and transformation.
  */
-open class ParticleComponent(
-    private val particleEmitter: ParticleEmitter,
+open class ParticleComponent<T: EmitterShape>(
+    private val particleEmitter: ParticleEmitter<T>,
     private val colorSupplier: ColorSuppliable? = null,
 ) : EffectComponent {
 
@@ -30,16 +29,25 @@ open class ParticleComponent(
             particleEmitter.visible = value
         }
 
-    var shape: EmitterShape
+    val shape: T
         get() = particleEmitter.emitterShape
+
+    var density
+        get() = particleEmitter.getShape().density
         set(value) {
-            particleEmitter.emitterShape = value
+            particleEmitter.getShape().density = value
+        }
+
+    var maxParticles
+        get() = particleEmitter.maxParticles
+        set(value) {
+            particleEmitter.maxParticles = value
         }
 
     /**
      * Adds a spawnable particle with optional color supplier attachment.
      */
-    fun addSpawnableParticle(particle: AbstractParticle, attachColorSupplier: Boolean = false): ParticleComponent {
+    fun addSpawnableParticle(particle: AbstractParticle, attachColorSupplier: Boolean = false): ParticleComponent<T> {
         particleEmitter.spawnableParticles.add(particle)
         if (attachColorSupplier) {
             colorSupplier?.let { particle.colorSupplier(it.colorSupplier) }
@@ -50,7 +58,7 @@ open class ParticleComponent(
     fun addSpawnableParticles(
         particles: List<AbstractParticle>,
         attachColorSupplier: Boolean = false
-    ): ParticleComponent {
+    ): ParticleComponent<T> {
         particleEmitter.spawnableParticles.addAll(particles)
         if (attachColorSupplier) {
             colorSupplier?.let { particles.forEach { it.colorSupplier(colorSupplier.colorSupplier) } }
@@ -70,7 +78,7 @@ open class ParticleComponent(
     /**
      * Translates the particle emitter by a specified vector.
      */
-    fun translate(translation: Vector3f): ParticleComponent {
+    fun translate(translation: Vector3f): ParticleComponent<T> {
         transform.translate(translation, transform)
         return this
     }
@@ -78,7 +86,7 @@ open class ParticleComponent(
     /**
      * Rotates the particle emitter around an axis by a specified angle.
      */
-    fun rotate(axis: Vector3f, angle: Double): ParticleComponent {
+    fun rotate(axis: Vector3f, angle: Double): ParticleComponent<T> {
         transform.rotate(angle, axis, transform)
         return this
     }
