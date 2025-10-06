@@ -31,16 +31,42 @@ import me.mochibit.defcon.content.items.radiationMeasurer.RadiationMeasurerItem
 import me.mochibit.defcon.content.items.structureAssembler.StructureAssemblerItem
 
 
-enum class ItemBehaviour(
-    override val elementConstructor: (PluginItemProperties, Map<String, Any>) -> PluginItem
-) : ElementBehaviour<PluginItemProperties, PluginItem> {
-    GAS_MASK(::GasMaskItem),
-    RADIATION_MEASURER(::RadiationMeasurerItem),
-    RADIATION_HEALER(::RadiationHealerItem),
-    STRUCTURE_ASSEMBLER(::StructureAssemblerItem),
+enum class ItemBehaviour() : ElementBehaviour<PluginItemProperties, PluginItem> {
+    GAS_MASK {
+        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
+            return GasMaskItem(properties, behaviourData)
+        }
+    },
+    RADIATION_MEASURER {
+        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
+            return RadiationMeasurerItem(properties, behaviourData)
+        }
+    },
+    RADIATION_HEALER {
+        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
+            return RadiationHealerItem(properties, behaviourData)
+        }
+    },
+    STRUCTURE_ASSEMBLER {
+        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
+            return StructureAssemblerItem(properties, behaviourData)
+        }
+    },
 
     // BLOCK ITEMS
-    FISSION_CORE(::FissionCoreBlockItem),
-    FUSION_CORE(::FusionCoreBlockItem),
-    WARHEAD_INTERFACE(::WarheadInterfaceBlockItem),
+    FISSION_CORE {
+        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
+            return FissionCoreBlockItem(properties, behaviourData)
+        }
+    },
+    FUSION_CORE {
+        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
+            return FusionCoreBlockItem(properties, behaviourData)
+        }
+    },
+    WARHEAD_INTERFACE {
+        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
+            return WarheadInterfaceBlockItem(properties, behaviourData)
+        }
+    },
 }

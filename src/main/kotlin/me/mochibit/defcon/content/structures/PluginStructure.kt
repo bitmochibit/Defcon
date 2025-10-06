@@ -17,10 +17,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.structures
+package me.mochibit.defcon.content.structures
 
-import me.mochibit.defcon.structures.properties.StructureProperties
+import me.mochibit.defcon.content.element.AbstractElementFactory
+import me.mochibit.defcon.content.element.Element
+import me.mochibit.defcon.content.element.ElementBehaviourPropParser
+import me.mochibit.defcon.content.element.ElementBehaviourProperties
 
-interface PluginStructure {
-    val properties : StructureProperties
+abstract class PluginStructure (
+    override val properties: PluginStructureProperties,
+    override val unparsedBehaviourData: Map<String, Any>,
+    override val behaviourPropParser: ElementBehaviourPropParser? = null,
+    override val behaviourProperties: ElementBehaviourProperties? = behaviourPropParser?.parse(unparsedBehaviourData),
+): Element
+{
+    abstract override fun copied(): PluginStructure
 }

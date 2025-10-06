@@ -19,6 +19,10 @@
 
 package me.mochibit.defcon.content.element
 
-abstract class AbstractElementFactory<P : ElementProperties, ProducedElement: Element, E : ElementDefinition<P, ProducedElement>> {
-    abstract fun create(elementDefinition: E): ProducedElement
+abstract class AbstractElementFactory<P : ElementProperties, E: Element, D: ElementDefinition<P, E>> {
+    fun create(definition: D): E = definition.behaviour.create(
+        createProperties(definition),
+        definition.behaviourData
+    )
+    protected abstract fun createProperties(elementDefinition: D): P
 }

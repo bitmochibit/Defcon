@@ -1,7 +1,7 @@
 /*
  *
  * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
+ * Copyright (c) 2025 mochibit.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -17,19 +17,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.enums
+package me.mochibit.defcon.content.structures
 
-import me.mochibit.defcon.content.blocks.PluginBlock
-import me.mochibit.defcon.content.blocks.PluginBlockProperties
-import me.mochibit.defcon.content.blocks.fissionCore.FissionCoreBlock
-import me.mochibit.defcon.content.blocks.fusionCore.FusionCoreBlock
-import me.mochibit.defcon.content.blocks.warheadInterface.WarheadInterfaceBlock
 import me.mochibit.defcon.content.element.ElementBehaviour
+import me.mochibit.defcon.content.structures.fatBoy.FatBoyStructure
+import me.mochibit.defcon.content.structures.nuclearWarhead.NuclearWarheadStructure
 
-enum class BlockBehaviour(
-    override val elementConstructor: (PluginBlockProperties, Map<String, Any>) -> PluginBlock
-) : ElementBehaviour<PluginBlockProperties, PluginBlock> {
-    FISSION_CORE(::FissionCoreBlock),
-    FUSION_CORE(::FusionCoreBlock),
-    WARHEAD_INTERFACE(::WarheadInterfaceBlock);
+enum class StructureBehaviour(
+) : ElementBehaviour<PluginStructureProperties, PluginStructure> {
+    NUCLEAR_WARHEAD {
+        override fun create(properties: PluginStructureProperties, behaviourData: Map<String, Any>): PluginStructure {
+            return NuclearWarheadStructure(properties, behaviourData)
+        }
+    },
+    FAT_BOY {
+        override fun create(properties: PluginStructureProperties, behaviourData: Map<String, Any>): PluginStructure {
+            return FatBoyStructure(properties, behaviourData)
+        }
+    },
+    ;
 }
+

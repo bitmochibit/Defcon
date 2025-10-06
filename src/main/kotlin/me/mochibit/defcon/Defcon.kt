@@ -62,9 +62,9 @@ class DefconPlugin : SuspendingJavaPlugin() {
 
         EventRegister.registerBukkitListeners()
 
-        BlockRegistry.registerBlocks()
-        ItemRegistry.registerItems()
-        StructureRegistry.registerStructures()
+        BlockRegistry.registerAll()
+        ItemRegistry.registerAll()
+        StructureRegistry.registerAll()
         CommandRegistry.registerCommands()
 
         RadiationManager.start()

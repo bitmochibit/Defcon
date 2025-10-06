@@ -31,7 +31,7 @@ import org.bukkit.inventory.EquipmentSlot
 object ItemsConfiguration : PluginConfiguration<List<ItemsConfiguration.ItemDefinition>>("items") {
 
     data class ItemDefinition(
-        val id: String,
+        override val id: String,
         val displayName: String = "Unnamed Item",
         val description: String? = null,
 

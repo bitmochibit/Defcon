@@ -5,61 +5,58 @@
 
 # Shaped structures have defined shapes, but can have some flexibility in block placement
 
-enabled-structures:
-  - nuclear-warhead
-  - fat-boy
-
-nuclear-warhead:
-  display-name: "Nuclear warhead"
-  description: |
-    A nuclear warhead is a mass-destruction weapon that can be configured to be fission only
-    (gun-type or implosion-type) or a two-stage thermonuclear weapon (boosted fission or true fusion).
-  structure:
-    type: "shapeless"
-    required-blocks:
-      - "defcon:fission-core"
-      - "defcon:warhead-interface"
-    optional-blocks:
-      - "defcon:fusion-core"
-  behaviour: "nuclear-warhead"
-
-little-boy:
-  display-name: "<yellow> Fat-boy </yellow>"
-  description: |
-    The OG
-  structure:
-    type: "shaped"
-    pattern:
-      y-0:
-        - "--b--y"
-        - "wybywy"
-        - "--b--y"
-      y-1:
-        - "wyIywy"
-        - "yXXXy-"
-        - "wyIywy"
-      y-2:
-        - "--b--y"
-        - "wybywy"
-        - "--b--y"
-    mapping:
-      b:
-        block: "minecraft:black_concrete"
-      w:
-        block: "minecraft:blackstone_wall"
-      y:
-        block: "minecraft:yellow_terracotta"
-      X:
-        any-of: [ "defcon:fission-core" ]
-      I:
-        recommended-of: [ "defcon:warhead-interface" ]
-    mapping-rules:
-      X:
-        min: 1
-        max: 1
-      I:
-        min: 1
-        any-location-non-air: true
-    properties:
-      warhead-type: "droppable-payload"
+structures:
+  nuclear-warhead:
+    display-name: "Nuclear warhead"
+    description: |
+      A nuclear warhead is a mass-destruction weapon that can be configured to be fission only
+      (gun-type or implosion-type) or a two-stage thermonuclear weapon (boosted fission or true fusion).
+    structure:
+      type: "shapeless"
+      required-blocks:
+        - "defcon:fission-core"
+        - "defcon:warhead-interface"
+      optional-blocks:
+        - "defcon:fusion-core"
     behaviour: "nuclear-warhead"
+
+  little-boy:
+    display-name: "<yellow> Fat-boy </yellow>"
+    description: |
+      The OG
+    structure:
+      type: "shaped"
+      pattern:
+        y-0:
+          - "--b--y"
+          - "wybywy"
+          - "--b--y"
+        y-1:
+          - "wyIywy"
+          - "yXXXy-"
+          - "wyIywy"
+        y-2:
+          - "--b--y"
+          - "wybywy"
+          - "--b--y"
+      mapping:
+        b:
+          block: "minecraft:black_concrete"
+        w:
+          block: "minecraft:blackstone_wall"
+        y:
+          block: "minecraft:yellow_terracotta"
+        X:
+          any-of: [ "defcon:fission-core" ]
+        I:
+          recommended-of: [ "defcon:warhead-interface" ]
+      mapping-rules:
+        X:
+          min: 1
+          max: 1
+        I:
+          min: 1
+          any-location-non-air: true
+      properties:
+        warhead-type: "droppable-payload"
+      behaviour: "nuclear-warhead"

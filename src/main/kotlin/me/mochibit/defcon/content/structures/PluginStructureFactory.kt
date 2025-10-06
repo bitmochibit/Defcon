@@ -17,8 +17,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.structures.properties
+package me.mochibit.defcon.content.structures
 
-sealed interface StructureProperties {
-    val id: String
+import me.mochibit.defcon.config.StructuresConfiguration
+import me.mochibit.defcon.content.element.AbstractElementFactory
+
+object PluginStructureFactory :
+    AbstractElementFactory<PluginStructureProperties, PluginStructure, StructuresConfiguration.StructureDefinition>() {
+
+    override fun createProperties(elementDefinition: StructuresConfiguration.StructureDefinition): PluginStructureProperties {
+        return PluginStructureProperties(
+            elementDefinition.id
+        )
+    }
 }

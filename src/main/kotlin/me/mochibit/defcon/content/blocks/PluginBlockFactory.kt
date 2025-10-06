@@ -23,15 +23,10 @@ import me.mochibit.defcon.config.BlocksConfiguration
 import me.mochibit.defcon.content.element.AbstractElementFactory
 
 object PluginBlockFactory : AbstractElementFactory<PluginBlockProperties, PluginBlock, BlocksConfiguration.BlockDefinition>() {
-    override fun create(elementDefinition: BlocksConfiguration.BlockDefinition): PluginBlock {
-        val properties = PluginBlockProperties(
+    override fun createProperties(elementDefinition: BlocksConfiguration.BlockDefinition): PluginBlockProperties {
+        return PluginBlockProperties(
             id = elementDefinition.id,
             blockBasis = elementDefinition.blockBasis,
-        )
-
-        return elementDefinition.behaviour.elementConstructor(
-            properties,
-            elementDefinition.behaviourData
         )
     }
 }

@@ -25,9 +25,20 @@ import me.mochibit.defcon.content.blocks.warheadInterface.WarheadInterfaceBlock
 import me.mochibit.defcon.content.element.ElementBehaviour
 
 enum class BlockBehaviour(
-    override val elementConstructor: (PluginBlockProperties, Map<String, Any>) -> PluginBlock
 ) : ElementBehaviour<PluginBlockProperties, PluginBlock> {
-    FISSION_CORE(::FissionCoreBlock),
-    FUSION_CORE(::FusionCoreBlock),
-    WARHEAD_INTERFACE(::WarheadInterfaceBlock),
+    FISSION_CORE {
+        override fun create(properties: PluginBlockProperties, behaviourData: Map<String, Any>): PluginBlock {
+            return FissionCoreBlock(properties, behaviourData)
+        }
+    },
+    FUSION_CORE {
+        override fun create(properties: PluginBlockProperties, behaviourData: Map<String, Any>): PluginBlock {
+            return FusionCoreBlock(properties, behaviourData)
+        }
+    },
+    WARHEAD_INTERFACE {
+        override fun create(properties: PluginBlockProperties, behaviourData: Map<String, Any>): PluginBlock {
+            return WarheadInterfaceBlock(properties, behaviourData)
+        }
+    };
 }

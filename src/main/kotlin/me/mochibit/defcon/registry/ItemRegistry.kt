@@ -21,8 +21,10 @@ package me.mochibit.defcon.registry
 
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.config.ItemsConfiguration
+import me.mochibit.defcon.content.element.AbstractElementRegistry
 import me.mochibit.defcon.content.items.PluginItem
 import me.mochibit.defcon.content.items.PluginItemFactory
+import me.mochibit.defcon.content.items.PluginItemProperties
 import me.mochibit.defcon.utils.Logger
 import me.mochibit.defcon.utils.Logger.info
 import org.bukkit.Bukkit
@@ -42,37 +44,15 @@ import org.bukkit.inventory.ShapelessRecipe
  * load up correctly the definitions items
  *
  */
-object ItemRegistry {
-    // Change from HashMap<String?, PluginItem?> to Map<String, PluginItem> for type safety
-    private var _registeredItems: MutableMap<String, PluginItem> = mutableMapOf()
-    val registeredItems: Map<String, PluginItem> get() = _registeredItems
+object ItemRegistry : AbstractElementRegistry<PluginItemProperties, PluginItem, ItemsConfiguration.ItemDefinition>(
+    PluginItemFactory,
+) {
 
-    /**
-     *
-     * @return boolean - True if all items are registered, false if some error occurred.
-     */
-    suspend fun registerItems(): Boolean {
-        info("Registering plugin items...")
-        _registeredItems.clear()
-
-        val configurationItems = ItemsConfiguration.getSchema()
-        if (configurationItems.isEmpty()) {
-            Logger.warn("No items found in the configuration, skipping item registration")
-            return false
-        }
-
-        configurationItems.forEach { item ->
-            if (_registeredItems.containsKey(item.id)) {
-                Logger.warn("Item ${item.id} is already registered (probably duplicated?), skipping")
-                return@forEach
-            }
-            val customItem = PluginItemFactory.create(item)
-            info("Registered item ${item.id}")
-            _registeredItems[customItem.properties.id] = customItem
-        }
+    override suspend fun registerAll() {
+        super.registerAll()
 
         info("Registering recipes for the items")
-        configurationItems.forEach { item ->
+        getDefinitions().forEach { item ->
             when (item.craftingRecipe) {
                 is ItemsConfiguration.ItemDefinition.CraftingRecipe.ShapedCraftingRecipe ->
                     registerShapedRecipe(item.craftingRecipe, item)
@@ -83,15 +63,13 @@ object ItemRegistry {
                 else -> return@forEach
             }
         }
-        return true
     }
-
 
     private fun registerShapedRecipe(
         recipe: ItemsConfiguration.ItemDefinition.CraftingRecipe.ShapedCraftingRecipe,
         item: ItemsConfiguration.ItemDefinition
     ) {
-        val resultItem = registeredItems[item.id] ?: return
+        val resultItem = getTemplate(item.id) ?: return
         val resultItemStack = resultItem.itemStack.apply {
             amount = recipe.resultAmount
         }
@@ -136,14 +114,14 @@ object ItemRegistry {
         }
 
         Bukkit.addRecipe(shapedRecipe)
-        Logger.info("Registered shaped recipe for item ${item.id}")
+        info("Registered shaped recipe for item ${item.id}")
     }
 
     private fun registerShapelessRecipe(
         recipe: ItemsConfiguration.ItemDefinition.CraftingRecipe.ShapelessCraftingRecipe,
         item: ItemsConfiguration.ItemDefinition
     ) {
-        val resultItem = registeredItems[item.id] ?: return
+        val resultItem = getTemplate(item.id) ?: return
         val resultItemStack = resultItem.itemStack.apply {
             amount = recipe.resultAmount
         }
@@ -200,7 +178,7 @@ object ItemRegistry {
             }
 
             "defcon" -> {
-                val customItem = registeredItems[parts[1]]
+                val customItem = getTemplate(parts[1])
                 if (customItem == null) {
                     Logger.err("Custom item ${parts[1]} not found in defcon namespace")
                     return null
@@ -231,29 +209,10 @@ object ItemRegistry {
         return null
     }
 
-    // Add proper getter methods with cloning support
 
-    /**
-     * Retrieves an item by ID. Returns a copy to prevent shared state issues.
-     * This is the main retrieval method that ensures thread safety and state isolation.
-     */
-    fun getItem(id: String): PluginItem? = _registeredItems[id]?.copied()
+    override suspend fun retrieveDefinitions(): List<ItemsConfiguration.ItemDefinition> {
+        return ItemsConfiguration.getSchema()
+    }
 
-    /**
-     * Gets the original registered item template (not a copy).
-     * USE WITH CAUTION: This returns the actual registered instance.
-     * Only use this for template inspection, never for runtime item instances.
-     */
-    fun getItemTemplate(id: String): PluginItem? = _registeredItems[id]
 
-    /**
-     * Returns copies of all registered items to prevent shared state issues.
-     */
-    fun getAllItems(): Collection<PluginItem> = _registeredItems.values.map { it.copied() }
-
-    /**
-     * Returns the original templates of all registered items.
-     * USE WITH CAUTION: These are the actual registered instances.
-     */
-    fun getAllItemTemplates(): Collection<PluginItem> = _registeredItems.values
 }

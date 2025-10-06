@@ -22,20 +22,13 @@ package me.mochibit.defcon.content.items
 import me.mochibit.defcon.config.ItemsConfiguration
 import me.mochibit.defcon.content.element.AbstractElementFactory
 import me.mochibit.defcon.registry.BlockRegistry
-import me.mochibit.defcon.utils.Logger
 
 object PluginItemFactory :
     AbstractElementFactory<PluginItemProperties, PluginItem, ItemsConfiguration.ItemDefinition>() {
 
     private const val DEFAULT_MINECRAFT_ID = "minecraft:stick"
 
-    override fun create(elementDefinition: ItemsConfiguration.ItemDefinition): PluginItem {
-        val properties = createItemProperties(elementDefinition)
-        val customItem = createCustomItem(elementDefinition, properties)
-        return customItem
-    }
-
-    private fun createItemProperties(elementDefinition: ItemsConfiguration.ItemDefinition): PluginItemProperties {
+    override fun createProperties(elementDefinition: ItemsConfiguration.ItemDefinition): PluginItemProperties {
         return PluginItemProperties(
             id = elementDefinition.id,
             displayName = elementDefinition.displayName,
@@ -67,16 +60,6 @@ object PluginItemFactory :
         return PluginItemProperties.LegacyProperties(
             legacyMinecraftId = elementDefinition.legacyMinecraftId,
             legacyItemModel = elementDefinition.legacyItemModel
-        )
-    }
-
-    private fun createCustomItem(
-        elementDefinition: ItemsConfiguration.ItemDefinition,
-        properties: PluginItemProperties
-    ): PluginItem {
-        return elementDefinition.behaviour.elementConstructor(
-            properties,
-            elementDefinition.behaviourData
         )
     }
 }

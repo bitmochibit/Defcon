@@ -1,7 +1,7 @@
 /*
  *
  * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
+ * Copyright (c) 2025 mochibit.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -17,9 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.enums
+package me.mochibit.defcon.content.structures.fatBoy
 
-enum class DatabaseFile(val fileName: String) {
-    BLOCK_DATA("block_data.db")
+import me.mochibit.defcon.content.structures.PluginStructure
+import me.mochibit.defcon.content.structures.PluginStructureProperties
 
+data class FatBoyStructure(
+    override val properties: PluginStructureProperties,
+    override val unparsedBehaviourData: Map<String, Any>
+) : PluginStructure(properties, unparsedBehaviourData) {
+    override fun copied(): FatBoyStructure = copy()
 }

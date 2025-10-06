@@ -1,7 +1,7 @@
 /*
  *
  * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
+ * Copyright (c) 2025 mochibit.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -17,16 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.enums
+package me.mochibit.defcon.content.structures.nuclearWarhead
 
-import me.mochibit.defcon.Defcon
-import org.bukkit.NamespacedKey
+import me.mochibit.defcon.content.structures.PluginStructure
+import me.mochibit.defcon.content.structures.PluginStructureProperties
 
-enum class BlockDataKey(val key: NamespacedKey) {
-    CustomBlockId(NamespacedKey(Defcon, "definitions-block-id")),
-    ItemId(NamespacedKey(Defcon, "item-id")),
-    StructureId(NamespacedKey(Defcon, "structure-id")),
-
-    RadiationAreaId(NamespacedKey(Defcon, "radiation-area-id")),
-    RadiationLevel(NamespacedKey(Defcon, "radiation-level")),
+data class NuclearWarheadStructure(
+    override val properties: PluginStructureProperties,
+    override val unparsedBehaviourData: Map<String, Any>
+) : PluginStructure(properties, unparsedBehaviourData) {
+    override fun copied(): NuclearWarheadStructure = copy()
 }

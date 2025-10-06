@@ -22,89 +22,17 @@ package me.mochibit.defcon.registry
 import me.mochibit.defcon.config.BlocksConfiguration
 import me.mochibit.defcon.content.blocks.PluginBlock
 import me.mochibit.defcon.content.blocks.PluginBlockFactory
-import me.mochibit.defcon.enums.BlockDataKey
-import me.mochibit.defcon.utils.Logger.info
-import me.mochibit.defcon.utils.Logger.warn
-import me.mochibit.defcon.utils.MetaManager
-import org.bukkit.Location
-import org.bukkit.World
-import org.joml.Vector3i
+import me.mochibit.defcon.content.blocks.PluginBlockProperties
+import me.mochibit.defcon.content.element.AbstractElementRegistry
 
 /**
  * This class handles the registration of the definitions blocks
  * All the registered blocks are stored and returned in a form of a Map(id, PluginBlock)
  */
-object BlockRegistry {
-    private var _registeredBlocks: MutableMap<String, PluginBlock> = mutableMapOf()
-    val registeredBlocks: Map<String, PluginBlock> get() = _registeredBlocks
-
-    /**
-     * Registers all plugin blocks from configuration
-     * @return True if all blocks are registered successfully, false otherwise
-     */
-    suspend fun registerBlocks(): Boolean {
-        info("Registering plugin blocks...")
-        _registeredBlocks.clear()
-
-        val configurationBlocks = BlocksConfiguration.getSchema()
-        if (configurationBlocks.isEmpty()) {
-            warn("No blocks found in the configuration, skipping block registration")
-            return false
-        }
-
-        configurationBlocks.forEach { blockDef ->
-            if (_registeredBlocks.containsKey(blockDef.id)) {
-                warn("Block ${blockDef.id} is already registered (probably duplicated?), skipping")
-                return@forEach
-            }
-
-            val customBlock = PluginBlockFactory.create(blockDef)
-            info("Registered block ${blockDef.id}")
-            _registeredBlocks[customBlock.properties.id] = customBlock
-        }
-
-        return true
+object BlockRegistry : AbstractElementRegistry<PluginBlockProperties, PluginBlock, BlocksConfiguration.BlockDefinition>(
+    PluginBlockFactory
+) {
+    override suspend fun retrieveDefinitions(): List<BlocksConfiguration.BlockDefinition> {
+        return BlocksConfiguration.getSchema()
     }
-
-    /**
-     * Retrieves a block by location. Returns a copy to prevent shared state issues.
-     */
-    fun getBlock(location: Location): PluginBlock? {
-        val customBlockId = MetaManager.getBlockData<String>(location, BlockDataKey.CustomBlockId) ?: return null
-        return getBlock(customBlockId)
-    }
-
-    /**
-     * Retrieves a block by Vector3i location. Returns a copy to prevent shared state issues.
-     */
-    fun getBlock(loc: Vector3i, world: World): PluginBlock? {
-        val location = Location(world, loc.x.toDouble(), loc.y.toDouble(), loc.z.toDouble())
-        return getBlock(location)
-    }
-
-    /**
-     * Retrieves a block by ID. Returns a copy to prevent shared state issues.
-     * This is the main retrieval method that ensures thread safety and state isolation.
-     */
-    fun getBlock(id: String): PluginBlock? = _registeredBlocks[id]?.copied()
-
-    /**
-     * Gets the original registered block template (not a copy).
-     * USE WITH CAUTION: This returns the actual registered instance.
-     * Only use this for template inspection, never for runtime block instances.
-     */
-    fun getBlockTemplate(id: String): PluginBlock? = _registeredBlocks[id]
-
-    /**
-     * Returns copies of all registered blocks to prevent shared state issues.
-     */
-    fun getAllBlocks(): Collection<PluginBlock> = _registeredBlocks.values.map { it.copied() }
-
-    /**
-     * Returns the original templates of all registered blocks.
-     * USE WITH CAUTION: These are the actual registered instances.
-     */
-    fun getAllBlockTemplates(): Collection<PluginBlock> = _registeredBlocks.values
-
-    fun isBlockRegistered(id: String): Boolean = _registeredBlocks.containsKey(id)
 }

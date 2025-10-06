@@ -1,7 +1,7 @@
 /*
  *
  * DEFCON: Nuclear warfare plugin for minecraft servers.
- * Copyright (c) 2024 mochibit.
+ * Copyright (c) 2025 mochibit.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -17,27 +17,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.mochibit.defcon.enums
+package me.mochibit.defcon.content.structures
 
-//import me.mochibit.defcon.classes.structures.NuclearWarhead
+import me.mochibit.defcon.content.element.ElementProperties
 
-
-//enum class StructureBehaviour(name: String) {
-//    BOMB("BOMB");
-//
-//    val structureClass: Class<out StructureDefinition?>?
-//        get() = when (this) {
-//            BOMB -> NuclearWarhead::class.java
-//        }
-//
-//    companion object {
-//        fun fromString(text: String?): StructureBehaviour? {
-//            for (b in entries) {
-//                if (b.name.equals(text, ignoreCase = true)) {
-//                    return b
-//                }
-//            }
-//            return null
-//        }
-//    }
-//}
+data class PluginStructureProperties(
+    val id: String,
+): ElementProperties

@@ -25,5 +25,5 @@ import me.mochibit.defcon.content.items.PluginItemProperties
 
 
 interface ElementBehaviour<in P: ElementProperties, out E: Element> {
-    val elementConstructor: (P, Map<String, Any>) -> E
+    fun create(properties: P, behaviourData: Map<String, Any>): E
 }

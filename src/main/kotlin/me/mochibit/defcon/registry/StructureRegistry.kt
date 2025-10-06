@@ -20,11 +20,31 @@
 package me.mochibit.defcon.registry
 
 import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.config.ItemsConfiguration
+import me.mochibit.defcon.config.StructuresConfiguration
+import me.mochibit.defcon.content.element.AbstractElementRegistry
+import me.mochibit.defcon.content.items.PluginItem
+import me.mochibit.defcon.content.items.PluginItemFactory
+import me.mochibit.defcon.content.structures.PluginStructure
+import me.mochibit.defcon.content.structures.PluginStructureFactory
+import me.mochibit.defcon.content.structures.PluginStructureProperties
+import me.mochibit.defcon.utils.Logger
 import me.mochibit.defcon.utils.Logger.info
-import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.Bukkit
+import org.bukkit.Material
+import org.bukkit.NamespacedKey
+import org.bukkit.Tag
+import org.bukkit.inventory.ItemStack
+import org.bukkit.inventory.RecipeChoice
+import org.bukkit.inventory.ShapedRecipe
+import org.bukkit.inventory.ShapelessRecipe
+import kotlin.collections.component1
+import kotlin.collections.component2
 
-object StructureRegistry {
-    fun registerStructures() {
-        info("Registering plugin structures...")
+object StructureRegistry: AbstractElementRegistry<PluginStructureProperties, PluginStructure, StructuresConfiguration.StructureDefinition>(
+    PluginStructureFactory
+) {
+    override suspend fun retrieveDefinitions(): List<StructuresConfiguration.StructureDefinition> {
+        return StructuresConfiguration.getSchema()
     }
 }
