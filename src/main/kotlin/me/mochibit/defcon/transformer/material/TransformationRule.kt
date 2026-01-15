@@ -26,13 +26,21 @@ data class TransformationRule(
     val name: String,
     val priority: Int = 0,
     val condition: TransformationCondition,
-    val outcome: TransformationOutcome
+    val outcome: TransformationOutcome,
 ) {
-    fun matches(material: Material, explosionPower: Float): Boolean {
-        return condition.matches(material, explosionPower)
-    }
+    @Suppress("NOTHING_TO_INLINE")
+    inline fun matches(
+        material: Material,
+        explosionPower: Float,
+    ): Boolean = condition.matches(material, explosionPower)
 
-    fun transform(material: Material, explosionPower: Float, random: Random, x: Int = 0, z: Int = 0, y: Int = 0): Material {
-        return outcome.transform(material, explosionPower, random, x, z, y)
-    }
+    @Suppress("NOTHING_TO_INLINE")
+    inline fun transform(
+        material: Material,
+        explosionPower: Float,
+        random: Random,
+        x: Int = 0,
+        z: Int = 0,
+        y: Int = 0,
+    ): Material = outcome.transform(material, explosionPower, random, x, z, y)
 }

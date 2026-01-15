@@ -8,11 +8,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.transformer.material.MaterialCategories
-import me.mochibit.defcon.transformer.material.MaterialTransformer
 import me.mochibit.defcon.extensions.toVector3i
 import me.mochibit.defcon.observer.Completable
 import me.mochibit.defcon.observer.CompletionDispatcher
+import me.mochibit.defcon.transformer.material.MaterialCategories
+import me.mochibit.defcon.transformer.material.MaterialTransformer
 import me.mochibit.defcon.utils.BlockChanger
 import me.mochibit.defcon.utils.ChunkCache
 import me.mochibit.defcon.utils.NMSReflectionCache
@@ -22,128 +22,175 @@ import org.joml.Vector3i
 import kotlin.random.Random
 
 class Shockwave(
-    private val center: Location,
+    center: Location,
     private val radiusStart: Int,
     private val shockwaveRadius: Int,
     private val shockwaveHeight: Int,
     private val materialTransformer: MaterialTransformer = MaterialTransformer(),
 ) : Completable by CompletionDispatcher() {
-    companion object {
-        private val BASE_DIRECTIONS = arrayOf(
-            Vector3i(1, 0, 0),  // East
-            Vector3i(-1, 0, 0), // West
-            Vector3i(0, 0, 1),  // South
-            Vector3i(0, 0, -1)  // North
-        )
-
-
-        private const val FLOW_BUFFER_SIZE = 256
-
-        // Channel capacity for work coordination
-        private const val CHANNEL_CAPACITY = 512
-    }
-
     private val world = center.world
+    private val centerX = center.blockX
+    private val centerZ = center.blockZ
+    private val centerVec = center.toVector3i()
 
     // Services
-    private val treeBurner = TreeBurner(world, center.toVector3i())
+    private val treeBurner = TreeBurner(world, centerVec)
     private val chunkCache = ChunkCache.getInstance(world)
     private val blockChanger = BlockChanger.getInstance(world)
 
     private val worldSeaLevel = world.seaLevel
+    private val worldMaxHeight = world.maxHeight
+    private val seaLevelMinus3 = worldSeaLevel - 3
+    private val seaLevelPlus5 = worldSeaLevel + 5
+
+    // Pre-compute inverse radius for faster calculations
+    private val invShockwaveRadius = 1.0f / shockwaveRadius.toFloat()
+
+    // Ground level tracking for better structure detection
+    private var groundLevelSum = 0L
+    private var groundLevelCount = 0
+    private val meanGroundLevel: Int
+        get() = if (groundLevelCount > 0) (groundLevelSum / groundLevelCount).toInt() else worldSeaLevel
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun explode(): Job {
-        return Defcon.launch(Dispatchers.IO) {
+    fun explode(): Job =
+        Defcon.launch(Dispatchers.IO) {
             try {
-                for (currentRadius in radiusStart..shockwaveRadius) {
-                    val radiusProgress = currentRadius / shockwaveRadius.toFloat()
+                println("Shockwave starting from crater edge (radius $radiusStart) to $shockwaveRadius")
+                // Shockwave processes from crater edge (radiusStart) to max radius
+                // Maximum power at crater edge, decreasing outward
+                val effectiveShockwaveRange = (shockwaveRadius - radiusStart).toFloat()
 
-                    // Process blocks in chunks to reduce memory pressure
-                    generateShockwaveCirclePrecise(currentRadius)
+                var blocksProcessed = 0
+
+                for (currentRadius in radiusStart..shockwaveRadius) {
+                    if ((currentRadius - radiusStart) % 50 == 0) {
+                        println("Processing shockwave radius: $currentRadius/$shockwaveRadius (blocks processed: $blocksProcessed)")
+                    }
+
+                    // Calculate progress from crater edge (radiusStart) to max radius
+                    // At radiusStart: radiusProgress = 0.0 (maximum power)
+                    // At shockwaveRadius: radiusProgress = 1.0 (minimum power)
+                    val distanceFromCraterEdge = (currentRadius - radiusStart).toFloat()
+                    val radiusProgress = distanceFromCraterEdge / effectiveShockwaveRange
+
+                    // Invert progress so power is maximum at crater edge
+                    // At crater edge (radiusStart): power = 1.0
+                    // At max radius: power approaches 0.0
+                    val power = 1.0f - radiusProgress
+
+                    // Apply non-linear falloff for more realistic shockwave behavior
+                    val adjustedPower =
+                        when {
+                            radiusProgress < 0.3f -> power
+
+                            // Full power in inner 30%
+                            radiusProgress < 0.6f -> power * power
+
+                            // Quadratic falloff in middle
+                            else -> power * power * power // Cubic falloff in outer region
+                        }
+
+                    // Process blocks in the current radius ring
+                    generateShockwaveCircleBresenham(currentRadius)
                         .flowOn(Dispatchers.Default)
                         .collect { loc ->
-                            loc.y = NMSReflectionCache.getHighestBlockY(world, loc.x, loc.z, true)
+                            blocksProcessed++
+                            // getHighestBlockY returns the Y coordinate ABOVE the highest block
+                            // So we need to subtract 1 to get the actual block
+                            val highestY = NMSReflectionCache.getHighestBlockY(world, loc.x, loc.z, true)
+                            loc.y = highestY - 1
                             val firstMaterial = NMSReflectionCache.getBlockMaterial(world, loc.x, loc.y, loc.z)
                             if (treeBurner.isTreeBlock(firstMaterial)) {
-                                processTrees(loc, radiusProgress, firstMaterial)
+                                processTrees(loc, adjustedPower)
                             } else {
-                                processBlock(loc, radiusProgress, firstMaterial)
+                                processBlock(loc, adjustedPower, firstMaterial)
                             }
                         }
                 }
+            } catch (e: Exception) {
+                println("ERROR in Shockwave: ${e.message}")
+                e.printStackTrace()
             } finally {
                 cleanup()
             }
         }
-    }
 
-    private suspend fun processTrees(location: Vector3i, radiusProgress: Float, first: Material) {
-        treeBurner.processTreeBurn(location, radiusProgress.toDouble())
-        processBlock(treeBurner.getTreeTerrain(location), radiusProgress, first)
+    private suspend fun processTrees(
+        location: Vector3i,
+        power: Float,
+    ) {
+        treeBurner.processTreeBurn(location, power.toDouble())
+        val terrainLocation = treeBurner.getTreeTerrain(location)
+        val terrainMaterial = chunkCache.getBlockMaterialAsync(terrainLocation.x, terrainLocation.y, terrainLocation.z)
+        processBlock(terrainLocation, power, terrainMaterial)
     }
 
     private suspend fun processBlock(
         blockLocation: Vector3i,
-        radiusProgress: Float,
-        firstBlockType : Material,
+        power: Float, // power: 1.0 = max destruction (crater edge), 0.0 = min destruction (far from center)
+        firstBlockType: Material,
     ) {
         val x = blockLocation.x
         val y = blockLocation.y
         val z = blockLocation.z
 
-        // Pre-calculate values to avoid repeated calculations
-        val randomOffset = (1..5).random()
-        val convertToAirMinY = (worldSeaLevel + randomOffset) + (shockwaveHeight / 2) * radiusProgress
-        val seaLevelMinus3 = worldSeaLevel - 3
-        val seaLevelPlus5 = worldSeaLevel + 5
+        // Pre-calculate all values once
+        val randomOffset = Random.nextInt(1, 6)
+        // Higher power = less height conversion (more aggressive at crater edge)
+        val convertToAirMinY = (worldSeaLevel + randomOffset) + (shockwaveHeight * 0.5f * (1.0f - power)).toInt()
 
-        // Noise parameters for terrain destruction - increased base chance
-        val terrainNoiseStrength = 0.3f + (1.0f - radiusProgress) * 0.4f // Stronger noise closer to explosion
-        val baseTerrainBreakChance = 0.7 + (1.0f - radiusProgress) * 0.25f // Higher base chance (was 0.5)
+        // Noise parameters - stronger with higher power (closer to crater edge)
+        val terrainNoiseStrength = 0.3f + power * 0.4f
+        val baseTerrainBreakChance = 0.7f + power * 0.25f
 
-        // Skylight threshold - closer to explosion center requires less skylight to damage walls
-        val skylightThreshold = (radiusProgress * 12).toInt().coerceIn(2, 15)
+        // Skylight threshold - higher power (crater edge) needs less light to destroy
+        val skylightThreshold = ((1.0f - power) * 12).toInt().coerceIn(2, 15)
 
-        // Use primitive counters to reduce object allocation
+        // Structure detection threshold - if ground is too far above mean, it's likely a structure
+        val structureHeightThreshold = meanGroundLevel + 8 // 8 blocks above mean ground level
+
+        // Use primitive counters
         var consecutiveTerrainBlocks = 0
         var consecutiveAirBlocks = 0
         var consecutiveFluids = 0
         var consecutiveBlacklisted = 0
+        var hasSeenSignificantAir = false // Track if we've seen air above (for elevated structure detection)
 
         for (currentY in y downTo seaLevelMinus3) {
-            if (treeBurner.isPosProcessed(x, currentY, z)) {
-                continue
-            }
+            // Skip blocks that have been processed by TreeBurner
+            if (treeBurner.isPosProcessed(x, currentY, z)) continue
 
-            val currentBlock = if (currentY == y) {
-                firstBlockType // Use the first block type for the initial position
-            } else {
-                chunkCache.getBlockMaterialAsync(x, currentY, z)
-            }
+            val currentBlock =
+                if (currentY == y) {
+                    firstBlockType
+                } else {
+                    chunkCache.getBlockMaterialAsync(x, currentY, z)
+                }
 
-            // Early exit conditions using when for better performance
+            // Skip tree blocks - let TreeBurner handle them exclusively
+            if (treeBurner.isTreeBlock(currentBlock)) continue
+
+            // Early exit with when expression
             when (currentBlock) {
                 in MaterialCategories.INDESTRUCTIBLE_BLOCKS -> {
-                    consecutiveBlacklisted++
+                    if (++consecutiveBlacklisted >= 2) break
                     consecutiveTerrainBlocks = 0
                     consecutiveAirBlocks = 0
-                    if (consecutiveBlacklisted >= 2) break
                     continue
                 }
 
                 in MaterialCategories.LIQUID_MATERIALS -> {
-                    consecutiveFluids++
+                    if (++consecutiveFluids >= 2) break
                     consecutiveTerrainBlocks = 0
                     consecutiveAirBlocks = 0
-                    if (consecutiveFluids >= 2) break
                     continue
                 }
 
                 Material.AIR -> {
-                    consecutiveAirBlocks++
+                    if (++consecutiveAirBlocks >= 10) break
+                    if (consecutiveAirBlocks >= 5) hasSeenSignificantAir = true // Mark that we've seen air above
                     consecutiveTerrainBlocks = 0
-                    if (consecutiveAirBlocks >= 10) break
                     continue
                 }
 
@@ -157,186 +204,217 @@ class Shockwave(
             val isTerrainBlock = currentBlock in MaterialCategories.TERRAIN_BLOCKS
             val shouldConvertToAir = currentY > convertToAirMinY
 
-            // Get skylight level for this position (used for both walls and transformations)
-            val skylightLevel = chunkCache.getSkyLightLevelAsync(x, currentY, z)
+            // Check if this terrain block is part of an elevated structure (like a grass balcony)
+            // It's elevated if: it's terrain, higher than mean ground level + threshold, and we've seen air above
+            val isElevatedStructure = isTerrainBlock && y > structureHeightThreshold && hasSeenSignificantAir
 
             // Handle wall blocks with skylight detection
             if (isHeuristicallyWallBlock(x, currentY, z)) {
                 consecutiveTerrainBlocks = 0
+                val skylightLevel = chunkCache.getSkyLightLevelAsync(x, currentY, z)
 
-                val shouldDamageWall = skylightLevel >= skylightThreshold
+                when {
+                    currentY > seaLevelPlus5 -> {
+                        blockChanger.addBlockChange(x, currentY, z, Material.AIR, updateBlock = false)
+                    }
 
-                if (currentY > seaLevelPlus5) {
-                    // Always destroy walls above sea level + 5
-                    blockChanger.addBlockChange(x, currentY, z, Material.AIR, updateBlock = true)
-                } else if (shouldDamageWall) {
-                    // Damage walls that are sufficiently exposed to skylight
-                    if (Random.nextDouble() > 0.3) { // 70% chance to destroy exposed walls
-                        blockChanger.addBlockChange(x, currentY, z, Material.AIR, updateBlock = true)
-                    } else {
-                        // Transform instead of destroy - enhanced by light exposure
-                        val lightInfluence = (skylightLevel / 15.0f) * 0.3f // Light adds up to 30% more transformation
-                        val transformationStrength = radiusProgress + lightInfluence
+                    skylightLevel >= skylightThreshold -> {
+                        if (Random.nextDouble() > 0.3) {
+                            blockChanger.addBlockChange(x, currentY, z, Material.AIR, updateBlock = false)
+                        } else {
+                            val lightInfluence = skylightLevel * 0.02f // 0.02f = 1/15 * 0.3
+                            val transformedBlock =
+                                materialTransformer.transformMaterial(
+                                    currentBlock,
+                                    1.0f - power + lightInfluence, // Convert power back to distance for transformer
+                                )
+                            blockChanger.addBlockChange(x, currentY, z, transformedBlock)
+                        }
+                    }
+
+                    else -> {
+                        val lightInfluence = skylightLevel * 0.01f // 0.01f = 1/15 * 0.15
                         val transformedBlock =
-                            materialTransformer.transformMaterial(currentBlock, transformationStrength)
+                            materialTransformer.transformMaterial(
+                                currentBlock,
+                                1.0f - power + lightInfluence, // Convert power back to distance for transformer
+                            )
                         blockChanger.addBlockChange(x, currentY, z, transformedBlock)
                     }
-                } else {
-                    // Less exposed walls - transform with light consideration
-                    val lightInfluence = (skylightLevel / 15.0f) * 0.15f // Light adds up to 15% more transformation
-                    val transformationStrength = radiusProgress + lightInfluence
-                    val transformedBlock = materialTransformer.transformMaterial(currentBlock, transformationStrength)
-                    blockChanger.addBlockChange(x, currentY, z, transformedBlock)
                 }
                 continue
             }
 
             if (isTerrainBlock) {
-                consecutiveTerrainBlocks++
-                if (consecutiveTerrainBlocks >= 3) break
+                // If this is an elevated structure (grass balcony), treat it as a collapsible block
+                if (isElevatedStructure) {
+                    val skylightLevel = chunkCache.getSkyLightLevelAsync(x, currentY, z)
+                    if (Random.nextDouble() > 0.2) { // 80% chance to collapse elevated structures
+                        blockChanger.addBlockChange(x, currentY, z, Material.AIR, updateBlock = false)
+                    } else {
+                        val lightInfluence = skylightLevel * 0.02f
+                        val transformedBlock =
+                            materialTransformer.transformMaterial(
+                                currentBlock,
+                                1.0f - power + lightInfluence,
+                            )
+                        blockChanger.addBlockChange(x, currentY, z, transformedBlock)
+                    }
+                    continue
+                }
+
+                if (++consecutiveTerrainBlocks >= 3) break
+
                 val heightFactor = (currentY - seaLevelMinus3).toFloat() / (y - seaLevelMinus3).coerceAtLeast(1)
                 val noiseValue = generateTerrainNoise(x, currentY, z, terrainNoiseStrength)
-                if (consecutiveTerrainBlocks == 1) {
-                    val finalBreakChance =
-                        baseTerrainBreakChance + noiseValue - (heightFactor * 0.15f) // Reduced height penalty
 
-                    val shouldBreakTerrain = shouldConvertToAir ||
+                if (consecutiveTerrainBlocks == 1) {
+                    val finalBreakChance = baseTerrainBreakChance + noiseValue - (heightFactor * 0.15f)
+                    val shouldBreakTerrain =
+                        shouldConvertToAir ||
                             (Random.nextDouble() < finalBreakChance && currentY > seaLevelMinus3)
 
                     if (shouldBreakTerrain) {
-                        blockChanger.addBlockChange(x, currentY, z, Material.AIR, updateBlock = true)
+                        blockChanger.addBlockChange(x, currentY, z, Material.AIR, updateBlock = false)
                         val adjacentNoise = generateTerrainNoise(x, currentY - 1, z, terrainNoiseStrength * 0.5f)
-                        if (adjacentNoise > 0.15f) { // Lowered threshold from 0.2f
+                        if (adjacentNoise > 0.15f) {
                             val belowMaterial = chunkCache.getBlockMaterialAsync(x, currentY - 1, z)
                             if (belowMaterial in MaterialCategories.TERRAIN_BLOCKS) {
-                                blockChanger.addBlockChange(x, currentY - 1, z, Material.AIR, updateBlock = true)
+                                blockChanger.addBlockChange(x, currentY - 1, z, Material.AIR, updateBlock = false)
                             }
                         }
                         continue
                     }
                 }
 
-
-                // Transform terrain block based on explosion power with noise variation and light influence
+                // Transform terrain with noise and light
+                val skylightLevel = chunkCache.getSkyLightLevelAsync(x, currentY, z)
                 val noiseInfluence = noiseValue * 0.3f
-                val lightInfluence =
-                    (skylightLevel / 15.0f) * 0.2f // Light adds up to 20% more transformation for terrain
-                val transformationStrength = radiusProgress + noiseInfluence + lightInfluence
-                val transformedBlock = materialTransformer.transformMaterial(currentBlock, transformationStrength)
+                val lightInfluence = skylightLevel * 0.0133f // 0.0133f ≈ 1/15 * 0.2
+                val transformedBlock =
+                    materialTransformer.transformMaterial(
+                        currentBlock,
+                        1.0f - power + noiseInfluence + lightInfluence, // Convert power back for transformer
+                    )
                 blockChanger.addBlockChange(x, currentY, z, transformedBlock)
 
-                // Process block above if it exists - with noise and light consideration
+                // Process block above
                 val aboveMaterial = chunkCache.getBlockMaterialAsync(x, currentY + 1, z)
-                if (aboveMaterial != Material.AIR) {
+                if (aboveMaterial != Material.AIR && !treeBurner.isTreeBlock(aboveMaterial)) {
                     val aboveSkylightLevel = chunkCache.getSkyLightLevelAsync(x, currentY + 1, z)
                     val aboveNoise = generateTerrainNoise(x, currentY + 1, z, terrainNoiseStrength * 0.7f)
-                    val aboveLightInfluence = (aboveSkylightLevel / 15.0f) * 0.15f
-                    val aboveTransformationStrength = radiusProgress + (aboveNoise * 0.2f) + aboveLightInfluence
+                    val aboveLightInfluence = aboveSkylightLevel * 0.01f // 1/15 * 0.15
                     val transformedAbove =
-                        materialTransformer.transformMaterial(aboveMaterial, aboveTransformationStrength)
+                        materialTransformer.transformMaterial(
+                            aboveMaterial,
+                            1.0f - power + (aboveNoise * 0.2f) + aboveLightInfluence,
+                        )
                     blockChanger.addBlockChange(x, currentY + 1, z, transformedAbove)
                 }
             } else {
                 consecutiveTerrainBlocks = 0
 
                 if (shouldConvertToAir) {
-                    blockChanger.addBlockChange(x, currentY, z, Material.AIR, updateBlock = true)
+                    blockChanger.addBlockChange(x, currentY, z, Material.AIR, updateBlock = false)
                 } else {
-                    // Apply noise and light influence to non-terrain blocks as well
+                    val skylightLevel = chunkCache.getSkyLightLevelAsync(x, currentY, z)
                     val blockNoise = generateTerrainNoise(x, currentY, z, terrainNoiseStrength * 0.5f)
-                    val lightInfluence =
-                        (skylightLevel / 15.0f) * 0.1f // Light adds up to 10% more transformation for non-terrain
-                    val transformationStrength = radiusProgress + (blockNoise * 0.2f) + lightInfluence
-                    val transformedBlock = materialTransformer.transformMaterial(currentBlock, transformationStrength)
-                    blockChanger.addBlockChange(x, currentY, z, transformedBlock, updateBlock = true)
+                    val lightInfluence = skylightLevel * 0.00667f // 1/15 * 0.1
+                    val transformedBlock =
+                        materialTransformer.transformMaterial(
+                            currentBlock,
+                            1.0f - power + (blockNoise * 0.2f) + lightInfluence,
+                        )
+                    blockChanger.addBlockChange(x, currentY, z, transformedBlock, updateBlock = false)
                 }
             }
         }
     }
 
     /**
-     * Generates terrain noise for more natural destruction patterns
-     * @param x X coordinate
-     * @param y Y coordinate
-     * @param z Z coordinate
-     * @param strength Noise strength multiplier
-     * @return Noise value between -1.0 and 1.0
+     * Generates terrain noise for more natural destruction patterns.
+     * Inline for better performance since it's called frequently.
      */
-    private fun generateTerrainNoise(x: Int, y: Int, z: Int, strength: Float): Float {
-        // Simple pseudo-random noise based on coordinates
-        val seed = (x * 374761393L + y * 668265263L + z * 1274126177L) and 0x7FFFFFFF
-        val random = Random(seed.toInt())
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun generateTerrainNoise(
+        x: Int,
+        y: Int,
+        z: Int,
+        strength: Float,
+    ): Float {
+        // Fast pseudo-random using bit mixing
+        val seed = ((x * 374761393L + y * 668265263L + z * 1274126177L) and 0x7FFFFFFF).toInt()
+        val random = Random(seed)
 
-        // Generate multiple octaves of noise for more natural patterns
-        val noise1 = (random.nextDouble() - 0.5) * 2.0 // -1 to 1
-        val noise2 = (random.nextDouble() - 0.5) * 1.0 // -0.5 to 0.5
-        val noise3 = (random.nextDouble() - 0.5) * 0.5 // -0.25 to 0.25
+        // Generate noise octaves as Float
+        val noise1 = (random.nextDouble() - 0.5).toFloat() // -0.5 to 0.5
+        val noise2 = ((random.nextDouble() - 0.5) * 0.5).toFloat() // -0.25 to 0.25
+        val noise3 = ((random.nextDouble() - 0.5) * 0.25).toFloat() // -0.125 to 0.125
 
-        val combinedNoise = (noise1 + noise2 + noise3) / 1.75 // Normalize
-        return (combinedNoise * strength).toFloat().coerceIn(-1.0f, 1.0f)
+        // Combine and normalize: total range is -0.875 to 0.875, normalize to -1 to 1
+        return ((noise1 + noise2 + noise3) * 1.143f * strength).coerceIn(-1.0f, 1.0f)
     }
 
-    private suspend fun isHeuristicallyWallBlock(x: Int, y: Int, z: Int): Boolean {
-        var airBlockCount = 0
+    private suspend fun isHeuristicallyWallBlock(
+        x: Int,
+        y: Int,
+        z: Int,
+    ): Boolean {
+        // Check cardinal directions, return early if we find 2 air blocks
+        val east = chunkCache.getBlockMaterialAsync(x + 1, y, z) == Material.AIR
+        val west = chunkCache.getBlockMaterialAsync(x - 1, y, z) == Material.AIR
+        if (east && west) return true
 
-        // Unrolled loop for better performance - check 4 cardinal directions
-        if (chunkCache.getBlockMaterialAsync(x + 1, y, z) == Material.AIR) airBlockCount++
+        val south = chunkCache.getBlockMaterialAsync(x, y, z + 1) == Material.AIR
+        if ((east || west) && south) return true
 
-        if (chunkCache.getBlockMaterialAsync(x - 1, y, z) == Material.AIR) airBlockCount++
-        if (airBlockCount >= 2) return true
-
-        if (chunkCache.getBlockMaterialAsync(x, y, z + 1) == Material.AIR) airBlockCount++
-        if (airBlockCount >= 2) return true
-
-        if (chunkCache.getBlockMaterialAsync(x, y, z - 1) == Material.AIR) airBlockCount++
-
-        return airBlockCount >= 2
+        val north = chunkCache.getBlockMaterialAsync(x, y, z - 1) == Material.AIR
+        return ((east || west) && north) || (south && north)
     }
 
-    private fun generateShockwaveCirclePrecise(radius: Int): Flow<Vector3i> = flow {
-        val centerX = center.blockX
-        val centerZ = center.blockZ
+    /**
+     * Generates all points in a complete circle ring at the given radius.
+     * Uses inclusive bounds to prevent gaps at large radii.
+     */
+    private fun generateShockwaveCircleBresenham(radius: Int): Flow<Vector3i> =
+        flow {
+            // Special case for center
+            if (radius == 0) {
+                emit(Vector3i(centerX, worldMaxHeight, centerZ))
+                return@flow
+            }
 
-        // Special case for radius 0
-        if (radius == 0) {
-            emit(Vector3i(centerX, world.maxHeight, centerZ))
-            return@flow
-        }
+            // Calculate radius bounds for the ring with tolerance to prevent gaps
+            val radiusSquared = radius * radius
+            // For large radii, the gap between consecutive squared radii grows
+            // Use a threshold that's proportional to the radius to catch all blocks
+            val threshold = radius * 2 + 1 // This ensures we don't miss blocks in the ring
+            val innerBound = maxOf(0, radiusSquared - threshold)
 
-        // Use Set to track emitted positions
-        val emittedPositions = mutableSetOf<Pair<Int, Int>>()
+            // Track emitted to avoid duplicates
+            val emitted = mutableSetOf<Long>()
 
-        // Calculate radius bounds for precise circle generation
-        val radiusSquared = radius * radius
-        val innerRadiusSquared = (radius - 1) * (radius - 1)
+            // Scan all points in the bounding square
+            for (dx in -radius..radius) {
+                for (dz in -radius..radius) {
+                    val distSq = dx * dx + dz * dz
 
-        // Search in a square around the center, but only emit points that form the exact circle
-        val searchRadius = radius + 1
-
-        for (dx in -searchRadius..searchRadius) {
-            for (dz in -searchRadius..searchRadius) {
-                val distanceSquared = dx * dx + dz * dz
-
-                // Check if this point is on the current radius circle
-                // Point is on circle if: (radius-1)² < distance² <= radius²
-                if (distanceSquared > innerRadiusSquared && distanceSquared <= radiusSquared) {
-                    val worldX = centerX + dx
-                    val worldZ = centerZ + dz
-
-                    if (emittedPositions.add(worldX to worldZ)) {
-                        try {
-                            emit(Vector3i(worldX, world.maxHeight, worldZ))
-                        } catch (e: Exception) {
-                            Defcon.logger.warning("Error processing point ($worldX, $worldZ): ${e.message}")
+                    // Check if point is in the current radius ring with tolerance
+                    if (distSq > innerBound && distSq <= radiusSquared) {
+                        val wx = centerX + dx
+                        val wz = centerZ + dz
+                        val key = (wx.toLong() shl 32) or (wz.toLong() and 0xFFFFFFFFL)
+                        if (emitted.add(key)) {
+                            emit(Vector3i(wx, worldMaxHeight, wz))
                         }
                     }
                 }
             }
         }
-    }
 
-    private fun cleanup() {
+    private suspend fun cleanup() {
         chunkCache.cleanup()
         complete()
+        println("Shockwave completed")
     }
 }

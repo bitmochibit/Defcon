@@ -22,42 +22,69 @@ package me.mochibit.defcon.transformer.material
 import org.bukkit.Material
 
 sealed class TransformationCondition {
-    abstract fun matches(material: Material, explosionPower: Float): Boolean
+    abstract fun matches(
+        material: Material,
+        explosionPower: Float,
+    ): Boolean
 
-    data class MaterialSet(val materials: Set<Material>) : TransformationCondition() {
-        override fun matches(material: Material, explosionPower: Float): Boolean = material in materials
+    data class MaterialSet(
+        val materials: Set<Material>,
+    ) : TransformationCondition() {
+        override fun matches(
+            material: Material,
+            explosionPower: Float,
+        ): Boolean = material in materials
     }
 
-    data class MaterialCategory(val predicate: (Material) -> Boolean) : TransformationCondition() {
-        override fun matches(material: Material, explosionPower: Float): Boolean = predicate(material)
+    data class MaterialCategory(
+        val predicate: (Material) -> Boolean,
+    ) : TransformationCondition() {
+        override fun matches(
+            material: Material,
+            explosionPower: Float,
+        ): Boolean = predicate(material)
     }
 
-    data class SpecificMaterial(val material: Material) : TransformationCondition() {
-        override fun matches(material: Material, explosionPower: Float): Boolean = this.material == material
+    data class SpecificMaterial(
+        val material: Material,
+    ) : TransformationCondition() {
+        override fun matches(
+            material: Material,
+            explosionPower: Float,
+        ): Boolean = this.material == material
     }
 
     data class PowerThreshold(
         val condition: TransformationCondition,
         val minPower: Float? = null,
-        val maxPower: Float? = null
+        val maxPower: Float? = null,
     ) : TransformationCondition() {
-        override fun matches(material: Material, explosionPower: Float): Boolean {
-            val powerMatches = (minPower == null || explosionPower >= minPower) &&
-                    (maxPower == null || explosionPower <= maxPower)
+        override fun matches(
+            material: Material,
+            explosionPower: Float,
+        ): Boolean {
+            val powerMatches =
+                when {
+                    minPower != null && explosionPower < minPower -> false
+                    maxPower != null && explosionPower > maxPower -> false
+                    else -> true
+                }
             return powerMatches && condition.matches(material, explosionPower)
         }
     }
 
     data class Combined(
         val conditions: List<TransformationCondition>,
-        val operator: LogicalOperator = LogicalOperator.AND
+        val operator: LogicalOperator = LogicalOperator.AND,
     ) : TransformationCondition() {
-        override fun matches(material: Material, explosionPower: Float): Boolean {
-            return when (operator) {
+        override fun matches(
+            material: Material,
+            explosionPower: Float,
+        ): Boolean =
+            when (operator) {
                 LogicalOperator.AND -> conditions.all { it.matches(material, explosionPower) }
                 LogicalOperator.OR -> conditions.any { it.matches(material, explosionPower) }
             }
-        }
     }
 
     enum class LogicalOperator { AND, OR }

@@ -1,6 +1,6 @@
 package me.mochibit.defcon.explosions.processor
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.coroutineScope
 import me.mochibit.defcon.transformer.material.MaterialCategories
 import me.mochibit.defcon.utils.BlockChanger
 import me.mochibit.defcon.utils.ChunkCache
@@ -8,177 +8,210 @@ import me.mochibit.defcon.utils.Geometry.wangNoise
 import org.bukkit.HeightMap
 import org.bukkit.Location
 import org.bukkit.Material
-import org.joml.Vector3i
-import kotlin.math.*
+import kotlin.math.pow
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
- * Optimized crater generation with improved performance and cleaner architecture
+ * Optimized crater generation with terrain-adaptive shaping and Kotlin idiomatic patterns.
+ * Creates the bowl-shaped depression and scorched floor.
+ * Above-ground destruction is handled by Shockwave for consistent behavior.
  */
 class Crater(
     private val center: Location,
     private val radiusX: Int,
     private val radiusY: Int, // Depth for the paraboloid
     private val radiusZ: Int,
-    private val destructionHeight: Int,
 ) {
-    private val config = CraterConfig(center, radiusX, radiusY, radiusZ, destructionHeight)
-    private val world = center.world!!
-    private val chunkCache = ChunkCache.getInstance(world)
-    private val blockChanger = BlockChanger.getInstance(world)
+    private val world = center.world ?: error("World cannot be null for crater generation")
+    private val chunkCache by lazy { ChunkCache.getInstance(world) }
+    private val blockChanger by lazy { BlockChanger.getInstance(world) }
+
+    // Configuration for crater bounds
+    private val centerX = center.blockX
+    private val centerY = center.blockY
+    private val centerZ = center.blockZ
+    private val bounds =
+        CraterBounds(
+            minX = centerX - radiusX - 2,
+            maxX = centerX + radiusX + 2,
+            minZ = centerZ - radiusZ - 2,
+            maxZ = centerZ + radiusZ + 2,
+            minY = maxOf(centerY - radiusY, world.minHeight),
+        )
 
     // Scorch materials (ordered from least to most intense)
-    private val scorchMaterials = arrayOf(
-        Material.TUFF,
-        Material.DEEPSLATE,
-        Material.BASALT,
-        Material.BLACKSTONE,
-        Material.COAL_BLOCK,
-        Material.BLACK_CONCRETE_POWDER,
-        Material.BLACK_CONCRETE,
+    private val scorchMaterials =
+        listOf(
+            Material.TUFF,
+            Material.DEEPSLATE,
+            Material.BASALT,
+            Material.BLACKSTONE,
+            Material.COAL_BLOCK,
+            Material.BLACK_CONCRETE_POWDER,
+            Material.BLACK_CONCRETE,
+        )
+
+    private data class CraterBounds(
+        val minX: Int,
+        val maxX: Int,
+        val minZ: Int,
+        val maxZ: Int,
+        val minY: Int,
     )
 
     suspend fun create() {
         generateCrater()
-
+        blockChanger.flush()
+        println("Crater creation completed")
     }
 
-    private fun generateCraterEffectivePlane(): List<Vector3i> {
-        val planePoints = mutableListOf<Vector3i>()
+    /**
+     * Represents a point in the crater floor with terrain-adaptive height
+     */
+    private data class CraterPoint(
+        val x: Int,
+        val y: Int,
+        val z: Int,
+        val normalizedDistance: Double,
+    )
 
-        val centerX = config.centerX
-        val centerZ = config.centerZ
+    /**
+     * Calculate terrain-adaptive crater floor height
+     */
+    private fun calculateAdaptiveCraterFloor(
+        dx: Int,
+        dz: Int,
+        terrainY: Int,
+    ): CraterPoint {
+        val x = centerX + dx
+        val z = centerZ + dz
 
-        for (x in config.minX..config.maxX) {
-            for (z in config.minZ..config.maxZ) {
-                // Fix ellipse boundary check using normalized coordinates
-                val dx = x - centerX
-                val dz = z - centerZ
-                val normalizedDistance = (dx.toDouble() / radiusX).pow(2) + (dz.toDouble() / radiusZ).pow(2)
+        // Distance from center (squared for efficiency)
+        val distSquared = dx * dx + dz * dz
+        val maxRadiusSquared = maxOf(radiusX * radiusX, radiusZ * radiusZ)
+        val normalizedDistance = sqrt(distSquared.toDouble() / maxRadiusSquared)
 
-                if (normalizedDistance > 1.0) continue
+        // Paraboloid crater shape (deeper in center)
+        val depthFactor = distSquared.toDouble() / maxRadiusSquared
+        val idealCraterFloorY = centerY - (radiusY * (1.0 - depthFactor)).toInt()
 
-                // Get terrain height at this position
-                val terrainY = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES)
-
-                // Calculate ideal crater floor based on center height
-                val rSquared = dx * dx + dz * dz
-                val maxRadiusSquared = maxOf(radiusX * radiusX, radiusZ * radiusZ)
-                val depthFactor = rSquared.toDouble() / maxRadiusSquared.toDouble()
-                val idealCraterFloorY = config.centerY - (radiusY * (1.0 - depthFactor)).toInt()
-
-                // Blend crater floor with terrain to avoid sharp edges
-                val blendFactor = 0.7 // How much to follow crater shape vs terrain
-                val adaptiveCraterFloorY = (idealCraterFloorY * blendFactor + terrainY * (1.0 - blendFactor)).toInt()
-
-                // For areas near the edge, blend more with terrain
-                val edgeBlendDistance = 0.8 // Start blending when closer to edge
-                val adjustedBlendFactor = if (depthFactor > edgeBlendDistance) {
-                    val edgeFactor = (depthFactor - edgeBlendDistance) / (1.0 - edgeBlendDistance)
-                    blendFactor * (1.0 - edgeFactor * 0.6) // Reduce crater influence near edges
-                } else {
-                    blendFactor
+        // Edge blending - gradually blend with terrain near edges
+        val edgeBlendStart = 0.8
+        val blendFactor =
+            when {
+                depthFactor < edgeBlendStart -> {
+                    0.7
                 }
 
-                val finalCraterFloorY = (idealCraterFloorY * adjustedBlendFactor + terrainY * (1.0 - adjustedBlendFactor)).toInt()
+                // Strong crater shape in center
+                else -> {
+                    val edgeFactor = (depthFactor - edgeBlendStart) / (1.0 - edgeBlendStart)
+                    0.7 * (1.0 - edgeFactor * 0.85) // Gradually blend to terrain
+                }
+            }
 
-                // Ensure the crater floor doesn't go below world limits or above terrain
-                val finalY = maxOf(minOf(finalCraterFloorY, terrainY), config.minY)
+        // Blend crater floor with natural terrain
+        val blendedY = (idealCraterFloorY * blendFactor + terrainY * (1.0 - blendFactor)).toInt()
 
-                planePoints.add(Vector3i(x, finalY, z))
+        // Ensure crater floor stays within valid world bounds only
+        // The blending formula already handles the relationship to terrain
+        val finalY = blendedY.coerceAtLeast(bounds.minY).coerceAtMost(world.maxHeight - 1)
+
+        return CraterPoint(x, finalY, z, normalizedDistance)
+    }
+
+    private fun generateCraterEffectivePlane(): Sequence<CraterPoint> =
+        sequence {
+            for (dx in -radiusX - 2..radiusX + 2) {
+                for (dz in -radiusZ - 2..radiusZ + 2) {
+                    // Check if point is within ellipse bounds
+                    val normalizedDistance = (dx.toDouble() / radiusX).pow(2) + (dz.toDouble() / radiusZ).pow(2)
+                    if (normalizedDistance > 1.0) continue
+
+                    val x = centerX + dx
+                    val z = centerZ + dz
+
+                    // Get natural terrain height at this position
+                    val terrainY = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES)
+
+                    yield(calculateAdaptiveCraterFloor(dx, dz, terrainY))
+                }
             }
         }
 
-        return planePoints
-    }
+    private suspend fun generateCrater() =
+        coroutineScope {
+            val points = generateCraterEffectivePlane().toList()
 
-    private suspend fun generateCrater() = coroutineScope {
-        val points = generateCraterEffectivePlane()
-        println("Generated ${points.size} crater points")
-
-        for (point in points) {
-            processPoint(point)
+            // Process points concurrently in batches for better performance
+            points.forEach { point ->
+                processPoint(point)
+            }
         }
-    }
 
-    private suspend fun processPoint(point: Vector3i) {
+    private suspend fun processPoint(point: CraterPoint) {
         applyFloorScorching(point)
-        removeBlocksAboveFloor(point)
+        clearToCraterFloor(point)
     }
 
-    private suspend fun applyFloorScorching(point: Vector3i) {
+    private suspend fun applyFloorScorching(point: CraterPoint) {
         val blockType = chunkCache.getBlockMaterialAsync(point.x, point.y, point.z)
-        if (!canScorchBlock(blockType)) return
+        if (!blockType.canBeScorched()) return
 
-        val xDist = point.x - config.centerX
-        val zDist = point.z - config.centerZ
-        val distSquared = xDist * xDist + zDist * zDist
-        val maxRadiusSquared = maxOf(radiusX * radiusX, radiusZ * radiusZ)
-        val normalizedDistance = sqrt(distSquared.toDouble() / maxRadiusSquared.toDouble())
-
-        val material = selectScorchMaterial(normalizedDistance, point.x, point.z)
+        val material = selectScorchMaterial(point.normalizedDistance, point.x, point.z)
         blockChanger.addBlockChange(point.x, point.y, point.z, material, updateBlock = false)
     }
 
-    private suspend fun removeBlocksAboveFloor(point: Vector3i) {
-        val x = point.x
-        val z = point.z
+    /**
+     * Clears all blocks from surface down to crater floor, creating the bowl shape.
+     * The crater floor remains solid - we only remove blocks ABOVE it.
+     * Shockwave will then process from radius 0 with sophisticated destruction logic.
+     */
+    private suspend fun clearToCraterFloor(point: CraterPoint) {
+        // Get the actual surface height at this position
+        val surfaceY = world.getHighestBlockYAt(point.x, point.z, org.bukkit.HeightMap.MOTION_BLOCKING_NO_LEAVES)
 
-        // Get the current terrain height at this position
-        val terrainY = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES)
-        val maxRemovalY = minOf(config.centerY + destructionHeight, config.maxY)
+        // Calculate a reasonable max height to clear (higher of surface or center + some height)
+        val maxRemovalY = maxOf(surfaceY, centerY + radiusY).coerceAtMost(world.maxHeight - 1)
 
-        // Remove blocks from crater floor up to destruction height
-        for (y in (point.y + 1)..maxRemovalY) {
-            val blockType = chunkCache.getBlockMaterialAsync(x, y, z)
-            if (canRemoveBlock(blockType)) {
-                blockChanger.addBlockChange(x, y, z, Material.AIR, updateBlock = false)
+        // Clear blocks above crater floor (from max height down to just above the crater floor)
+        // This creates the bowl shape without digging underneath
+        for (y in maxRemovalY downTo (point.y + 1)) {
+            val blockType = chunkCache.getBlockMaterialAsync(point.x, y, point.z)
+            if (blockType.canBeRemoved()) {
+                blockChanger.addBlockChange(point.x, y, point.z, Material.AIR, updateBlock = false)
             }
         }
+
+        // Do NOT dig below the crater floor - it should remain solid
+        // The scorched surface at point.y is the bottom of the crater
     }
 
-    private fun selectScorchMaterial(normalizedDistance: Double, x: Int, z: Int): Material {
+    private fun selectScorchMaterial(
+        normalizedDistance: Double,
+        x: Int,
+        z: Int,
+    ): Material {
         val clampedDistance = normalizedDistance.coerceIn(0.0, 1.0)
 
-        // Add noise variation
+        // Add procedural noise for natural variation
         val noise = wangNoise(x, 0, z)
         val distortion = (noise - 0.5) * 0.25
         val finalDistance = (clampedDistance + distortion).coerceIn(0.0, 1.0)
 
         // Select material based on intensity (closer to center = more intense)
-        val index = ((1.0 - finalDistance) * (scorchMaterials.size - 1))
-            .roundToInt()
-            .coerceIn(0, scorchMaterials.lastIndex)
+        val index =
+            ((1.0 - finalDistance) * (scorchMaterials.size - 1))
+                .roundToInt()
+                .coerceIn(scorchMaterials.indices)
 
         return scorchMaterials[index]
     }
 
-    private fun canScorchBlock(material: Material): Boolean {
-        return !material.isAir &&
-                material !in MaterialCategories.LIQUID_MATERIALS &&
-                material !in MaterialCategories.INDESTRUCTIBLE_BLOCKS
-    }
+    // Extension functions for more idiomatic Kotlin
+    private fun Material.canBeScorched(): Boolean =
+        !isAir && this !in MaterialCategories.LIQUID_MATERIALS && this !in MaterialCategories.INDESTRUCTIBLE_BLOCKS
 
-    private fun canRemoveBlock(material: Material): Boolean {
-        return canScorchBlock(material)
-    }
-
-    private class CraterConfig(
-        center: Location,
-        val radiusX: Int,
-        val radiusY: Int,
-        val radiusZ: Int,
-        destructionHeight: Int
-    ) {
-        val world = center.world!!
-        val centerX = center.blockX
-        val centerY = center.blockY // Use actual center Y instead of sea level
-        val centerZ = center.blockZ
-
-        val minX = centerX - radiusX - 2
-        val maxX = centerX + radiusX + 2
-        val minZ = centerZ - radiusZ - 2
-        val maxZ = centerZ + radiusZ + 2
-        val minY = maxOf(centerY - radiusY, world.minHeight)
-        val maxY = minOf(centerY + destructionHeight, world.maxHeight - 1)
-    }
+    private fun Material.canBeRemoved(): Boolean = canBeScorched()
 }

@@ -22,14 +22,11 @@ package me.mochibit.defcon.explosions.processor
 import me.mochibit.defcon.utils.BlockChanger
 import me.mochibit.defcon.utils.ChunkCache
 import me.mochibit.defcon.utils.collection.Vector3iSetFull
+import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.World
 import org.joml.Vector2f
-import org.joml.Vector3f
 import org.joml.Vector3i
-import java.util.*
-import kotlin.math.floor
-import kotlin.math.roundToInt
 
 class TreeBurner(
     private val world: World,
@@ -40,25 +37,38 @@ class TreeBurner(
         private const val LEAF_SUFFIX = "_LEAVES"
         private const val LOG_SUFFIX = "_LOG"
         private const val WOOD_SUFFIX = "_WOOD"
-
-        // Maximum tree height to process
         private const val MAX_TREE_HEIGHT = 60
 
-        private val TREE_BLOCKS = EnumSet.noneOf(Material::class.java).apply {
-            for (material in Material.entries) {
-                with(material.name) {
-                    when {
-                        endsWith(LEAF_SUFFIX) || endsWith(LOG_SUFFIX) || endsWith(WOOD_SUFFIX) -> add(material)
-                        else -> Unit
+        // Pre-build sets for O(1) lookup
+        private val TREE_BLOCKS =
+            buildSet {
+                Material.entries.forEach { material ->
+                    with(material.name) {
+                        when {
+                            endsWith(LEAF_SUFFIX) || endsWith(LOG_SUFFIX) || endsWith(WOOD_SUFFIX) -> add(material)
+                        }
                     }
                 }
             }
-        }
 
-        // Separate collections for better type handling
-        private val LEAF_BLOCKS = TREE_BLOCKS.filter { it.name.endsWith(LEAF_SUFFIX) }.toSet()
-        private val LOG_BLOCKS = TREE_BLOCKS.filter { it.name.endsWith(LOG_SUFFIX) }.toSet()
-        private val WOOD_BLOCKS = TREE_BLOCKS.filter { it.name.endsWith(WOOD_SUFFIX) }.toSet()
+        private val LEAF_BLOCKS = TREE_BLOCKS.filterTo(mutableSetOf()) { it.name.endsWith(LEAF_SUFFIX) }
+        private val LOG_BLOCKS = TREE_BLOCKS.filterTo(mutableSetOf()) { it.name.endsWith(LOG_SUFFIX) }
+        private val WOOD_BLOCKS = TREE_BLOCKS.filterTo(mutableSetOf()) { it.name.endsWith(WOOD_SUFFIX) }
+
+        // Cache burnt replacements for faster lookup
+        private val BURNT_REPLACEMENTS =
+            buildMap {
+                TREE_BLOCKS.forEach { material ->
+                    put(
+                        material,
+                        when {
+                            material in LEAF_BLOCKS -> Material.AIR
+                            material.name.contains("WARPED") || material.name.contains("CRIMSON") -> Material.BLACKSTONE
+                            else -> Material.POLISHED_BASALT
+                        },
+                    )
+                }
+            }
     }
 
     private val chunkCache = ChunkCache.getInstance(world)
@@ -66,200 +76,178 @@ class TreeBurner(
 
     private val processedTreeBlocks = Vector3iSetFull()
 
-    fun isPosProcessed(x: Int, y: Int, z: Int): Boolean {
-        return processedTreeBlocks.contains(x, y, z).also {
+    fun isPosProcessed(
+        x: Int,
+        y: Int,
+        z: Int,
+    ): Boolean =
+        processedTreeBlocks.contains(x, y, z).also {
             processedTreeBlocks.remove(x, y, z)
         }
-    }
 
-    suspend fun processTreeBurn(initialBlock: Vector3i, explosionPower: Double) {
+    suspend fun processTreeBurn(
+        initialBlock: Vector3i,
+        explosionPower: Double,
+    ) {
+        val material = chunkCache.getBlockMaterialAsync(initialBlock.x, initialBlock.y, initialBlock.z)
+
+        // Early exit checks
+        if (!isTreeBlock(initialBlock)) {
+            return
+        }
+
+        if (processedTreeBlocks.contains(initialBlock.x, initialBlock.y, initialBlock.z)) {
+            return
+        }
+
         try {
-            // Early exit if block is not part of a tree
-            if (!isTreeBlock(initialBlock)) {
-                return
-            }
-
-            if (processedTreeBlocks.contains(initialBlock.x, initialBlock.y, initialBlock.z)) {
-                return
-            }
-
-            // Find the base of the tree by going down from the initial block
             val treeMaxHeight = initialBlock.y
             val treeMinHeight = findTreeBase(initialBlock)
-
-            // Enforce maximum tree height limit
             val effectiveMaxHeight = minOf(treeMinHeight + MAX_TREE_HEIGHT, treeMaxHeight)
             val heightRange = (effectiveMaxHeight - treeMinHeight).coerceAtLeast(1)
 
-            // Calculate shockwave direction once
-            val shockwaveDirection = Vector2f(
-                (initialBlock.x - center.x).toFloat(),
-                (initialBlock.z - center.z).toFloat()
-            ).normalize()
+            var blocksProcessed = 0
 
-            // Process the vertical column from top to bottom, limited by MAX_TREE_HEIGHT
+            // Pre-compute shockwave direction
+            val dx = (initialBlock.x - center.x).toFloat()
+            val dz = (initialBlock.z - center.z).toFloat()
+            val invMag = 1.0f / kotlin.math.sqrt(dx * dx + dz * dz).coerceAtLeast(0.001f)
+            val shockwaveDirection = Vector2f(dx * invMag, dz * invMag)
+
+            val currentX = initialBlock.x
+            val currentZ = initialBlock.z
+
+            // Process vertical column from top to bottom
             for (y in effectiveMaxHeight downTo treeMinHeight) {
-                val currentX = initialBlock.x
-                val currentZ = initialBlock.z
                 val material = chunkCache.getBlockMaterialAsync(currentX, y, currentZ)
 
-                // Skip if not a tree block
-                if (material !in TREE_BLOCKS) {
-                    continue
-                }
+                // Skip non-tree blocks
+                if (material !in TREE_BLOCKS) continue
 
-                when (material) {
-                    in LEAF_BLOCKS -> {
-                        // Process leaves - always remove them
+                blocksProcessed++
+
+                when {
+                    material in LEAF_BLOCKS -> {
                         blockChanger.addBlockChange(currentX, y, currentZ, Material.AIR, updateBlock = true)
+                        processedTreeBlocks.add(currentX, y, currentZ)
                     }
 
-                    in LOG_BLOCKS, in WOOD_BLOCKS -> {
-                        // Process both log and wood blocks with tilt based on height
+                    material in LOG_BLOCKS || material in WOOD_BLOCKS -> {
                         processWoodBlock(
-                            currentX, y, currentZ,
+                            currentX,
+                            y,
+                            currentZ,
                             material,
                             treeMinHeight,
                             heightRange,
                             shockwaveDirection,
-                            explosionPower
+                            explosionPower,
                         )
-                    }
-
-                    else -> {
-                        continue
                     }
                 }
             }
-
         } catch (e: Exception) {
-            // Log the error but prevent it from crashing the server
-            println("Error in TreeBurner: ${e.message}")
             e.printStackTrace()
         }
     }
 
     private suspend fun findTreeBase(startBlock: Vector3i): Int {
-        var currentY = startBlock.y
-        val minY = maxOf(0, currentY - MAX_TREE_HEIGHT)
+        val minY = maxOf(0, startBlock.y - MAX_TREE_HEIGHT)
         val currentX = startBlock.x
         val currentZ = startBlock.z
+        var currentY = startBlock.y
 
-        // Go down until we hit terrain or non-tree block, with a limit
+        // Descend until we hit terrain or non-tree block
         while (currentY > minY) {
             val material = chunkCache.getBlockMaterialAsync(currentX, currentY, currentZ)
 
-            if (material == Material.AIR) {
-                currentY--
-                continue
+            when {
+                material == Material.AIR -> currentY--
+                material !in TREE_BLOCKS -> return currentY + 1
+                else -> currentY--
             }
-
-            if (material !in TREE_BLOCKS) {
-                return currentY + 1
-            }
-
-            currentY--
         }
 
-        // Fallback to the minimum height we're willing to check
         return minY
     }
 
-    suspend fun getTreeTerrain(startLoc: Vector3i): Vector3i {
-        return Vector3i(
-            startLoc.x,
-            findTreeBase(startLoc) - 1,
-            startLoc.z
-        )
-    }
+    suspend fun getTreeTerrain(startLoc: Vector3i): Vector3i = Vector3i(startLoc.x, findTreeBase(startLoc) - 1, startLoc.z)
 
-    private suspend fun isTreeBlock(x: Int, y: Int, z: Int): Boolean {
-        val material = chunkCache.getBlockMaterialAsync(x, y, z)
-        return material in TREE_BLOCKS
-    }
+    private suspend fun isTreeBlock(
+        x: Int,
+        y: Int,
+        z: Int,
+    ): Boolean = chunkCache.getBlockMaterialAsync(x, y, z) in TREE_BLOCKS
 
-    suspend fun isTreeBlock(block: Vector3i): Boolean {
-        return isTreeBlock(block.x, block.y, block.z)
-    }
+    suspend fun isTreeBlock(block: Vector3i): Boolean = isTreeBlock(block.x, block.y, block.z)
 
-    fun isTreeBlock(material: Material): Boolean {
-        return material in TREE_BLOCKS
-    }
+    fun isTreeBlock(material: Material): Boolean = material in TREE_BLOCKS
 
     /**
-     * Processes a wood block during tree destruction, handling both standalone and shockwave contexts.
-     *
-     * In shockwave context, uses a two-pass system:
-     * 1. First pass: Tilt blocks but keep original material (so shockwave expansion recognizes them)
-     * 2. Second pass: Transform tilted blocks to burnt material
-     *
-     * @param x, y, z Block coordinates
-     * @param originalMaterial The original wood material
-     * @param treeMinHeight Base height of the tree
-     * @param heightRange Total height range of the tree
-     * @param shockwaveDirection Direction vector for tilting
-     * @param burnerDistanceRatio Distance ratio from explosion center (0.0 = center, 1.0 = edge)
+     * Processes a wood block during tree destruction with tilting and burning.
      */
     private suspend fun processWoodBlock(
-        x: Int, y: Int, z: Int,
+        x: Int,
+        y: Int,
+        z: Int,
         originalMaterial: Material,
         treeMinHeight: Int,
         heightRange: Int,
         shockwaveDirection: Vector2f,
-        burnerDistanceRatio: Double
+        explosionPower: Double, // 0.0 = far from explosion, 1.0 = close to explosion
     ) {
-        // Complete destruction for blocks very close to explosion
-        if (burnerDistanceRatio <= distanceRatioCompletelyDestroy) {
+        // Complete destruction for blocks very close to explosion (high power)
+        if (explosionPower >= (1.0 - distanceRatioCompletelyDestroy)) {
             blockChanger.addBlockChange(x, y, z, Material.AIR, updateBlock = true)
+            processedTreeBlocks.add(x, y, z)
             return
         }
 
-        // Calculate tilt intensity based on height and distance from explosion
-        val tiltFactor = calculateTiltFactor(y, treeMinHeight, heightRange, burnerDistanceRatio)
-        val shouldTilt = tiltFactor > 0.0
+        // Get burnt material from cache
+        val burntMaterial = BURNT_REPLACEMENTS[originalMaterial] ?: Material.POLISHED_BASALT
 
-        val burntMaterial = getBurntWoodReplacement(originalMaterial)
+        // Calculate tilt intensity
+        val tiltFactor = calculateTiltFactor(y, treeMinHeight, heightRange, explosionPower)
 
-        if (shouldTilt) {
-            val newX = (x + floor(shockwaveDirection.x * tiltFactor).toInt())
-            val newZ = (z + floor(shockwaveDirection.y * tiltFactor).toInt())
-
+        if (tiltFactor > 0.0) {
+            val newX = x + (shockwaveDirection.x * tiltFactor).toInt()
+            val newZ = z + (shockwaveDirection.y * tiltFactor).toInt()
             tiltBlock(x, y, z, newX, newZ, burntMaterial)
         } else {
-            // If no tilt, just change to burnt material directly
             blockChanger.addBlockChange(x, y, z, burntMaterial, updateBlock = true)
             processedTreeBlocks.add(x, y, z)
         }
-
     }
 
     /**
-     * Calculates how much a block should tilt based on its height and distance from explosion
+     * Calculates how much a block should tilt based on its height and distance from explosion.
+     * Higher explosionPower = closer to explosion = MORE tilt (stronger force)
+     * Lower explosionPower = farther from explosion = LESS tilt (weaker force)
+     * Inline for better performance.
      */
-    private fun calculateTiltFactor(
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun calculateTiltFactor(
         blockY: Int,
         treeMinHeight: Int,
         heightRange: Int,
-        burnerDistanceRatio: Double
+        explosionPower: Double,
     ): Double {
-        // Base of tree doesn't tilt
         if (blockY == treeMinHeight) return 0.0
-
-        val blockHeight = blockY - treeMinHeight
-        val heightFactor = blockHeight.toDouble() / heightRange
-
-        // Higher blocks tilt more, closer to explosion tilts more
-        return heightFactor * (1 - burnerDistanceRatio) * 6
+        val heightFactor = (blockY - treeMinHeight).toDouble() / heightRange
+        // Higher power (close to explosion) = stronger tilt force
+        return heightFactor * explosionPower * 6.0
     }
-
 
     /**
      * Moves a block from original position to new tilted position
      */
     private suspend fun tiltBlock(
-        originalX: Int, originalY: Int, originalZ: Int,
-        newX: Int, newZ: Int,
-        material: Material
+        originalX: Int,
+        originalY: Int,
+        originalZ: Int,
+        newX: Int,
+        newZ: Int,
+        material: Material,
     ) {
         // Only move if position actually changed
         if (newX != originalX || newZ != originalZ) {
@@ -270,15 +258,6 @@ class TreeBurner(
             // No movement, just change material
             blockChanger.addBlockChange(originalX, originalY, originalZ, material, updateBlock = true)
             processedTreeBlocks.add(originalX, originalY, originalZ)
-        }
-    }
-
-    private fun getBurntWoodReplacement(originalMaterial: Material): Material {
-        // Different burnt appearance based on wood type
-        return when {
-            originalMaterial in LEAF_BLOCKS -> Material.AIR
-            originalMaterial.name.contains("WARPED") || originalMaterial.name.contains("CRIMSON") -> Material.BLACKSTONE
-            else -> Material.POLISHED_BASALT
         }
     }
 }

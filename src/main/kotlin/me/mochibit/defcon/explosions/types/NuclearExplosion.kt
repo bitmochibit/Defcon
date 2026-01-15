@@ -39,9 +39,10 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-
-class NuclearExplosion(center: Location, private val nuclearComponent: ExplosionComponent = ExplosionComponent()) :
-    Explosion(center) {
+class NuclearExplosion(
+    center: Location,
+    private val nuclearComponent: ExplosionComponent = ExplosionComponent(),
+) : Explosion(center) {
     @OptIn(ExperimentalTime::class)
     override fun explode() {
         Defcon.launch {
@@ -111,12 +112,13 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                         lengthPositiveX = falloutRadius,
                         lengthPositiveZ = falloutRadius,
                         priority = 100,
-                        transitions = listOf(
-                            CustomBiomeHandler.CustomBiomeBoundary.BiomeTransition(
-                                1.minutes,
-                                NuclearFalloutBiome.key,
-                            )
-                        )
+                        transitions =
+                            listOf(
+                                CustomBiomeHandler.CustomBiomeBoundary.BiomeTransition(
+                                    1.minutes,
+                                    NuclearFalloutBiome.key,
+                                ),
+                            ),
                     )
                 }
             }
@@ -160,25 +162,23 @@ class NuclearExplosion(center: Location, private val nuclearComponent: Explosion
                     }
                 }
 
-//                Crater(
-//                    center,
-//                    craterRadius,
-//                    craterRadius / 6,
-//                    craterRadius,
-//                    shockwaveHeight * 2
-//                ).create()
-
-
-                val shockwaveJob = Shockwave(
+                Crater(
                     center,
                     pluginConfiguration.nuclearExplosionConfig.craterConfig.baseRadius,
-                    pluginConfiguration.nuclearExplosionConfig.shockwaveConfig.baseRadius,
-                    pluginConfiguration.nuclearExplosionConfig.shockwaveConfig.baseHeight,
-                ).explode()
+                    pluginConfiguration.nuclearExplosionConfig.craterConfig.baseRadius / 6,
+                    pluginConfiguration.nuclearExplosionConfig.craterConfig.baseRadius,
+                ).create()
+
+                val shockwaveJob =
+                    Shockwave(
+                        center,
+                        pluginConfiguration.nuclearExplosionConfig.craterConfig.baseRadius,
+                        pluginConfiguration.nuclearExplosionConfig.shockwaveConfig.baseRadius,
+                        pluginConfiguration.nuclearExplosionConfig.shockwaveConfig.baseHeight,
+                    ).explode()
+
                 shockwaveJob.join()
             }
         }
-
     }
-
 }

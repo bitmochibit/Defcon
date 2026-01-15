@@ -24,59 +24,117 @@ import org.bukkit.Material
 import kotlin.random.Random
 
 sealed class TransformationOutcome {
-    abstract fun transform(material: Material, explosionPower: Float, random: Random, x: Int = 0, z: Int = 0, y: Int = 0): Material
+    abstract fun transform(
+        material: Material,
+        explosionPower: Float,
+        random: Random,
+        x: Int = 0,
+        z: Int = 0,
+        y: Int = 0,
+    ): Material
 
-    data class ToMaterial(val material: Material) : TransformationOutcome() {
-        override fun transform(material: Material, explosionPower: Float, random: Random, x: Int, z: Int, y: Int): Material = this.material
+    data class ToMaterial(
+        val material: Material,
+    ) : TransformationOutcome() {
+        override fun transform(
+            material: Material,
+            explosionPower: Float,
+            random: Random,
+            x: Int,
+            z: Int,
+            y: Int,
+        ): Material = this.material
     }
 
-    data class ToRandomMaterial(val materials: Set<Material>) : TransformationOutcome() {
-        override fun transform(material: Material, explosionPower: Float, random: Random, x: Int, z: Int, y: Int): Material {
-            return materials.random(random)
-        }
+    data class ToRandomMaterial(
+        val materials: Set<Material>,
+    ) : TransformationOutcome() {
+        private val materialList: List<Material> by lazy { materials.toList() }
+
+        override fun transform(
+            material: Material,
+            explosionPower: Float,
+            random: Random,
+            x: Int,
+            z: Int,
+            y: Int,
+        ): Material = materialList.random(random)
     }
 
-    data class ToPalette(val palette: MaterialPalette) : TransformationOutcome() {
-        override fun transform(material: Material, explosionPower: Float, random: Random, x: Int, z: Int, y: Int): Material {
-            return palette.getRandom()
-        }
+    data class ToPalette(
+        val palette: MaterialPalette,
+    ) : TransformationOutcome() {
+        override fun transform(
+            material: Material,
+            explosionPower: Float,
+            random: Random,
+            x: Int,
+            z: Int,
+            y: Int,
+        ): Material = palette.getRandom()
     }
 
-    data class ToPaletteWithNoise(val palette: MaterialPalette) : TransformationOutcome() {
-        override fun transform(material: Material, explosionPower: Float, random: Random, x: Int, z: Int, y: Int): Material {
-            return palette.getWithNoise(x, z, y)
-        }
+    data class ToPaletteWithNoise(
+        val palette: MaterialPalette,
+    ) : TransformationOutcome() {
+        override fun transform(
+            material: Material,
+            explosionPower: Float,
+            random: Random,
+            x: Int,
+            z: Int,
+            y: Int,
+        ): Material = palette.getWithNoise(x, z, y)
     }
 
     data class ChanceOutcome(
         val chance: Float, // 0.0 to 1.0
         val trueOutcome: TransformationOutcome,
-        val falseOutcome: TransformationOutcome
+        val falseOutcome: TransformationOutcome,
     ) : TransformationOutcome() {
-        override fun transform(material: Material, explosionPower: Float, random: Random, x: Int, z: Int, y: Int): Material {
-            return if (random.nextFloat() < chance) {
+        override fun transform(
+            material: Material,
+            explosionPower: Float,
+            random: Random,
+            x: Int,
+            z: Int,
+            y: Int,
+        ): Material =
+            if (random.nextFloat() < chance) {
                 trueOutcome.transform(material, explosionPower, random, x, z, y)
             } else {
                 falseOutcome.transform(material, explosionPower, random, x, z, y)
             }
-        }
     }
 
     data class ConditionalOutcome(
         val condition: (Material, Float) -> Boolean,
         val trueOutcome: TransformationOutcome,
-        val falseOutcome: TransformationOutcome
+        val falseOutcome: TransformationOutcome,
     ) : TransformationOutcome() {
-        override fun transform(material: Material, explosionPower: Float, random: Random, x: Int, z: Int, y: Int): Material {
-            return if (condition(material, explosionPower)) {
+        override fun transform(
+            material: Material,
+            explosionPower: Float,
+            random: Random,
+            x: Int,
+            z: Int,
+            y: Int,
+        ): Material =
+            if (condition(material, explosionPower)) {
                 trueOutcome.transform(material, explosionPower, random, x, z, y)
             } else {
                 falseOutcome.transform(material, explosionPower, random, x, z, y)
             }
-        }
     }
 
-    object NoTransformation : TransformationOutcome() {
-        override fun transform(material: Material, explosionPower: Float, random: Random, x: Int, z: Int, y: Int): Material = material
+    data object NoTransformation : TransformationOutcome() {
+        override fun transform(
+            material: Material,
+            explosionPower: Float,
+            random: Random,
+            x: Int,
+            z: Int,
+            y: Int,
+        ): Material = material
     }
 }
