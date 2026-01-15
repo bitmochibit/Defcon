@@ -19,60 +19,56 @@
 
 package me.mochibit.defcon.save.schemas
 
+import kotlinx.serialization.Serializable
 import me.mochibit.defcon.radiation.RadiationArea
 import org.bukkit.Bukkit
 import org.joml.Vector3i
 
-
+@Serializable
 data class RadiationSaveSchema(
-    var radiationAreas: HashSet<AreaSchema> = HashSet()
+    val radiationAreas: HashSet<AreaSchema> = HashSet(),
 ) : SaveSchema {
-    override fun getMaxID(): Int =
-        radiationAreas.maxOfOrNull { it.id } ?: 0
-
-
-    override fun getSize(): Int =
-        radiationAreas.size
-
-
-    override fun getAllItems(): List<Any> =
-        radiationAreas.toList()
-
-
+    @Serializable
     data class AreaSchema(
-        val id : Int = 0,
+        val id: Int = 0,
         val center: Triple<Int, Int, Int> = Triple(0, 0, 0),
-        val minVertex : Triple<Int, Int, Int>? = null,
-        val maxVertex : Triple<Int, Int, Int>? = null,
+        val minVertex: Triple<Int, Int, Int>? = null,
+        val maxVertex: Triple<Int, Int, Int>? = null,
         val affectedChunkCoordinates: List<Triple<Int, Int, Int>> = emptyList(),
         val radiationLevel: Double = 0.0,
         val worldName: String = "",
     )
+
+    override fun getMaxID(): Int = radiationAreas.maxOfOrNull { it.id } ?: 0
+
+    override fun getSize(): Int = radiationAreas.size
+
+    override fun getAllItems(): List<Any> = radiationAreas.toList()
 }
 
-fun RadiationArea.toSchema(): RadiationSaveSchema.AreaSchema {
-    return RadiationSaveSchema.AreaSchema(
+fun RadiationArea.toSchema(): RadiationSaveSchema.AreaSchema =
+    RadiationSaveSchema.AreaSchema(
         id = id,
         center = Triple(center.x, center.y, center.z),
         minVertex = minVertex?.let { Triple(it.x, it.y, it.z) },
         maxVertex = maxVertex?.let { Triple(it.x, it.y, it.z) },
         affectedChunkCoordinates = affectedChunkCoordinates.map { Triple(it.x, it.y, it.z) },
         radiationLevel = radiationLevel,
-        worldName = world.name
+        worldName = world.name,
     )
-}
 
-fun RadiationSaveSchema.AreaSchema.toRadiationArea(): RadiationArea {
-    return RadiationArea(
+fun RadiationSaveSchema.AreaSchema.toRadiationArea(): RadiationArea =
+    RadiationArea(
         id = id,
         center = Vector3i(center.first, center.second, center.third),
         minVertex = minVertex?.let { Vector3i(it.first, it.second, it.third) },
         maxVertex = maxVertex?.let { Vector3i(it.first, it.second, it.third) },
-        affectedChunkCoordinates = affectedChunkCoordinates.map {
-            Vector3i(it.first, it.second, it.third)
-        }.toMutableSet(),
+        affectedChunkCoordinates =
+            affectedChunkCoordinates.mapTo(mutableSetOf()) {
+                Vector3i(it.first, it.second, it.third)
+            },
         radiationLevel = radiationLevel,
-        world = Bukkit.getWorld(worldName) ?: throw IllegalArgumentException("World $worldName not found")
+        world =
+            Bukkit.getWorld(worldName)
+                ?: throw IllegalArgumentException("World $worldName not found"),
     )
-}
-

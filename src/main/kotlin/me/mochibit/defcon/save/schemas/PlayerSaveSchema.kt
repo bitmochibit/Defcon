@@ -19,39 +19,37 @@
 
 package me.mochibit.defcon.save.schemas
 
+import kotlinx.serialization.Serializable
 import me.mochibit.defcon.player.PlayerData
 import org.bukkit.Bukkit
+import java.util.UUID
 
-
+@Serializable
 data class PlayerSaveSchema(
-    var playersData: HashSet<PlayerDataSchema> = HashSet()
+    val playersData: HashSet<PlayerDataSchema> = HashSet(),
 ) : SaveSchema {
+    @Serializable
     data class PlayerDataSchema(
-        var playerUUID: String,
+        val playerUUID: String,
         var radiationLevel: Double = 0.0,
     )
 
-    override fun getMaxID(): Int {
-        return playersData.maxOfOrNull { it.playerUUID.hashCode() } ?: 0
-    }
+    override fun getMaxID(): Int = playersData.maxOfOrNull { it.playerUUID.hashCode() } ?: 0
 
-    override fun getSize(): Int {
-        return playersData.size
-    }
+    override fun getSize(): Int = playersData.size
 
-    override fun getAllItems(): List<Any> {
-        return playersData.toList()
-    }
+    override fun getAllItems(): List<Any> = playersData.toList()
 }
 
-fun PlayerData.toSchema(): PlayerSaveSchema.PlayerDataSchema {
-    return PlayerSaveSchema.PlayerDataSchema(
-        playerUUID = this.player.uniqueId.toString(),
-        radiationLevel = this.radiationLevel
+fun PlayerData.toSchema(): PlayerSaveSchema.PlayerDataSchema =
+    PlayerSaveSchema.PlayerDataSchema(
+        playerUUID = player.uniqueId.toString(),
+        radiationLevel = radiationLevel,
     )
-}
 
 fun PlayerSaveSchema.PlayerDataSchema.toPlayerData(): PlayerData {
-    val player = Bukkit.getPlayer(java.util.UUID.fromString(playerUUID)) ?: throw IllegalArgumentException("Player with UUID $playerUUID not found")
+    val player =
+        Bukkit.getPlayer(UUID.fromString(playerUUID))
+            ?: throw IllegalArgumentException("Player with UUID $playerUUID not found")
     return PlayerData(player, radiationLevel)
 }

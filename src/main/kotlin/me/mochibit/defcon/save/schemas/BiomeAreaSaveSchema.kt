@@ -19,33 +19,22 @@
 
 package me.mochibit.defcon.save.schemas
 
+import kotlinx.serialization.Serializable
 import me.mochibit.defcon.biomes.CustomBiomeHandler
+import me.mochibit.defcon.save.serializers.NamespacedKeySerializer
 import org.bukkit.NamespacedKey
-import org.bukkit.event.EventPriority
-
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
+@Serializable
 data class BiomeAreaSaveSchema(
-    var biomeAreas: HashSet<BoundarySaveSchema> = HashSet()
+    val biomeAreas: HashSet<BoundarySaveSchema> = HashSet(),
 ) : SaveSchema {
-    override fun getMaxID(): Int {
-        return biomeAreas.maxOfOrNull { it.id } ?: 0
-    }
-
-    override fun getSize(): Int {
-        return biomeAreas.size
-    }
-
-    override fun getAllItems(): List<Any> {
-        return biomeAreas.toList()
-    }
-
+    @Serializable
     data class BoundarySaveSchema(
         val id: Int = 0,
         val uuid: String = "",
+        @Serializable(with = NamespacedKeySerializer::class)
         val biome: NamespacedKey,
         val worldName: String = "",
         val minX: Int,
@@ -55,21 +44,29 @@ data class BiomeAreaSaveSchema(
         val minZ: Int,
         val maxZ: Int,
         val priority: Int = 0,
-        val transition: List<BiomeTransitionSaveSchema> = emptyList()
+        val transition: List<BiomeTransitionSaveSchema> = emptyList(),
     )
 
+    @Serializable
     data class BiomeTransitionSaveSchema(
         val transitionDuration: String,
+        @Serializable(with = NamespacedKeySerializer::class)
         val targetBiome: NamespacedKey,
         val transitionTime: Long,
         val completed: Boolean = false,
         val targetPriority: Int = 0,
     )
+
+    override fun getMaxID(): Int = biomeAreas.maxOfOrNull { it.id } ?: 0
+
+    override fun getSize(): Int = biomeAreas.size
+
+    override fun getAllItems(): List<Any> = biomeAreas.toList()
 }
 
 @OptIn(ExperimentalTime::class)
-fun CustomBiomeHandler.CustomBiomeBoundary.toSchema(): BiomeAreaSaveSchema.BoundarySaveSchema {
-    return BiomeAreaSaveSchema.BoundarySaveSchema(
+fun CustomBiomeHandler.CustomBiomeBoundary.toSchema(): BiomeAreaSaveSchema.BoundarySaveSchema =
+    BiomeAreaSaveSchema.BoundarySaveSchema(
         id = id,
         uuid = uuid.toString(),
         biome = biome,
@@ -81,21 +78,21 @@ fun CustomBiomeHandler.CustomBiomeBoundary.toSchema(): BiomeAreaSaveSchema.Bound
         minZ = minZ,
         maxZ = maxZ,
         priority = priority,
-        transition = transitions.map {
-            BiomeAreaSaveSchema.BiomeTransitionSaveSchema(
-                it.transitionDuration.toString(),
-                it.targetBiome,
-                it.transitionTime.toEpochMilliseconds(),
-                it.completed,
-                it.targetPriority
-            )
-        }
+        transition =
+            transitions.map {
+                BiomeAreaSaveSchema.BiomeTransitionSaveSchema(
+                    transitionDuration = it.transitionDuration.toString(),
+                    targetBiome = it.targetBiome,
+                    transitionTime = it.transitionTime.toEpochMilliseconds(),
+                    completed = it.completed,
+                    targetPriority = it.targetPriority,
+                )
+            },
     )
-}
 
 @OptIn(ExperimentalTime::class)
-fun BiomeAreaSaveSchema.BoundarySaveSchema.toCustomBiomeBoundary(): CustomBiomeHandler.CustomBiomeBoundary {
-    return CustomBiomeHandler.CustomBiomeBoundary(
+fun BiomeAreaSaveSchema.BoundarySaveSchema.toCustomBiomeBoundary(): CustomBiomeHandler.CustomBiomeBoundary =
+    CustomBiomeHandler.CustomBiomeBoundary(
         id = id,
         uuid = java.util.UUID.fromString(uuid),
         biome = biome,
@@ -107,14 +104,14 @@ fun BiomeAreaSaveSchema.BoundarySaveSchema.toCustomBiomeBoundary(): CustomBiomeH
         minZ = minZ,
         maxZ = maxZ,
         priority = priority,
-        transitions = transition.map {
-            CustomBiomeHandler.CustomBiomeBoundary.BiomeTransition(
-                Duration.parse(it.transitionDuration),
-                it.targetBiome,
-                it.targetPriority,
-                Instant.fromEpochMilliseconds(it.transitionTime),
-                it.completed,
-            )
-        }
+        transitions =
+            transition.map {
+                CustomBiomeHandler.CustomBiomeBoundary.BiomeTransition(
+                    transitionDuration = Duration.parse(it.transitionDuration),
+                    targetBiome = it.targetBiome,
+                    targetPriority = it.targetPriority,
+                    transitionTime = kotlin.time.Instant.fromEpochMilliseconds(it.transitionTime),
+                    completed = it.completed,
+                )
+            },
     )
-}
