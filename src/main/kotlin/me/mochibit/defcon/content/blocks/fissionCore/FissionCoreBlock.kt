@@ -26,15 +26,10 @@ import me.mochibit.defcon.content.items.PluginItemProperties
 
 data class FissionCoreBlock(
     override val properties: PluginBlockProperties,
-    override val unparsedBehaviourData: Map<String, Any>
-) : PluginBlock(properties, unparsedBehaviourData) {
-    override fun copied(): FissionCoreBlock = copy()
-}
+    override val unparsedBehaviourData: Map<String, Any>,
+) : PluginBlock<Nothing?>(properties, unparsedBehaviourData)
 
 data class FissionCoreBlockItem(
     override val properties: PluginItemProperties,
-    override val unparsedBehaviourData: Map<String, Any>
-): PluginItem(properties, unparsedBehaviourData)
-{
-    override fun copied(): FissionCoreBlockItem = copy()
-}
+    override val unparsedBehaviourData: Map<String, Any>,
+) : PluginItem<Nothing?>(properties, unparsedBehaviourData)

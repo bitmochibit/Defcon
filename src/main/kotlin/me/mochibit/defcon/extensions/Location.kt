@@ -19,9 +19,9 @@
 
 package me.mochibit.defcon.extensions
 
-import me.mochibit.defcon.enums.BlockDataKey
-import me.mochibit.defcon.utils.MathFunctions
-import me.mochibit.defcon.utils.MetaManager
+import com.jeff_media.customblockdata.CustomBlockData
+import me.mochibit.defcon.Defcon
+import me.mochibit.defcon.pluginNamespacedKey
 import me.mochibit.defcon.utils.lerp
 import org.bukkit.Location
 import org.joml.Vector3d
@@ -29,67 +29,81 @@ import org.joml.Vector3f
 import org.joml.Vector3i
 import kotlin.math.roundToInt
 
-fun Location.toVector3i(): Vector3i {
-    return Vector3i(x.roundToInt(), y.roundToInt(), z.roundToInt())
+object PluginLocationPropertyKeys {
+    val customBlockId = StringProperty(pluginNamespacedKey("custom-block-id"))
+    val itemId = StringProperty(pluginNamespacedKey("item-id"))
+    val structureId = StringProperty(pluginNamespacedKey("structure-id"))
+    val radiationAreaId = IntProperty(pluginNamespacedKey("radiation-area-id"))
+    val radiationLevel = DoubleProperty(pluginNamespacedKey("radiation-level"))
 }
 
-fun Location.distanceSquared(other: Vector3f) : Double {
+fun Location.toVector3i(): Vector3i = Vector3i(x.roundToInt(), y.roundToInt(), z.roundToInt())
+
+fun Location.distanceSquared(other: Vector3f): Double {
     val dx = x - other.x
     val dy = y - other.y
     val dz = z - other.z
     return dx * dx + dy * dy + dz * dz
 }
 
-fun Location.toVector3f(): Vector3f {
-    return Vector3f(x.toFloat(), y.toFloat(), z.toFloat())
-}
+fun Location.toVector3f(): Vector3f = Vector3f(x.toFloat(), y.toFloat(), z.toFloat())
 
-fun Location.toVector3d(): Vector3d {
-    return Vector3d(x, y, z)
-}
+fun Location.toVector3d(): Vector3d = Vector3d(x, y, z)
 
-fun Location.lerp(other: Location, t: Double): Location {
-    return Location(
+fun Location.lerp(
+    other: Location,
+    t: Double,
+): Location =
+    Location(
         world,
         lerp(x, other.x, t),
         lerp(y, other.y, t),
         lerp(z, other.z, t),
         lerp(yaw, other.yaw, t),
-        lerp(pitch, other.pitch, t)
+        lerp(pitch, other.pitch, t),
     )
-}
 
 fun Location.toChunkCoordinate(): Vector3i {
     // Convert world coordinates to chunk coordinates
     return Vector3i((blockX shr 4), 0, (blockZ shr 4))
 }
 
-fun Location.toLocalChunkCoordinate(): Vector3i{
+fun Location.toLocalChunkCoordinate(): Vector3i {
     // Convert world coordinates to local chunk coordinates (0-15 range)
     return Vector3i((blockX and 15), blockY, (blockZ and 15))
 }
 
-
-fun Location.getCustomBlockId(): String? {
-    return getBlockData<String>(BlockDataKey.CustomBlockId)
+// Extension functions for setting/getting data on locations via CustomBlockData
+fun <T : Any> Location.setData(
+    property: DataProperty<T>,
+    value: T,
+) {
+    val customBlockData = CustomBlockData(this.block, Defcon)
+    customBlockData.setData(property, value)
 }
 
-fun Location.getItemId(): String? {
-    return getBlockData<String>(BlockDataKey.ItemId)
+fun <T : Any> Location.getData(property: DataProperty<T>): T? {
+    val customBlockData = CustomBlockData(this.block, Defcon)
+    return customBlockData.getData(property)
 }
 
-fun Location.getStructureId(): String? {
-    return getBlockData<String>(BlockDataKey.StructureId)
+fun <T : Any> Location.hasData(property: DataProperty<T>): Boolean {
+    val customBlockData = CustomBlockData(this.block, Defcon)
+    return customBlockData.hasData(property)
 }
 
-fun Location.getRadiationAreaId(): Int? {
-    return getBlockData<Int>(BlockDataKey.RadiationAreaId)
+fun <T : Any> Location.removeData(property: DataProperty<T>) {
+    val customBlockData = CustomBlockData(this.block, Defcon)
+    customBlockData.removeData(property)
 }
 
-fun Location.getRadiationLevel(): Double? {
-    return getBlockData<Double>(BlockDataKey.RadiationLevel)
-}
+// Convenience functions for specific properties
+fun Location.getCustomBlockId(): String? = getData(PluginLocationPropertyKeys.customBlockId)
 
-inline fun <reified T> Location.getBlockData(key: BlockDataKey): T? {
-    return MetaManager.getBlockData(this, key)
-}
+fun Location.getItemId(): String? = getData(PluginLocationPropertyKeys.itemId)
+
+fun Location.getStructureId(): String? = getData(PluginLocationPropertyKeys.structureId)
+
+fun Location.getRadiationAreaId(): Int? = getData(PluginLocationPropertyKeys.radiationAreaId)
+
+fun Location.getRadiationLevel(): Double? = getData(PluginLocationPropertyKeys.radiationLevel)

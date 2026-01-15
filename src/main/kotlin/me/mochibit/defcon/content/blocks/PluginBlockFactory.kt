@@ -22,11 +22,10 @@ package me.mochibit.defcon.content.blocks
 import me.mochibit.defcon.config.BlocksConfiguration
 import me.mochibit.defcon.content.element.AbstractElementFactory
 
-object PluginBlockFactory : AbstractElementFactory<PluginBlockProperties, PluginBlock, BlocksConfiguration.BlockDefinition>() {
-    override fun createProperties(elementDefinition: BlocksConfiguration.BlockDefinition): PluginBlockProperties {
-        return PluginBlockProperties(
+object PluginBlockFactory : AbstractElementFactory<PluginBlockProperties, PluginBlock<*>, BlocksConfiguration.BlockDefinition>() {
+    override fun createProperties(elementDefinition: BlocksConfiguration.BlockDefinition): PluginBlockProperties =
+        PluginBlockProperties(
             id = elementDefinition.id,
             blockBasis = elementDefinition.blockBasis,
         )
-    }
 }

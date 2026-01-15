@@ -25,10 +25,10 @@ import me.mochibit.defcon.content.items.PluginItemProperties
 data class RadiationHealerItem(
     override val properties: PluginItemProperties,
     override val unparsedBehaviourData: Map<String, Any>,
-) : PluginItem(properties, unparsedBehaviourData, RadiationHealerDataParser) {
-    override val behaviourProperties: RadiationHealerProperties by lazy {
-        super.behaviourProperties as RadiationHealerProperties
-    }
-
-    override fun copied(): RadiationHealerItem = copy()
+) : PluginItem<RadiationHealerProperties>(properties, unparsedBehaviourData, RadiationHealerDataParser) {
+    /**
+     * Typed access to behavior properties without casting.
+     */
+    val healerProperties: RadiationHealerProperties
+        get() = behaviourProperties
 }

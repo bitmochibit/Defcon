@@ -24,7 +24,5 @@ import me.mochibit.defcon.content.structures.PluginStructureProperties
 
 data class FatBoyStructure(
     override val properties: PluginStructureProperties,
-    override val unparsedBehaviourData: Map<String, Any>
-) : PluginStructure(properties, unparsedBehaviourData) {
-    override fun copied(): FatBoyStructure = copy()
-}
+    override val unparsedBehaviourData: Map<String, Any>,
+) : PluginStructure<Nothing?>(properties, unparsedBehaviourData)

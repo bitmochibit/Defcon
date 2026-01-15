@@ -29,30 +29,54 @@ import me.mochibit.defcon.extensions.PluginBlockPropertyKeys
 import me.mochibit.defcon.extensions.removeData
 import me.mochibit.defcon.extensions.setData
 import me.mochibit.defcon.registry.ItemRegistry
-import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.World
 
-abstract class PluginBlock(
-    override val properties: PluginBlockProperties,
-    override val unparsedBehaviourData: Map<String, Any>,
-    override val behaviourPropParser: ElementBehaviourPropParser? = null,
-    override val behaviourProperties: ElementBehaviourProperties? = behaviourPropParser?.parse(unparsedBehaviourData),
+/**
+ * Abstract base class for all plugin blocks.
+ *
+ * @param B The behaviour properties type for this block (use Nothing? for blocks without special behavior)
+ */
+abstract class PluginBlock<out B : ElementBehaviourProperties?>(
+    open override val properties: PluginBlockProperties,
+    open override val unparsedBehaviourData: Map<String, Any>,
+    final override val behaviourPropParser: ElementBehaviourPropParser? = null,
+) : Element<PluginBlockProperties, B> {
+    /**
+     * Lazily computed behavior properties. Override in subclasses that need typed access.
+     */
+    @Suppress("UNCHECKED_CAST")
+    override val behaviourProperties: B
+        get() = behaviourPropParser?.parse(unparsedBehaviourData) as B
 
-    private val mini: MiniMessage = MiniMessage.miniMessage(),
-): Element {
-    val linkedItem: PluginItem?
+    /**
+     * The linked item for this block.
+     */
+    val linkedItem: PluginItem<*>?
         get() = ItemRegistry.getItem(properties.id)
 
-    abstract override fun copied(): PluginBlock
-
-    fun placeBlock(x: Double, y: Double, z: Double, world: World) {
+    /**
+     * Places this block at the specified location.
+     */
+    fun placeBlock(
+        x: Double,
+        y: Double,
+        z: Double,
+        world: World,
+    ) {
         val block = world.getBlockAt(x.toInt(), y.toInt(), z.toInt())
         val blockData = CustomBlockData(block, Defcon)
-
         blockData.setData(PluginBlockPropertyKeys.blockId, properties.id)
     }
 
-    fun removeBlock(x: Double, y: Double, z: Double, world: World) {
+    /**
+     * Removes this block from the specified location.
+     */
+    fun removeBlock(
+        x: Double,
+        y: Double,
+        z: Double,
+        world: World,
+    ) {
         val block = world.getBlockAt(x.toInt(), y.toInt(), z.toInt())
         val blockData = CustomBlockData(block, Defcon)
 

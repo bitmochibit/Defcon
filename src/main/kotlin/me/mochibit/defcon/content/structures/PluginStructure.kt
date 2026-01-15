@@ -19,17 +19,24 @@
 
 package me.mochibit.defcon.content.structures
 
-import me.mochibit.defcon.content.element.AbstractElementFactory
 import me.mochibit.defcon.content.element.Element
 import me.mochibit.defcon.content.element.ElementBehaviourPropParser
 import me.mochibit.defcon.content.element.ElementBehaviourProperties
 
-abstract class PluginStructure (
-    override val properties: PluginStructureProperties,
-    override val unparsedBehaviourData: Map<String, Any>,
-    override val behaviourPropParser: ElementBehaviourPropParser? = null,
-    override val behaviourProperties: ElementBehaviourProperties? = behaviourPropParser?.parse(unparsedBehaviourData),
-): Element
-{
-    abstract override fun copied(): PluginStructure
+/**
+ * Abstract base class for all plugin structures.
+ *
+ * @param B The behaviour properties type for this structure (use Nothing? for structures without special behavior)
+ */
+abstract class PluginStructure<out B : ElementBehaviourProperties?>(
+    open override val properties: PluginStructureProperties,
+    open override val unparsedBehaviourData: Map<String, Any>,
+    final override val behaviourPropParser: ElementBehaviourPropParser? = null,
+) : Element<PluginStructureProperties, B> {
+    /**
+     * Lazily computed behavior properties. Override in subclasses that need typed access.
+     */
+    @Suppress("UNCHECKED_CAST")
+    override val behaviourProperties: B
+        get() = behaviourPropParser?.parse(unparsedBehaviourData) as B
 }

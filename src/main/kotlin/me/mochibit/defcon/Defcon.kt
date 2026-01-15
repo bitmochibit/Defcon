@@ -23,18 +23,17 @@ import com.github.shynixn.mccoroutine.bukkit.SuspendingJavaPlugin
 import me.mochibit.defcon.biomes.CustomBiomeHandler
 import me.mochibit.defcon.config.PluginConfiguration
 import me.mochibit.defcon.events.EventRegister
-import me.mochibit.defcon.registry.DatapackRegistry
-import me.mochibit.defcon.registry.ResourcePackRegistry
 import me.mochibit.defcon.notification.NotificationManager
 import me.mochibit.defcon.radiation.RadiationManager
 import me.mochibit.defcon.registry.BlockRegistry
 import me.mochibit.defcon.registry.CommandRegistry
+import me.mochibit.defcon.registry.DatapackRegistry
 import me.mochibit.defcon.registry.ItemRegistry
+import me.mochibit.defcon.registry.ResourcePackRegistry
 import me.mochibit.defcon.registry.StructureRegistry
 import me.mochibit.defcon.server.ResourcePackServer
 import me.mochibit.defcon.utils.Logger.info
 import org.bukkit.Bukkit
-
 
 class DefconPlugin : SuspendingJavaPlugin() {
     companion object {
@@ -49,27 +48,42 @@ class DefconPlugin : SuspendingJavaPlugin() {
 
     override fun onLoad() {
         info("Defcon is starting up ☢️")
-        EventRegister.registerPacketListeners()
+        try {
+            EventRegister.registerPacketListeners()
+        } catch (e: Exception) {
+            me.mochibit.defcon.utils.Logger
+                .err("Failed to register packet listeners: ${e.message}")
+            e.printStackTrace()
+        }
     }
 
     override suspend fun onEnableAsync() {
-        PluginConfiguration.loadAll()
+        try {
+            PluginConfiguration.loadAll()
 
-        DatapackRegistry.register()
-        ResourcePackRegistry.register()
+            DatapackRegistry.register()
+            ResourcePackRegistry.register()
 
-        NotificationManager.startBroadcastTask()
+            NotificationManager.startBroadcastTask()
 
-        EventRegister.registerBukkitListeners()
+            EventRegister.registerBukkitListeners()
 
-        BlockRegistry.registerAll()
-        ItemRegistry.registerAll()
-        StructureRegistry.registerAll()
-        CommandRegistry.registerCommands()
+            BlockRegistry.registerAll()
+            ItemRegistry.registerAll()
+            StructureRegistry.registerAll()
+            CommandRegistry.registerCommands()
 
-        RadiationManager.start()
-        CustomBiomeHandler.initialize()
-        ResourcePackServer.startServer()
+            RadiationManager.start()
+            CustomBiomeHandler.initialize()
+            ResourcePackServer.startServer()
+
+            info("Defcon has been enabled successfully! ☢️")
+        } catch (e: Exception) {
+            me.mochibit.defcon.utils.Logger
+                .err("Failed to enable Defcon: ${e.message}")
+            e.printStackTrace()
+            server.pluginManager.disablePlugin(this)
+        }
     }
 
     override suspend fun onDisableAsync() {
@@ -83,5 +97,5 @@ class DefconPlugin : SuspendingJavaPlugin() {
 }
 
 val Defcon get() = DefconPlugin.instance
-internal fun pluginNamespacedKey(key: String) = org.bukkit.NamespacedKey(Defcon, key)
 
+internal fun pluginNamespacedKey(key: String) = org.bukkit.NamespacedKey(Defcon, key)

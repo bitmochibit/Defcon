@@ -45,29 +45,24 @@ import org.bukkit.event.Event
 import org.bukkit.event.HandlerList
 
 class CustomItemEquipEvent(
-    val equippedItem: PluginItem,
+    val equippedItem: PluginItem<*>,
     val rawEquipmentSLot: Int,
     val armorSlot: LegacyItemEquipHandler.ArmorSlot?,
-    val player: Player
-) : Event(), Cancellable {
+    val player: Player,
+) : Event(),
+    Cancellable {
     private var cancelled = false
 
     companion object {
         private val HANDLERS = HandlerList()
 
         @JvmStatic
-        fun getHandlerList(): HandlerList {
-            return HANDLERS
-        }
+        fun getHandlerList(): HandlerList = HANDLERS
     }
 
-    override fun getHandlers(): HandlerList {
-        return HANDLERS
-    }
+    override fun getHandlers(): HandlerList = HANDLERS
 
-    override fun isCancelled(): Boolean {
-        return cancelled
-    }
+    override fun isCancelled(): Boolean = cancelled
 
     override fun setCancelled(cancel: Boolean) {
         this.cancelled = cancel

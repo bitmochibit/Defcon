@@ -20,14 +20,14 @@
 package me.mochibit.defcon.content.element
 
 /**
- * Contract based definition of an element
- * @param Properties The properties in common of the element
- * @param ProducedElement The actual element produced by this definition, and it must be an Element
+ * Contract-based definition of an element.
+ * Useful for data-driven element configuration (e.g., loading from JSON).
  *
- * It's useful for allowing data-driven element configuration, like loading from JSON or other formats.
+ * @param P The properties type
+ * @param E The produced element type
  */
-interface ElementDefinition<Properties: ElementProperties, ProducedElement: Element> {
+interface ElementDefinition<P : ElementProperties, E : Element<P, *>> {
     val id: String
-    val behaviour: ElementBehaviour<Properties, ProducedElement>
+    val behaviour: ElementBehaviour<P, E>
     val behaviourData: Map<String, Any>
 }

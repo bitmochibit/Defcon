@@ -19,15 +19,12 @@
 
 package me.mochibit.defcon.extensions
 
-import me.mochibit.defcon.registry.ItemRegistry
 import me.mochibit.defcon.content.items.PluginItem
+import me.mochibit.defcon.registry.ItemRegistry
 import org.bukkit.inventory.ItemStack
 
-
-fun ItemStack.getPluginItem(): PluginItem? {
+fun ItemStack.getPluginItem(): PluginItem<*>? {
     val meta = this.itemMeta ?: return null
     val pluginItemId = meta.getData(PluginItemPropertyKeys.itemId) ?: return null
     return ItemRegistry.getItem(pluginItemId)
 }
-
-

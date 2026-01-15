@@ -19,43 +19,101 @@
 
 package me.mochibit.defcon.config
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 import me.mochibit.defcon.content.element.ElementBehaviour
 import me.mochibit.defcon.content.element.ElementDefinition
 import me.mochibit.defcon.content.structures.PluginStructure
 import me.mochibit.defcon.content.structures.PluginStructureProperties
 import me.mochibit.defcon.content.structures.StructureBehaviour
 import me.mochibit.defcon.utils.Logger
-import org.bukkit.configuration.ConfigurationSection
 
 object StructuresConfiguration : PluginConfiguration<List<StructuresConfiguration.StructureDefinition>>("structures") {
-    data class StructureDefinition(
+    @Serializable
+    data class StructuresConfig(
+        val structures: List<StructureDefinitionJson>,
+    )
+
+    @Serializable
+    data class StructureDefinitionJson(
         val id: String,
+        @SerialName("display-name")
+        val displayName: String = "Unnamed Structure",
+        val description: String = "",
+        val structure: StructureFormationJson,
+        val behaviour: String,
+        val properties: Map<String, JsonElement> = emptyMap(),
+    )
+
+    @Serializable
+    data class StructureFormationJson(
+        val type: String,
+        val pattern: StructurePatternJson? = null,
+        @SerialName("required-blocks")
+        val requiredBlocks: List<String> = emptyList(),
+        @SerialName("optional-blocks")
+        val optionalBlocks: List<String> = emptyList(),
+    )
+
+    @Serializable
+    data class StructurePatternJson(
+        val levels: List<LevelJson>,
+        val mappings: Map<String, MappingJson>,
+        @SerialName("mapping-rules")
+        val mappingRules: Map<String, MappingRuleJson> = emptyMap(),
+    )
+
+    @Serializable
+    data class LevelJson(
+        val rows: List<String>,
+    )
+
+    @Serializable
+    data class MappingJson(
+        val block: String? = null,
+        @SerialName("any-of")
+        val anyOf: List<String> = emptyList(),
+        @SerialName("recommended-of")
+        val recommendedOf: List<String> = emptyList(),
+    )
+
+    @Serializable
+    data class MappingRuleJson(
+        val min: Int = 0,
+        val max: Int = Int.MAX_VALUE,
+        @SerialName("any-location-non-air")
+        val anyLocationNonAir: Boolean = false,
+    )
+
+    data class StructureDefinition(
+        override val id: String,
         val displayName: String,
         val description: String,
         val formation: StructureFormation,
         override val behaviour: StructureBehaviour,
         override val behaviourData: Map<String, Any>,
-    ): ElementDefinition<PluginStructureProperties, PluginStructure>
+    ) : ElementDefinition<PluginStructureProperties, PluginStructure<*>>
 
     data class StructureFormation(
         val type: FormationType,
         val pattern: StructurePattern? = null,
         val requiredBlocks: List<String> = emptyList(),
-        val optionalBlocks: List<String> = emptyList()
+        val optionalBlocks: List<String> = emptyList(),
     ) {
         enum class FormationType {
             SHAPED,
-            SHAPELESS
+            SHAPELESS,
         }
     }
 
     data class StructurePattern(
         val levels: List<Level>,
         val mappings: Map<Char, Mapping>,
-        val mappingRules: Map<Char, MappingRule> = emptyMap()
+        val mappingRules: Map<Char, MappingRule> = emptyMap(),
     ) {
         data class Level(
-            val rows: List<String>
+            val rows: List<String>,
         )
 
         data class Mapping(
@@ -69,112 +127,75 @@ object StructuresConfiguration : PluginConfiguration<List<StructuresConfiguratio
             val char: Char,
             val min: Int,
             val max: Int,
-            val anyLocationNonAir: Boolean = false
+            val anyLocationNonAir: Boolean = false,
         )
     }
 
-
     override suspend fun loadSchema(): List<StructureDefinition> {
-        val tempStructures = mutableListOf<StructureDefinition>()
+        val configText = readConfigFile()
+        val config = json.decodeFromString<StructuresConfig>(configText)
 
-        config.getConfigurationSection("structures")?.let { structuresSection ->
-            tempStructures.addAll(parseStructuresFromSection(structuresSection))
-        }
-
-        return tempStructures.toList()
-    }
-
-    private fun parseStructuresFromSection(section: ConfigurationSection): List<StructureDefinition> {
-        return section.getKeys(false).mapNotNull { structureId ->
-            val structureSection = section.getConfigurationSection(structureId) ?: run {
-                Logger.warn("Structure $structureId has no configuration section, skipping")
-                return@mapNotNull null
-            }
-            parseStructureDefinition(structureId, structureSection)
+        return config.structures.mapNotNull { structureJson ->
+            parseStructureDefinition(structureJson)
         }
     }
 
-    private fun parseStructureDefinition(
-        id: String,
-        structureSection: ConfigurationSection
-    ): StructureDefinition? {
-        val displayName = structureSection.getString("display-name") ?: "Unnamed Structure"
-        val description = structureSection.getString("description") ?: ""
+    private fun parseStructureDefinition(structureJson: StructureDefinitionJson): StructureDefinition? {
+        val formation = parseFormation(structureJson.id, structureJson.structure) ?: return null
 
-        val structureConfigSection = structureSection.getConfigurationSection("structure") ?: run {
-            Logger.err("Structure $id has no 'structure' section, skipping")
-            return null
-        }
-
-        val formation = parseFormation(id, structureConfigSection) ?: return null
-
-        val behaviourStr = structureSection.getString("behaviour") ?: run {
-            Logger.warn("Structure $id has no behaviour defined, skipping")
-            return null
-        }
-
-        val behaviour = try {
-            StructureBehaviour.valueOf(behaviourStr.uppercase().replace("-", "_"))
-        } catch (e: IllegalArgumentException) {
-            Logger.warn("Structure $id has invalid behaviour '$behaviourStr', skipping")
-            return null
-        }
-
-        val properties = mutableMapOf<String, Any>()
-        structureSection.getConfigurationSection("properties")?.let { propertiesSection ->
-            propertiesSection.getKeys(false).forEach { key ->
-                propertiesSection.get(key)?.let { value ->
-                    properties[key] = value
-                }
+        val behaviour =
+            try {
+                StructureBehaviour.valueOf(structureJson.behaviour.uppercase().replace("-", "_"))
+            } catch (_: IllegalArgumentException) {
+                Logger.warn("Structure ${structureJson.id} has invalid behaviour '${structureJson.behaviour}', skipping")
+                return null
             }
-        }
 
-        val behaviourData = properties.toMap()
+        val behaviourData = mutableMapOf<String, Any>()
+        structureJson.properties.forEach { (key, value) ->
+            behaviourData[key] = value.toString()
+        }
 
         return StructureDefinition(
-            id = id,
-            displayName = displayName,
-            description = description,
+            id = structureJson.id,
+            displayName = structureJson.displayName,
+            description = structureJson.description,
             formation = formation,
             behaviour = behaviour,
-            behaviourData = behaviourData
+            behaviourData = behaviourData,
         )
     }
 
     private fun parseFormation(
         structureId: String,
-        structureSection: ConfigurationSection
+        formationJson: StructureFormationJson,
     ): StructureFormation? {
-        val typeStr = structureSection.getString("type") ?: run {
-            Logger.err("Structure $structureId has no 'type' defined, skipping")
-            return null
-        }
-
-        val formationType = try {
-            StructureFormation.FormationType.valueOf(typeStr.uppercase())
-        } catch (e: IllegalArgumentException) {
-            Logger.err("Structure $structureId has invalid formation type '$typeStr', skipping")
-            return null
-        }
+        val formationType =
+            try {
+                StructureFormation.FormationType.valueOf(formationJson.type.uppercase())
+            } catch (_: IllegalArgumentException) {
+                Logger.err("Structure $structureId has invalid formation type '${formationJson.type}', skipping")
+                return null
+            }
 
         return when (formationType) {
             StructureFormation.FormationType.SHAPED -> {
-                val pattern = parsePattern(structureId, structureSection) ?: run {
-                    Logger.err("Structure $structureId is SHAPED but has no valid pattern, skipping")
-                    return null
-                }
+                val pattern =
+                    formationJson.pattern?.let { parsePattern(structureId, it) } ?: run {
+                        Logger.err("Structure $structureId is SHAPED but has no valid pattern, skipping")
+                        return null
+                    }
                 StructureFormation(
                     type = formationType,
-                    pattern = pattern
+                    pattern = pattern,
                 )
             }
+
             StructureFormation.FormationType.SHAPELESS -> {
-                val requiredBlocks = structureSection.getStringList("required-blocks")
-                val optionalBlocks = structureSection.getStringList("optional-blocks")
                 StructureFormation(
                     type = formationType,
-                    requiredBlocks = requiredBlocks,
-                    optionalBlocks = optionalBlocks
+                    requiredBlocks = formationJson.requiredBlocks,
+                    optionalBlocks = formationJson.optionalBlocks,
                 )
             }
         }
@@ -182,90 +203,60 @@ object StructuresConfiguration : PluginConfiguration<List<StructuresConfiguratio
 
     private fun parsePattern(
         structureId: String,
-        structureSection: ConfigurationSection
+        patternJson: StructurePatternJson,
     ): StructurePattern? {
-        val patternSection = structureSection.getConfigurationSection("pattern") ?: return null
-
-        // Parse levels (y-0, y-1, y-2, etc.)
-        val levels = mutableListOf<StructurePattern.Level>()
-        var levelIndex = 0
-        while (true) {
-            val levelKey = "y-$levelIndex"
-            val levelData = patternSection.getStringList(levelKey)
-            if (levelData.isEmpty()) {
-                break
-            }
-            levels.add(StructurePattern.Level(levelData))
-            levelIndex++
-        }
-
-        if (levels.isEmpty()) {
+        if (patternJson.levels.isEmpty()) {
             Logger.warn("Structure $structureId has no levels in pattern")
             return null
         }
 
-        // Parse mappings
-        val mappingSection = structureSection.getConfigurationSection("mapping") ?: run {
-            Logger.warn("Structure $structureId has no mapping section")
-            return null
-        }
-
-        val mappings = mutableMapOf<Char, StructurePattern.Mapping>()
-        mappingSection.getKeys(false).forEach { charKey ->
-            if (charKey.length != 1) {
-                Logger.warn("Structure $structureId has invalid mapping key '$charKey' (must be single character)")
-                return@forEach
+        val levels =
+            patternJson.levels.map { levelJson ->
+                StructurePattern.Level(levelJson.rows)
             }
-            val char = charKey[0]
-            val mappingData = mappingSection.getConfigurationSection(charKey)
 
-            if (mappingData != null) {
-                val block = mappingData.getString("block")
-                val anyOf = mappingData.getStringList("any-of")
-                val recommendedOf = mappingData.getStringList("recommended-of")
+        val mappings =
+            patternJson.mappings
+                .mapNotNull { (charKey, mappingJson) ->
+                    if (charKey.length != 1) {
+                        Logger.warn("Structure $structureId has invalid mapping key '$charKey' (must be single character)")
+                        return@mapNotNull null
+                    }
+                    val char = charKey[0]
+                    char to
+                        StructurePattern.Mapping(
+                            char = char,
+                            block = mappingJson.block,
+                            anyOf = mappingJson.anyOf,
+                            recommendedOf = mappingJson.recommendedOf,
+                        )
+                }.toMap()
 
-                mappings[char] = StructurePattern.Mapping(
-                    char = char,
-                    block = block,
-                    anyOf = anyOf,
-                    recommendedOf = recommendedOf
-                )
-            }
-        }
-
-        // Parse mapping rules
-        val mappingRules = mutableMapOf<Char, StructurePattern.MappingRule>()
-        structureSection.getConfigurationSection("mapping-rules")?.let { rulesSection ->
-            rulesSection.getKeys(false).forEach { charKey ->
-                if (charKey.length != 1) {
-                    Logger.warn("Structure $structureId has invalid mapping rule key '$charKey'")
-                    return@forEach
-                }
-                val char = charKey[0]
-                val ruleData = rulesSection.getConfigurationSection(charKey) ?: return@forEach
-
-                val min = ruleData.getInt("min", 0)
-                val max = ruleData.getInt("max", Int.MAX_VALUE)
-                val anyLocationNonAir = ruleData.getBoolean("any-location-non-air", false)
-
-                mappingRules[char] = StructurePattern.MappingRule(
-                    char = char,
-                    min = min,
-                    max = max,
-                    anyLocationNonAir = anyLocationNonAir
-                )
-            }
-        }
+        val mappingRules =
+            patternJson.mappingRules
+                .mapNotNull { (charKey, ruleJson) ->
+                    if (charKey.length != 1) {
+                        Logger.warn("Structure $structureId has invalid mapping rule key '$charKey'")
+                        return@mapNotNull null
+                    }
+                    val char = charKey[0]
+                    char to
+                        StructurePattern.MappingRule(
+                            char = char,
+                            min = ruleJson.min,
+                            max = ruleJson.max,
+                            anyLocationNonAir = ruleJson.anyLocationNonAir,
+                        )
+                }.toMap()
 
         return StructurePattern(
             levels = levels,
             mappings = mappings,
-            mappingRules = mappingRules
+            mappingRules = mappingRules,
         )
     }
 
     override suspend fun cleanupSchema() {
         // No cleanup needed for structures
     }
-
 }

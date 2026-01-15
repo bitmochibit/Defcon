@@ -19,32 +19,25 @@
 
 package me.mochibit.defcon.registry
 
-import me.mochibit.defcon.Defcon
-import me.mochibit.defcon.config.ItemsConfiguration
 import me.mochibit.defcon.config.StructuresConfiguration
 import me.mochibit.defcon.content.element.AbstractElementRegistry
-import me.mochibit.defcon.content.items.PluginItem
-import me.mochibit.defcon.content.items.PluginItemFactory
 import me.mochibit.defcon.content.structures.PluginStructure
 import me.mochibit.defcon.content.structures.PluginStructureFactory
 import me.mochibit.defcon.content.structures.PluginStructureProperties
-import me.mochibit.defcon.utils.Logger
-import me.mochibit.defcon.utils.Logger.info
-import org.bukkit.Bukkit
-import org.bukkit.Material
-import org.bukkit.NamespacedKey
-import org.bukkit.Tag
-import org.bukkit.inventory.ItemStack
-import org.bukkit.inventory.RecipeChoice
-import org.bukkit.inventory.ShapedRecipe
-import org.bukkit.inventory.ShapelessRecipe
-import kotlin.collections.component1
-import kotlin.collections.component2
 
-object StructureRegistry: AbstractElementRegistry<PluginStructureProperties, PluginStructure, StructuresConfiguration.StructureDefinition>(
-    PluginStructureFactory
+/**
+ * Registry for all custom plugin structures.
+ *
+ * Each structure definition has exactly ONE immutable template instance.
+ * Structures are stateless, so the template can be used directly without copying.
+ */
+object StructureRegistry : AbstractElementRegistry<PluginStructureProperties, PluginStructure<*>, StructuresConfiguration.StructureDefinition>(
+    PluginStructureFactory,
 ) {
-    override suspend fun retrieveDefinitions(): List<StructuresConfiguration.StructureDefinition> {
-        return StructuresConfiguration.getSchema()
-    }
+    override suspend fun retrieveDefinitions(): List<StructuresConfiguration.StructureDefinition> = StructuresConfiguration.getSchema()
+
+    /**
+     * Alias for get() - returns the immutable structure template
+     */
+    fun getStructure(id: String): PluginStructure<*>? = this[id]
 }

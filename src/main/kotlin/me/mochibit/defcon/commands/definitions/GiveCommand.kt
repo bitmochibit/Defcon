@@ -25,17 +25,13 @@ import com.mojang.brigadier.Command
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.builder.ArgumentBuilder
 import com.mojang.brigadier.context.CommandContext
-import com.mojang.brigadier.suggestion.Suggestions
-import com.mojang.brigadier.suggestion.SuggestionsBuilder
 import io.papermc.paper.command.brigadier.CommandSourceStack
 import io.papermc.paper.command.brigadier.Commands
 import me.mochibit.defcon.commands.CommandInfo
 import me.mochibit.defcon.commands.GenericCommand
 import me.mochibit.defcon.registry.ItemRegistry
-import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
-import java.util.concurrent.CompletableFuture
 
 /**
  * Implementation of the 'give' command for providing plugin items to players
@@ -47,25 +43,23 @@ import java.util.concurrent.CompletableFuture
     adminOnly = true,
     requiresPlayer = false,
     description = "Give a specified Defcon item to a player. If no player is specified, the item is given to the command executor.",
-    usage = "/defcon give <item> [player]"
+    usage = "/defcon give <item> [player]",
 )
 class GiveCommand : GenericCommand() {
-
     override fun getArguments(): ArgumentBuilder<CommandSourceStack, *> {
         return Commands
             .argument("item", StringArgumentType.word())
             .suggests { _, builder ->
                 suggestFromList(
-                    ItemRegistry.registeredItems.keys.toList(),
-                    builder
+                    ItemRegistry.registeredIds.toList(),
+                    builder,
                 )
-            }
-            .then(
-                Commands.argument("player", StringArgumentType.word())
+            }.then(
+                Commands
+                    .argument("player", StringArgumentType.word())
                     .suggests(::suggestPlayers)
-                    .executes(::handleFullCommand)
-            )
-            .executes(::handleExecutorAsTarget) // Allow execution without player argument
+                    .executes(::handleFullCommand),
+            ).executes(::handleExecutorAsTarget) // Allow execution without player argument
     }
 
     /**
@@ -81,7 +75,7 @@ class GiveCommand : GenericCommand() {
             return giveItemToPlayer(
                 sender,
                 ctx.source.executor as Player,
-                itemId
+                itemId,
             )
         }
 
@@ -105,12 +99,20 @@ class GiveCommand : GenericCommand() {
      * Helper method to give an item to a player
      * @return Command execution result code
      */
-    private fun giveItemToPlayer(sender: CommandSender, targetPlayer: Player, itemId: String): Int {
+    private fun giveItemToPlayer(
+        sender: CommandSender,
+        targetPlayer: Player,
+        itemId: String,
+    ): Int {
         // Get the item from the register
-        val item = ItemRegistry.registeredItems[itemId]
+        val item = ItemRegistry.get(itemId)
 
         if (item == null) {
-            sendMessage(sender, "Item with ID '$itemId' not found in the registry. Available items: ${ItemRegistry.registeredItems.keys.joinToString()}", isError = true)
+            sendMessage(
+                sender,
+                "Item with ID '$itemId' not found in the registry. Available items: ${ItemRegistry.registeredIds.joinToString()}",
+                isError = true,
+            )
             return Command.SINGLE_SUCCESS
         }
 

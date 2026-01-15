@@ -23,31 +23,46 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-
+import kotlinx.serialization.json.Json
 import me.mochibit.defcon.Defcon
 import me.mochibit.defcon.utils.Logger.err
 import me.mochibit.defcon.utils.Logger.info
-import org.bukkit.configuration.file.YamlConfiguration
 import java.io.File
 
-abstract class PluginConfiguration<out T>(private val configName: String) {
-    private val resourcePath = "$configName.yml"
+abstract class PluginConfiguration<out T>(
+    private val configName: String,
+) {
+    private val resourcePath = "$configName.json"
     private val dataFolderFile = File(Defcon.dataFolder, resourcePath)
 
-    val config: YamlConfiguration by lazy { YamlConfiguration.loadConfiguration(dataFolderFile) }
+    protected val json =
+        Json {
+            prettyPrint = true
+            isLenient = true
+            ignoreUnknownKeys = true
+            coerceInputValues = true
+            encodeDefaults = true
+        }
 
     protected val mutex = Mutex()
 
+    protected fun readConfigFile(): String {
+        if (!dataFolderFile.exists()) {
+            throw IllegalStateException("Configuration file $resourcePath does not exist")
+        }
+        return dataFolderFile.readText()
+    }
+
     @Volatile
     private var _loaded = false
-    val isLoaded: Boolean
+    val loaded: Boolean
         get() = _loaded
 
     @Volatile
     private var _schema: T? = null
 
-
     protected abstract suspend fun loadSchema(): T
+
     protected abstract suspend fun cleanupSchema()
 
     suspend fun getSchema(): T {
@@ -83,7 +98,6 @@ abstract class PluginConfiguration<out T>(private val configName: String) {
         mutex.withLock {
             try {
                 cleanupSchema()
-                config.load(dataFolderFile)
 
                 val schema = loadSchema()
                 _schema = schema
@@ -98,73 +112,97 @@ abstract class PluginConfiguration<out T>(private val configName: String) {
         info("Configuration $configName reloaded successfully")
     }
 
-    suspend fun initialize(preload: Boolean = true) = coroutineScope {
-        try {
-            saveDefaultConfig()
+    suspend fun initialize(preload: Boolean = true) =
+        coroutineScope {
+            try {
+                saveDefaultConfig()
 
-            if (preload) {
-                getSchema()
-            } else {
-                info("Configuration $configName initialized (lazy loading enabled)")
+                if (preload) {
+                    getSchema()
+                } else {
+                    info("Configuration $configName initialized (lazy loading enabled)")
+                }
+            } catch (e: Exception) {
+                err("Failed to initialize configuration $configName: ${e.message}")
+                throw e
             }
-        } catch (e: Exception) {
-            err("Failed to initialize configuration $configName: ${e.message}")
-            throw e
         }
-    }
 
     private fun saveDefaultConfig() {
+        // Ensure the data folder exists
+        if (!Defcon.dataFolder.exists()) {
+            if (!Defcon.dataFolder.mkdirs()) {
+                err("Failed to create data folder: ${Defcon.dataFolder.absolutePath}")
+                throw IllegalStateException("Could not create plugin data folder")
+            }
+        }
+
         if (dataFolderFile.exists()) {
             info("Configuration file $configName already exists, skipping default save.")
             return
         }
 
-
         try {
-            if (Defcon.getResource(resourcePath) == null) {
+            val resource = Defcon.getResource(resourcePath)
+            if (resource == null) {
                 info("Resource $resourcePath not found in the jar resources, assuming it's handled by the sub-configuration.")
                 return
             }
 
+            // Ensure parent directories exist
+            dataFolderFile.parentFile?.let { parent ->
+                if (!parent.exists() && !parent.mkdirs()) {
+                    throw IllegalStateException("Could not create parent directories for $resourcePath")
+                }
+            }
+
             Defcon.saveResource(resourcePath, false)
-            info("Default configuration saved for $configName")
+
+            if (!dataFolderFile.exists()) {
+                throw IllegalStateException("Configuration file was not created: ${dataFolderFile.absolutePath}")
+            }
+
+            info("Default configuration saved for $configName at ${dataFolderFile.absolutePath}")
         } catch (e: Exception) {
             err("Could not save default configuration for $configName: ${e.message}")
+            e.printStackTrace()
+            throw e
         }
     }
 
     companion object {
         private val configurations = mutableSetOf<PluginConfiguration<*>>()
 
-        suspend fun loadAll() = coroutineScope {
-            info("Loading plugin configurations...")
-            configurations.add(MainConfiguration)
-            configurations.add(ItemsConfiguration)
-            configurations.add(BlocksConfiguration)
-            // Temporarily disabled StructuresConfiguration due to NotImplementedError
-            // configurations.add(StructuresConfiguration)
+        suspend fun loadAll() =
+            coroutineScope {
+                info("Loading plugin configurations...")
+                configurations.add(MainConfiguration)
+                configurations.add(ItemsConfiguration)
+                configurations.add(BlocksConfiguration)
+                configurations.add(StructuresConfiguration)
 
-            for (config in configurations) {
-                launch {
-                    try {
-                        config.initialize()
-                    } catch (e: Exception) {
-                        err("Failed to initialize configuration ${config.configName}: ${e.message}")
+                for (config in configurations) {
+                    launch {
+                        try {
+                            config.initialize()
+                        } catch (e: Exception) {
+                            err("Failed to initialize configuration ${config.configName}: ${e.message}")
+                        }
                     }
                 }
             }
-        }
 
-        suspend fun cleanupAll() = coroutineScope {
-            for (config in configurations) {
-                launch {
-                    try {
-                        config.cleanup()
-                    } catch (e: Exception) {
-                        err("Failed to cleanup configuration ${config.configName}: ${e.message}")
+        suspend fun cleanupAll() =
+            coroutineScope {
+                for (config in configurations) {
+                    launch {
+                        try {
+                            config.cleanup()
+                        } catch (e: Exception) {
+                            err("Failed to cleanup configuration ${config.configName}: ${e.message}")
+                        }
                     }
                 }
             }
-        }
     }
 }

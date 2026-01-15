@@ -30,43 +30,49 @@ import me.mochibit.defcon.content.items.radiationHealer.RadiationHealerItem
 import me.mochibit.defcon.content.items.radiationMeasurer.RadiationMeasurerItem
 import me.mochibit.defcon.content.items.structureAssembler.StructureAssemblerItem
 
-
-enum class ItemBehaviour() : ElementBehaviour<PluginItemProperties, PluginItem> {
+enum class ItemBehaviour : ElementBehaviour<PluginItemProperties, PluginItem<*>> {
     GAS_MASK {
-        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
-            return GasMaskItem(properties, behaviourData)
-        }
+        override fun create(
+            properties: PluginItemProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginItem<*> = GasMaskItem(properties, behaviourData)
     },
     RADIATION_MEASURER {
-        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
-            return RadiationMeasurerItem(properties, behaviourData)
-        }
+        override fun create(
+            properties: PluginItemProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginItem<*> = RadiationMeasurerItem(properties, behaviourData)
     },
     RADIATION_HEALER {
-        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
-            return RadiationHealerItem(properties, behaviourData)
-        }
+        override fun create(
+            properties: PluginItemProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginItem<*> = RadiationHealerItem(properties, behaviourData)
     },
     STRUCTURE_ASSEMBLER {
-        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
-            return StructureAssemblerItem(properties, behaviourData)
-        }
+        override fun create(
+            properties: PluginItemProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginItem<*> = StructureAssemblerItem(properties, behaviourData)
     },
 
     // BLOCK ITEMS
     FISSION_CORE {
-        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
-            return FissionCoreBlockItem(properties, behaviourData)
-        }
+        override fun create(
+            properties: PluginItemProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginItem<*> = FissionCoreBlockItem(properties, behaviourData)
     },
     FUSION_CORE {
-        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
-            return FusionCoreBlockItem(properties, behaviourData)
-        }
+        override fun create(
+            properties: PluginItemProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginItem<*> = FusionCoreBlockItem(properties, behaviourData)
     },
     WARHEAD_INTERFACE {
-        override fun create(properties: PluginItemProperties, behaviourData: Map<String, Any>): PluginItem {
-            return WarheadInterfaceBlockItem(properties, behaviourData)
-        }
+        override fun create(
+            properties: PluginItemProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginItem<*> = WarheadInterfaceBlockItem(properties, behaviourData)
     },
 }

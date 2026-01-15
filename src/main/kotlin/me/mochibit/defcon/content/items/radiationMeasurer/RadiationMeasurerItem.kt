@@ -39,18 +39,18 @@ import kotlin.math.sin
 
 data class RadiationMeasurerItem(
     override val properties: PluginItemProperties,
-    override val unparsedBehaviourData: Map<String, Any>
-) : PluginItem(properties, unparsedBehaviourData) {
-
+    override val unparsedBehaviourData: Map<String, Any>,
+) : PluginItem<Nothing?>(properties, unparsedBehaviourData) {
     companion object {
         // Track last sound play time for each player to prevent spam
         private val lastSoundTime = ConcurrentHashMap<Player, Long>()
         private const val SOUND_COOLDOWN_MS = 500L // 500ms cooldown between sound effects
     }
 
-    override fun copied(): RadiationMeasurerItem = copy()
-
-    fun playClickingSound(location: Location, radiationLevel: Double) {
+    fun playClickingSound(
+        location: Location,
+        radiationLevel: Double,
+    ) {
         val player = location.world.players.firstOrNull { it.location.distance(location) < 1.0 } ?: return
         val currentTime = System.currentTimeMillis()
         val lastTime = lastSoundTime[player] ?: 0L
@@ -71,52 +71,69 @@ data class RadiationMeasurerItem(
         }
     }
 
-    fun showMeasurementTitle(player: Player, radiationLevel: Double) {
+    fun showMeasurementTitle(
+        player: Player,
+        radiationLevel: Double,
+    ) {
         val percentage = (radiationLevel * 100).toInt().coerceIn(0, 100)
 
         // Create radiation bar with gradient effect
         val barLength = 20
         val filledBars = (percentage / 5).coerceIn(0, barLength)
 
-        val bar = buildString {
-            for (i in 0 until barLength) {
-                when {
-                    i < filledBars -> {
-                        when {
-                            percentage < 30 -> append("█") // Low - solid green
-                            percentage < 60 -> append("▓") // Medium - checkered yellow
-                            percentage < 80 -> append("▒") // High - sparse orange
-                            else -> append("░") // Critical - dotted red
+        val bar =
+            buildString {
+                for (i in 0 until barLength) {
+                    when {
+                        i < filledBars -> {
+                            when {
+                                percentage < 30 -> append("█")
+
+                                // Low - solid green
+                                percentage < 60 -> append("▓")
+
+                                // Medium - checkered yellow
+                                percentage < 80 -> append("▒")
+
+                                // High - sparse orange
+                                else -> append("░") // Critical - dotted red
+                            }
+                        }
+
+                        else -> {
+                            append("│")
                         }
                     }
-                    else -> append("│")
                 }
             }
-        }
 
         // Color based on radiation level
-        val color = when {
-            percentage < 30 -> NamedTextColor.GREEN
-            percentage < 60 -> NamedTextColor.YELLOW
-            percentage < 80 -> NamedTextColor.GOLD
-            else -> NamedTextColor.RED
-        }
+        val color =
+            when {
+                percentage < 30 -> NamedTextColor.GREEN
+                percentage < 60 -> NamedTextColor.YELLOW
+                percentage < 80 -> NamedTextColor.GOLD
+                else -> NamedTextColor.RED
+            }
 
-        val statusText = when {
-            percentage < 30 -> Component.text("SAFE", NamedTextColor.GREEN, TextDecoration.BOLD)
-            percentage < 60 -> Component.text("CAUTION", NamedTextColor.YELLOW, TextDecoration.BOLD)
-            percentage < 80 -> Component.text("DANGER", NamedTextColor.GOLD, TextDecoration.BOLD)
-            else -> Component.text("☢ CRITICAL ☢", NamedTextColor.RED, TextDecoration.BOLD)
-        }
+        val statusText =
+            when {
+                percentage < 30 -> Component.text("SAFE", NamedTextColor.GREEN, TextDecoration.BOLD)
+                percentage < 60 -> Component.text("CAUTION", NamedTextColor.YELLOW, TextDecoration.BOLD)
+                percentage < 80 -> Component.text("DANGER", NamedTextColor.GOLD, TextDecoration.BOLD)
+                else -> Component.text("☢ CRITICAL ☢", NamedTextColor.RED, TextDecoration.BOLD)
+            }
 
-        val message = Component.text()
-            .append(Component.text("☢ RADIATION ☢ ", color, TextDecoration.BOLD))
-            .append(Component.text("[", color))
-            .append(Component.text(bar, color))
-            .append(Component.text("] ", color))
-            .append(Component.text("$percentage% ", NamedTextColor.WHITE))
-            .append(statusText)
-            .build()
+        val message =
+            Component
+                .text()
+                .append(Component.text("☢ RADIATION ☢ ", color, TextDecoration.BOLD))
+                .append(Component.text("[", color))
+                .append(Component.text(bar, color))
+                .append(Component.text("] ", color))
+                .append(Component.text("$percentage% ", NamedTextColor.WHITE))
+                .append(statusText)
+                .build()
 
         player.sendActionBar(message)
     }

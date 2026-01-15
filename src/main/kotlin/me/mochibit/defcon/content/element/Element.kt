@@ -19,10 +19,17 @@
 
 package me.mochibit.defcon.content.element
 
-interface Element {
-    val properties: ElementProperties
-    val behaviourProperties : ElementBehaviourProperties?
-    val unparsedBehaviourData : Map<String, Any>
+/**
+ * Immutable template for game elements.
+ * Elements are registered once and stored as read-only templates.
+ * Only ItemStacks should be copied/instantiated from these templates.
+ *
+ * @param P The properties type for this element
+ * @param B The behaviour properties type for this element (nullable for elements without behavior)
+ */
+interface Element<out P : ElementProperties, out B : ElementBehaviourProperties?> {
+    val properties: P
+    val behaviourProperties: B
+    val unparsedBehaviourData: Map<String, Any>
     val behaviourPropParser: ElementBehaviourPropParser?
-    fun copied(): Element
 }

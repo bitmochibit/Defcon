@@ -24,12 +24,11 @@ import me.mochibit.defcon.content.element.AbstractElementFactory
 import me.mochibit.defcon.registry.BlockRegistry
 
 object PluginItemFactory :
-    AbstractElementFactory<PluginItemProperties, PluginItem, ItemsConfiguration.ItemDefinition>() {
-
+    AbstractElementFactory<PluginItemProperties, PluginItem<*>, ItemsConfiguration.ItemDefinition>() {
     private const val DEFAULT_MINECRAFT_ID = "minecraft:stick"
 
-    override fun createProperties(elementDefinition: ItemsConfiguration.ItemDefinition): PluginItemProperties {
-        return PluginItemProperties(
+    override fun createProperties(elementDefinition: ItemsConfiguration.ItemDefinition): PluginItemProperties =
+        PluginItemProperties(
             id = elementDefinition.id,
             displayName = elementDefinition.displayName,
             description = elementDefinition.description,
@@ -37,29 +36,25 @@ object PluginItemFactory :
             itemModel = elementDefinition.itemModel,
             equipmentSlot = elementDefinition.equipmentSlot,
             maxStackSize = elementDefinition.maxStackSize,
-            legacyProperties = createLegacyProperties(elementDefinition)
+            legacyProperties = createLegacyProperties(elementDefinition),
         )
-    }
 
-    private fun resolveMinecraftId(elementDefinition: ItemsConfiguration.ItemDefinition): String {
-        return when {
+    private fun resolveMinecraftId(elementDefinition: ItemsConfiguration.ItemDefinition): String =
+        when {
             elementDefinition.minecraftId != null -> elementDefinition.minecraftId
             elementDefinition.isBlockItem -> getBlockMinecraftId(elementDefinition.id)
             else -> DEFAULT_MINECRAFT_ID
         }
-    }
 
-    private fun getBlockMinecraftId(blockId: String): String {
-        return BlockRegistry.getBlockTemplate(blockId)
+    private fun getBlockMinecraftId(blockId: String): String =
+        BlockRegistry[blockId]
             ?.properties
             ?.blockBasis
             ?: DEFAULT_MINECRAFT_ID
-    }
 
-    private fun createLegacyProperties(elementDefinition: ItemsConfiguration.ItemDefinition): PluginItemProperties.LegacyProperties {
-        return PluginItemProperties.LegacyProperties(
+    private fun createLegacyProperties(elementDefinition: ItemsConfiguration.ItemDefinition): PluginItemProperties.LegacyProperties =
+        PluginItemProperties.LegacyProperties(
             legacyMinecraftId = elementDefinition.legacyMinecraftId,
-            legacyItemModel = elementDefinition.legacyItemModel
+            legacyItemModel = elementDefinition.legacyItemModel,
         )
-    }
 }

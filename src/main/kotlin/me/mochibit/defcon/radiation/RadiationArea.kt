@@ -45,7 +45,7 @@ data class RadiationArea(
     val maxVertex: Vector3i? = null,
     val affectedChunkCoordinates: MutableSet<Vector3i> = HashSet(),
     val radiationLevel: Double = 0.0,
-    val id: Int = 0
+    val id: Int = 0,
 ) {
     /**
      * Checks if a location is within the bounds of this radiation area.
@@ -61,8 +61,8 @@ data class RadiationArea(
 
         // Check if the location is within the bounding box
         return location.x >= minVertex.x && location.x <= maxVertex.x &&
-               location.y >= minVertex.y && location.y <= maxVertex.y &&
-               location.z >= minVertex.z && location.z <= maxVertex.z
+            location.y >= minVertex.y && location.y <= maxVertex.y &&
+            location.z >= minVertex.z && location.z <= maxVertex.z
     }
 
     companion object {
@@ -78,44 +78,43 @@ data class RadiationArea(
          * @param location The location to check
          * @return Set of radiation areas at the given location
          */
-        suspend fun getAtLocation(location: Location): Set<RadiationArea> = withContext(Dispatchers.IO) {
-            val results = HashSet<RadiationArea>()
+        suspend fun getAtLocation(location: Location): Set<RadiationArea> =
+            withContext(Dispatchers.IO) {
+                val results = HashSet<RadiationArea>()
 
-            // First check if this block has a specific radiation area ID assigned
-            location.getRadiationAreaId()?.let { areaId ->
-                loadedRadiationAreas[areaId]?.let { area ->
-                    results.add(area)
+                // First check if this block has a specific radiation area ID assigned
+                location.getRadiationAreaId()?.let { areaId ->
+                    loadedRadiationAreas[areaId]?.let { area ->
+                        results.add(area)
+                    }
                 }
+
+                // Then check if the location is within any radiation area's bounds
+                loadedRadiationAreas.values
+                    .filter { it.checkIfInBounds(location) }
+                    .forEach { results.add(it) }
+
+                // If no radiation areas were found, try to load them from storage
+                if (results.isEmpty()) {
+                    val loadedAreas = tryLoadFromLocation(location)
+
+                    // Add the newly loaded areas to our cache and results
+                    loadedAreas.forEach { area ->
+                        loadedRadiationAreas[area.id] = area
+                        results.add(area)
+                    }
+                }
+
+                results
             }
 
-            // Then check if the location is within any radiation area's bounds
-            loadedRadiationAreas.values
-                .filter { it.checkIfInBounds(location) }
-                .forEach { results.add(it) }
-
-            // If no radiation areas were found, try to load them from storage
-            if (results.isEmpty()) {
-                val loadedAreas = tryLoadFromLocation(location)
-
-                // Add the newly loaded areas to our cache and results
-                loadedAreas.forEach { area ->
-                    loadedRadiationAreas[area.id] = area
-                    results.add(area)
-                }
-            }
-
-            results
-        }
-
-         /**
+        /**
          * Check if a location is within any radiation area.
          *
          * @param location The location to check
          * @return true if the location is within any radiation area, false otherwise
          */
-        fun checkIfInBounds(location: Location): Boolean {
-            return loadedRadiationAreas.values.any { it.checkIfInBounds(location) }
-        }
+        fun checkIfInBounds(location: Location): Boolean = loadedRadiationAreas.values.any { it.checkIfInBounds(location) }
 
         /**
          * Attempts to load radiation areas that might contain this location.
@@ -164,18 +163,14 @@ data class RadiationArea(
          * @param id The ID of the radiation area to remove
          * @return The removed radiation area, or null if it wasn't in the cache
          */
-        fun removeFromCache(id: Int): RadiationArea? {
-            return loadedRadiationAreas.remove(id)
-        }
+        fun removeFromCache(id: Int): RadiationArea? = loadedRadiationAreas.remove(id)
 
         /**
          * Gets all currently loaded radiation areas.
          *
          * @return Collection of all loaded radiation areas
          */
-        fun getAllLoaded(): Collection<RadiationArea> {
-            return loadedRadiationAreas.values
-        }
+        fun getAllLoaded(): Collection<RadiationArea> = loadedRadiationAreas.values
 
         /**
          * Clears all radiation areas from the cache.

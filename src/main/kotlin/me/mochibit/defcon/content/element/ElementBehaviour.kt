@@ -19,11 +19,16 @@
 
 package me.mochibit.defcon.content.element
 
-import me.mochibit.defcon.content.items.PluginItem
-import me.mochibit.defcon.content.items.PluginItemProperties
-
-
-
-interface ElementBehaviour<in P: ElementProperties, out E: Element> {
-    fun create(properties: P, behaviourData: Map<String, Any>): E
+/**
+ * Defines how to create an element from properties and behavior data.
+ * Typically implemented as an enum for type-safe behavior variants.
+ *
+ * @param P The properties type
+ * @param E The element type
+ */
+interface ElementBehaviour<P : ElementProperties, out E : Element<P, *>> {
+    fun create(
+        properties: P,
+        behaviourData: Map<String, Any>,
+    ): E
 }

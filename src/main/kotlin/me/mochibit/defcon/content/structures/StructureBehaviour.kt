@@ -23,18 +23,17 @@ import me.mochibit.defcon.content.element.ElementBehaviour
 import me.mochibit.defcon.content.structures.fatBoy.FatBoyStructure
 import me.mochibit.defcon.content.structures.nuclearWarhead.NuclearWarheadStructure
 
-enum class StructureBehaviour(
-) : ElementBehaviour<PluginStructureProperties, PluginStructure> {
+enum class StructureBehaviour : ElementBehaviour<PluginStructureProperties, PluginStructure<*>> {
     NUCLEAR_WARHEAD {
-        override fun create(properties: PluginStructureProperties, behaviourData: Map<String, Any>): PluginStructure {
-            return NuclearWarheadStructure(properties, behaviourData)
-        }
+        override fun create(
+            properties: PluginStructureProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginStructure<*> = NuclearWarheadStructure(properties, behaviourData)
     },
     FAT_BOY {
-        override fun create(properties: PluginStructureProperties, behaviourData: Map<String, Any>): PluginStructure {
-            return FatBoyStructure(properties, behaviourData)
-        }
+        override fun create(
+            properties: PluginStructureProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginStructure<*> = FatBoyStructure(properties, behaviourData)
     },
-    ;
 }
-

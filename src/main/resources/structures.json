@@ -1,0 +1,89 @@
+{
+  "structures": [
+    {
+      "id": "nuclear-warhead",
+      "display-name": "Nuclear warhead",
+      "description": "A nuclear warhead is a mass-destruction weapon that can be configured to be fission only\n(gun-type or implosion-type) or a two-stage thermonuclear weapon (boosted fission or true fusion).",
+      "structure": {
+        "type": "shapeless",
+        "required-blocks": [
+          "defcon:fission-core",
+          "defcon:warhead-interface"
+        ],
+        "optional-blocks": [
+          "defcon:fusion-core"
+        ]
+      },
+      "behaviour": "nuclear-warhead"
+    },
+    {
+      "id": "little-boy",
+      "display-name": "<yellow> Fat-boy </yellow>",
+      "description": "The OG",
+      "structure": {
+        "type": "shaped",
+        "pattern": {
+          "levels": [
+            {
+              "rows": [
+                "--b--y",
+                "wybywy",
+                "--b--y"
+              ]
+            },
+            {
+              "rows": [
+                "wyIywy",
+                "yXXXy-",
+                "wyIywy"
+              ]
+            },
+            {
+              "rows": [
+                "--b--y",
+                "wybywy",
+                "--b--y"
+              ]
+            }
+          ],
+          "mappings": {
+            "b": {
+              "block": "minecraft:black_concrete"
+            },
+            "w": {
+              "block": "minecraft:blackstone_wall"
+            },
+            "y": {
+              "block": "minecraft:yellow_terracotta"
+            },
+            "X": {
+              "any-of": [
+                "defcon:fission-core"
+              ]
+            },
+            "I": {
+              "recommended-of": [
+                "defcon:warhead-interface"
+              ]
+            }
+          },
+          "mapping-rules": {
+            "X": {
+              "min": 1,
+              "max": 1
+            },
+            "I": {
+              "min": 1,
+              "any-location-non-air": true
+            }
+          }
+        }
+      },
+      "properties": {
+        "warhead-type": "droppable-payload"
+      },
+      "behaviour": "nuclear-warhead"
+    }
+  ]
+}
+

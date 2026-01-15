@@ -30,44 +30,59 @@ sealed interface DataProperty<T : Any> {
 }
 
 @JvmInline
-value class StringProperty(override val key: NamespacedKey) : DataProperty<String> {
+value class StringProperty(
+    override val key: NamespacedKey,
+) : DataProperty<String> {
     override val type: PersistentDataType<*, String>
         get() = PersistentDataType.STRING
 }
 
 @JvmInline
-value class IntProperty(override val key: NamespacedKey) : DataProperty<Int> {
+value class IntProperty(
+    override val key: NamespacedKey,
+) : DataProperty<Int> {
     override val type: PersistentDataType<*, Int>
         get() = PersistentDataType.INTEGER
 }
 
 @JvmInline
-value class BooleanProperty(override val key: NamespacedKey) : DataProperty<Boolean> {
+value class BooleanProperty(
+    override val key: NamespacedKey,
+) : DataProperty<Boolean> {
     override val type: PersistentDataType<*, Boolean>
         get() = PersistentDataType.BOOLEAN
 }
 
 @JvmInline
-value class ByteProperty(override val key: NamespacedKey) : DataProperty<Byte> {
+value class ByteProperty(
+    override val key: NamespacedKey,
+) : DataProperty<Byte> {
     override val type: PersistentDataType<*, Byte>
         get() = PersistentDataType.BYTE
+}
+
+@JvmInline
+value class DoubleProperty(
+    override val key: NamespacedKey,
+) : DataProperty<Double> {
+    override val type: PersistentDataType<*, Double>
+        get() = PersistentDataType.DOUBLE
 }
 
 object PluginItemPropertyKeys {
     val itemId = StringProperty(pluginNamespacedKey("item-id"))
 }
 
-fun <T : Any> ItemMeta.setData(property: DataProperty<T>, value: T) {
+fun <T : Any> ItemMeta.setData(
+    property: DataProperty<T>,
+    value: T,
+) {
     this.persistentDataContainer.set(property.key, property.type, value)
 }
 
-fun <T : Any> ItemMeta.getData(property: DataProperty<T>): T? {
-    return this.persistentDataContainer.get(property.key, property.type)
-}
+fun <T : Any> ItemMeta.getData(property: DataProperty<T>): T? = this.persistentDataContainer.get(property.key, property.type)
 
-fun <T : Any> ItemMeta.hasData(property: DataProperty<T>): Boolean {
-    return this.persistentDataContainer.has(property.key, property.type)
-}
+fun <T : Any> ItemMeta.hasData(property: DataProperty<T>): Boolean = this.persistentDataContainer.has(property.key, property.type)
 
 fun <T : Any> ItemMeta.removeData(property: DataProperty<T>) {
     this.persistentDataContainer.remove(property.key)

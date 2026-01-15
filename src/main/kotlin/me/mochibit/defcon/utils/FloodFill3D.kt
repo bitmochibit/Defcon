@@ -2,27 +2,36 @@ package me.mochibit.defcon.utils
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import me.mochibit.defcon.extensions.getCustomBlockId
 import me.mochibit.defcon.registry.BlockRegistry
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.World
 import org.joml.Vector3i
-import java.util.*
+import java.util.EnumMap
+import java.util.LinkedList
 import java.util.concurrent.ConcurrentHashMap
 
 object FloodFill3D {
     // Direction vectors for 3D flood fill
-    private enum class Direction(val x: Int, val y: Int, val z: Int) {
+    private enum class Direction(
+        val x: Int,
+        val y: Int,
+        val z: Int,
+    ) {
         UP(0, 1, 0),
         DOWN(0, -1, 0),
         NORTH(0, 0, -1),
         SOUTH(0, 0, 1),
         EAST(1, 0, 0),
-        WEST(-1, 0, 0);
+        WEST(-1, 0, 0),
+        ;
 
-        fun getRelative(x: Int, y: Int, z: Int): Triple<Int, Int, Int> {
-            return Triple(x + this.x, y + this.y, z + this.z)
-        }
+        fun getRelative(
+            x: Int,
+            y: Int,
+            z: Int,
+        ): Triple<Int, Int, Int> = Triple(x + this.x, y + this.y, z + this.z)
     }
 
     // Cache for custom blocks to avoid repeated lookups
@@ -45,7 +54,7 @@ object FloodFill3D {
         nonSolidOnly: Boolean = false,
         customBlockOnly: Boolean = false,
         ignoreEmpty: Boolean = false,
-        blockFilter: ((Vector3i) -> Boolean)? = null
+        blockFilter: ((Vector3i) -> Boolean)? = null,
     ): EnumMap<Material, MutableSet<Vector3i>> {
         val result = EnumMap<Material, MutableSet<Vector3i>>(Material::class.java)
         val queue = LinkedList<Vector3i>()
@@ -69,7 +78,8 @@ object FloodFill3D {
             }
 
             // Add the location to the result map
-            result.getOrPut(type) { HashSet() }
+            result
+                .getOrPut(type) { HashSet() }
                 .add(currentPos)
 
             // Add neighbor blocks to the queue
@@ -93,7 +103,7 @@ object FloodFill3D {
         startLoc: Location,
         maxRange: Int,
         nonSolidOnly: Boolean = false,
-        customBlockOnly: Boolean = false
+        customBlockOnly: Boolean = false,
     ): List<Location> {
         val world = startLoc.world ?: return emptyList()
         val startPos = Vector3i(startLoc.x.toInt(), startLoc.y.toInt(), startLoc.z.toInt())
@@ -138,10 +148,11 @@ object FloodFill3D {
         startLoc: Location,
         maxRange: Int,
         nonSolidOnly: Boolean = false,
-        customBlockOnly: Boolean = false
-    ): List<Location> = withContext(Dispatchers.IO) {
-        getFloodFill(startLoc, maxRange, nonSolidOnly, customBlockOnly)
-    }
+        customBlockOnly: Boolean = false,
+    ): List<Location> =
+        withContext(Dispatchers.IO) {
+            getFloodFill(startLoc, maxRange, nonSolidOnly, customBlockOnly)
+        }
 
     /**
      * Check if a block meets all filter criteria
@@ -153,21 +164,25 @@ object FloodFill3D {
         nonSolidOnly: Boolean,
         customBlockOnly: Boolean,
         ignoreEmpty: Boolean,
-        blockFilter: ((Vector3i) -> Boolean)?
-    ): Boolean {
-        return (!nonSolidOnly || !blockType.isSolid) &&
-                (!customBlockOnly || isCustomBlock(blockLocation, world)) &&
-                (!ignoreEmpty || !blockType.isAir) &&
-                (blockFilter == null || blockFilter(blockLocation))
-    }
+        blockFilter: ((Vector3i) -> Boolean)?,
+    ): Boolean =
+        (!nonSolidOnly || !blockType.isSolid) &&
+            (!customBlockOnly || isCustomBlock(blockLocation, world)) &&
+            (!ignoreEmpty || !blockType.isAir) &&
+            (blockFilter == null || blockFilter(blockLocation))
 
     /**
      * Optimized method to check if a location contains a custom block
      * Uses caching to avoid repeated registry lookups
      */
-    private fun isCustomBlock(pos: Vector3i, world: World): Boolean {
+    private fun isCustomBlock(
+        pos: Vector3i,
+        world: World,
+    ): Boolean {
         return customBlockCache.computeIfAbsent(pos) {
-            BlockRegistry.getBlock(pos, world) != null
+            val block = world.getBlockAt(pos.x, pos.y, pos.z)
+            val id = block.location.getCustomBlockId() ?: return@computeIfAbsent false
+            return@computeIfAbsent BlockRegistry[id] != null
         }
     }
 }

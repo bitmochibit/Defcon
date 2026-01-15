@@ -24,17 +24,12 @@ import me.mochibit.defcon.content.blocks.PluginBlockProperties
 import me.mochibit.defcon.content.items.PluginItem
 import me.mochibit.defcon.content.items.PluginItemProperties
 
-data class WarheadInterfaceBlock (
+data class WarheadInterfaceBlock(
     override val properties: PluginBlockProperties,
-    override val unparsedBehaviourData: Map<String, Any>
-) : PluginBlock(properties, unparsedBehaviourData) {
-    override fun copied(): WarheadInterfaceBlock = copy()
-}
+    override val unparsedBehaviourData: Map<String, Any>,
+) : PluginBlock<Nothing?>(properties, unparsedBehaviourData)
 
 data class WarheadInterfaceBlockItem(
     override val properties: PluginItemProperties,
-    override val unparsedBehaviourData: Map<String, Any>
-): PluginItem(properties, unparsedBehaviourData)
-{
-    override fun copied(): WarheadInterfaceBlockItem = copy()
-}
+    override val unparsedBehaviourData: Map<String, Any>,
+) : PluginItem<Nothing?>(properties, unparsedBehaviourData)

@@ -26,13 +26,18 @@ import me.mochibit.defcon.content.blocks.PluginBlockProperties
 import me.mochibit.defcon.content.element.AbstractElementRegistry
 
 /**
- * This class handles the registration of the definitions blocks
- * All the registered blocks are stored and returned in a form of a Map(id, PluginBlock)
+ * Registry for all custom plugin blocks.
+ *
+ * Each block definition has exactly ONE immutable template instance.
+ * Blocks are stateless, so the template can be used directly without copying.
  */
-object BlockRegistry : AbstractElementRegistry<PluginBlockProperties, PluginBlock, BlocksConfiguration.BlockDefinition>(
-    PluginBlockFactory
+object BlockRegistry : AbstractElementRegistry<PluginBlockProperties, PluginBlock<*>, BlocksConfiguration.BlockDefinition>(
+    PluginBlockFactory,
 ) {
-    override suspend fun retrieveDefinitions(): List<BlocksConfiguration.BlockDefinition> {
-        return BlocksConfiguration.getSchema()
-    }
+    override suspend fun retrieveDefinitions(): List<BlocksConfiguration.BlockDefinition> = BlocksConfiguration.getSchema()
+
+    /**
+     * Alias for get() - returns the immutable block template
+     */
+    fun getBlock(id: String): PluginBlock<*>? = this[id]
 }

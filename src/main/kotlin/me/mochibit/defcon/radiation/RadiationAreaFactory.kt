@@ -21,11 +21,11 @@ package me.mochibit.defcon.radiation
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import me.mochibit.defcon.enums.BlockDataKey
+import me.mochibit.defcon.extensions.PluginLocationPropertyKeys
+import me.mochibit.defcon.extensions.setData
 import me.mochibit.defcon.extensions.toChunkCoordinate
 import me.mochibit.defcon.save.savedata.RadiationAreaSave
 import me.mochibit.defcon.utils.FloodFill3D
-import me.mochibit.defcon.utils.MetaManager
 import org.bukkit.Location
 import org.bukkit.World
 import org.joml.Vector3i
@@ -51,10 +51,11 @@ object RadiationAreaFactory {
         radLevel: Double = 1.0,
         maxFloodBlocks: Int = 20000,
         maxUpperVertexRadius: Vector3i = Vector3i(20000, 150, 20000),
-        maxLowerVertexRadius: Vector3i = Vector3i(-20000, -30, -20000)
-    ): RadiationArea = withContext(Dispatchers.IO) {
-        generate(center, world, radLevel, maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius)
-    }
+        maxLowerVertexRadius: Vector3i = Vector3i(-20000, -30, -20000),
+    ): RadiationArea =
+        withContext(Dispatchers.IO) {
+            generate(center, world, radLevel, maxFloodBlocks, maxUpperVertexRadius, maxLowerVertexRadius)
+        }
 
     /**
      * Generates a radiation area using the provided parameters.
@@ -65,60 +66,65 @@ object RadiationAreaFactory {
         radLevel: Double = 1.0,
         maxFloodBlocks: Int,
         maxVertexRadius: Vector3i,
-        minVertexRadius: Vector3i
-    ): RadiationArea = withContext(Dispatchers.IO) {
-        val centerLocation = Location(world, center.x.toDouble(), center.y.toDouble(), center.z.toDouble())
-        val locations = FloodFill3D.getFloodFillAsync(centerLocation, maxFloodBlocks + 1, true)
-        val affectedChunkCoordinates = HashSet<Vector3i>()
+        minVertexRadius: Vector3i,
+    ): RadiationArea =
+        withContext(Dispatchers.IO) {
+            val centerLocation = Location(world, center.x.toDouble(), center.y.toDouble(), center.z.toDouble())
+            val locations = FloodFill3D.getFloodFillAsync(centerLocation, maxFloodBlocks + 1, true)
+            val affectedChunkCoordinates = HashSet<Vector3i>()
 
-        // Determine vertices based on flood fill size
-        val (minVertex, maxVertex) = if (locations.size > maxFloodBlocks) {
-            // Use bounding box if the area is too large
-            val min = Vector3i(
-                center.x + minVertexRadius.x,
-                center.y + minVertexRadius.y,
-                center.z + minVertexRadius.z
-            )
-            val max = Vector3i(
-                center.x + maxVertexRadius.x,
-                center.y + maxVertexRadius.y,
-                center.z + maxVertexRadius.z
-            )
+            // Determine vertices based on flood fill size
+            val (minVertex, maxVertex) =
+                if (locations.size > maxFloodBlocks) {
+                    // Use bounding box if the area is too large
+                    val min =
+                        Vector3i(
+                            center.x + minVertexRadius.x,
+                            center.y + minVertexRadius.y,
+                            center.z + minVertexRadius.z,
+                        )
+                    val max =
+                        Vector3i(
+                            center.x + maxVertexRadius.x,
+                            center.y + maxVertexRadius.y,
+                            center.z + maxVertexRadius.z,
+                        )
 
-            affectedChunkCoordinates.add(min.toChunkCoordinate())
-            affectedChunkCoordinates.add(max.toChunkCoordinate())
+                    affectedChunkCoordinates.add(min.toChunkCoordinate())
+                    affectedChunkCoordinates.add(max.toChunkCoordinate())
 
-            Pair(min, max)
-        } else {
-            // Use actual flood fill
-            locations.forEach { location ->
-                affectedChunkCoordinates.add(location.toChunkCoordinate())
+                    Pair(min, max)
+                } else {
+                    // Use actual flood fill
+                    locations.forEach { location ->
+                        affectedChunkCoordinates.add(location.toChunkCoordinate())
+                    }
+                    Pair(null, null)
+                }
+
+            // Create and save radiation area
+            val radiationArea =
+                RadiationArea(
+                    center = center,
+                    world = world,
+                    minVertex = minVertex,
+                    maxVertex = maxVertex,
+                    affectedChunkCoordinates = affectedChunkCoordinates,
+                    radiationLevel = radLevel,
+                )
+
+            val indexedRA = RadiationAreaSave.getSave(world.name).addRadiationArea(radiationArea)
+
+            // Apply metadata to blocks if area size is manageable
+            if (locations.size < maxFloodBlocks) {
+                locations.forEach { location ->
+                    location.setData(PluginLocationPropertyKeys.radiationLevel, radLevel)
+                    location.setData(PluginLocationPropertyKeys.radiationAreaId, indexedRA.id)
+                }
             }
-            Pair(null, null)
+
+            radiationArea
         }
-
-        // Create and save radiation area
-        val radiationArea = RadiationArea(
-            center = center,
-            world = world,
-            minVertex = minVertex,
-            maxVertex = maxVertex,
-            affectedChunkCoordinates = affectedChunkCoordinates,
-            radiationLevel = radLevel
-        )
-
-        val indexedRA = RadiationAreaSave.getSave(world.name).addRadiationArea(radiationArea)
-
-        // Apply metadata to blocks if area size is manageable
-        if (locations.size < maxFloodBlocks) {
-            locations.forEach { location ->
-                MetaManager.setBlockData(location, BlockDataKey.RadiationLevel, radLevel)
-                MetaManager.setBlockData(location, BlockDataKey.RadiationAreaId, indexedRA.id)
-            }
-        }
-
-        radiationArea
-    }
 
     /**
      * Expands an existing radiation area.
@@ -127,15 +133,19 @@ object RadiationAreaFactory {
      * @param maxFloodBlocks The maximum number of blocks to flood fill
      * @return The expanded radiation area, or null if expansion failed
      */
-    suspend fun expand(radiationArea: RadiationArea, maxFloodBlocks: Int = 20000): RadiationArea =
+    suspend fun expand(
+        radiationArea: RadiationArea,
+        maxFloodBlocks: Int = 20000,
+    ): RadiationArea =
         withContext(Dispatchers.IO) {
             val world = radiationArea.world
-            val centerLoc = Location(
-                world,
-                radiationArea.center.x.toDouble(),
-                radiationArea.center.y.toDouble(),
-                radiationArea.center.z.toDouble()
-            )
+            val centerLoc =
+                Location(
+                    world,
+                    radiationArea.center.x.toDouble(),
+                    radiationArea.center.y.toDouble(),
+                    radiationArea.center.z.toDouble(),
+                )
 
             val locations = FloodFill3D.getFloodFillAsync(centerLoc, maxFloodBlocks, true)
 
@@ -143,8 +153,8 @@ object RadiationAreaFactory {
             locations.forEach { location ->
                 val chunkCoord = location.toChunkCoordinate()
                 radiationArea.affectedChunkCoordinates.add(chunkCoord)
-                MetaManager.setBlockData(location, BlockDataKey.RadiationLevel, radiationArea.radiationLevel)
-                MetaManager.setBlockData(location, BlockDataKey.RadiationAreaId, radiationArea.id)
+                location.setData(PluginLocationPropertyKeys.radiationLevel, radiationArea.radiationLevel)
+                location.setData(PluginLocationPropertyKeys.radiationAreaId, radiationArea.id)
             }
 
             radiationArea

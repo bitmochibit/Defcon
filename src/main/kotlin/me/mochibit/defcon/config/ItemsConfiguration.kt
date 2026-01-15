@@ -19,47 +19,95 @@
 
 package me.mochibit.defcon.config
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 import me.mochibit.defcon.content.element.ElementDefinition
 import me.mochibit.defcon.content.items.ItemBehaviour
 import me.mochibit.defcon.content.items.PluginItem
 import me.mochibit.defcon.content.items.PluginItemProperties
 import me.mochibit.defcon.utils.Logger
 import org.bukkit.NamespacedKey
-import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.inventory.EquipmentSlot
 
 object ItemsConfiguration : PluginConfiguration<List<ItemsConfiguration.ItemDefinition>>("items") {
+    @Serializable
+    data class ItemsConfig(
+        val items: List<ItemDefinitionJson> = emptyList(),
+        @SerialName("block-items")
+        val blockItems: List<ItemDefinitionJson> = emptyList(),
+    )
+
+    @Serializable
+    data class ItemDefinitionJson(
+        val id: String,
+        @SerialName("display-name")
+        val displayName: String = "Unnamed Item",
+        val description: String? = null,
+        @SerialName("minecraft-id")
+        val minecraftId: String? = null,
+        @SerialName("legacy-minecraft-id")
+        val legacyMinecraftId: String? = null,
+        val model: String? = null,
+        @SerialName("legacy-model-id")
+        val legacyItemModel: Int? = null,
+        @SerialName("equip-slot")
+        val equipmentSlot: String? = null,
+        @SerialName("max-stack-size")
+        val maxStackSize: Int = 64,
+        val behaviour: String,
+        val properties: Map<String, JsonElement> = emptyMap(),
+        val crafting: CraftingRecipeJson? = null,
+    )
+
+    @Serializable
+    data class CraftingRecipeJson(
+        val type: String,
+        @SerialName("result-amount")
+        val resultAmount: Int = 1,
+        val pattern: List<String> = emptyList(),
+        val key: Map<String, IngredientEntryJson> = emptyMap(),
+        val ingredients: List<IngredientEntryJson> = emptyList(),
+    )
+
+    @Serializable
+    data class IngredientEntryJson(
+        val item: String? = null,
+        val tag: String? = null,
+        val count: Int = 1,
+    )
 
     data class ItemDefinition(
         override val id: String,
         val displayName: String = "Unnamed Item",
         val description: String? = null,
-
         val minecraftId: String? = null,
         val legacyMinecraftId: String? = minecraftId,
-
         val itemModel: NamespacedKey? = null,
         val legacyItemModel: Int? = null,
-
         val equipmentSlot: EquipmentSlot? = null,
         val maxStackSize: Int = 64,
         override val behaviour: ItemBehaviour,
         override val behaviourData: Map<String, Any> = emptyMap(),
-
         val craftingRecipe: CraftingRecipe? = null,
         val isBlockItem: Boolean = false,
-    ) : ElementDefinition<PluginItemProperties, PluginItem> {
+    ) : ElementDefinition<PluginItemProperties, PluginItem<*>> {
         sealed interface CraftingRecipe {
             data class ShapedCraftingRecipe(
-                val resultAmount: Int, val pattern: List<String>, val keys: Map<Char, IngredientEntry>
+                val resultAmount: Int,
+                val pattern: List<String>,
+                val keys: Map<Char, IngredientEntry>,
             ) : CraftingRecipe
 
             data class ShapelessCraftingRecipe(
-                val resultAmount: Int, val ingredients: List<IngredientEntry>
+                val resultAmount: Int,
+                val ingredients: List<IngredientEntry>,
             ) : CraftingRecipe
 
             data class IngredientEntry(
-                val itemNamespaced: String?, val tag: String?, val count: Int = 1
+                val itemNamespaced: String?,
+                val tag: String?,
+                val count: Int = 1,
             )
         }
     }
@@ -67,188 +115,127 @@ object ItemsConfiguration : PluginConfiguration<List<ItemsConfiguration.ItemDefi
     override suspend fun cleanupSchema() {}
 
     override suspend fun loadSchema(): List<ItemDefinition> {
-        val tempItems = mutableListOf<ItemDefinition>()
+        val configText = readConfigFile()
+        val config = json.decodeFromString<ItemsConfig>(configText)
 
-        config.getConfigurationSection("items")?.let { itemsSection ->
-            tempItems.addAll(parseItemsFromSection(itemsSection, false))
-        }
+        val items = config.items.map { parseItemDefinition(it, false) }
+        val blockItems = config.blockItems.map { parseItemDefinition(it, true) }
 
-        config.getConfigurationSection("block-items")?.let { blockItemsSection ->
-            tempItems.addAll(parseItemsFromSection(blockItemsSection, true))
-        }
-
-        return tempItems.toList()
-    }
-
-    private fun parseItemsFromSection(section: ConfigurationSection, isBlockItem: Boolean): List<ItemDefinition> {
-        return section.getKeys(false).mapNotNull { id ->
-            val itemSection = section.getConfigurationSection(id) ?: return@mapNotNull null
-            parseItemDefinition(id, itemSection, isBlockItem)
-        }
+        return items + blockItems
     }
 
     private fun parseItemDefinition(
-        id: String,
-        itemSection: ConfigurationSection,
-        blockItem: Boolean
-    ): ItemDefinition? {
-        val displayName = itemSection.getString("display-name") ?: "Unnamed Item"
-        val description = itemSection.getString("description")
-        val minecraftId = itemSection.getString("minecraft-id")
-        val legacyMinecraftId = itemSection.getString("legacy-minecraft-id") ?: minecraftId
+        itemJson: ItemDefinitionJson,
+        blockItem: Boolean,
+    ): ItemDefinition {
+        val itemModel = itemJson.model?.let { NamespacedKey.fromString(it) }
 
-        val itemModel = itemSection.getString("model", null)?.let {
-            NamespacedKey.fromString(it)
-        }
-
-        val legacyModelId = itemSection.getInt("legacy-model-id", 0)
-
-        val equipmentSlot = itemSection.getString("equip-slot", null)?.let {
-            try {
-                EquipmentSlot.valueOf(it.uppercase())
-            } catch (ex: IllegalArgumentException) {
-                Logger.err("Invalid equipment slot '$it' for item $id, using null")
-                null
+        val equipmentSlot =
+            itemJson.equipmentSlot?.let {
+                try {
+                    EquipmentSlot.valueOf(it.uppercase())
+                } catch (_: IllegalArgumentException) {
+                    Logger.err("Invalid equipment slot '$it' for item ${itemJson.id}, using null")
+                    null
+                }
             }
-        }
 
-        val maxStackSize = itemSection.getInt("max-stack-size", 64)
-        val behaviourValue = itemSection.getString("behaviour") ?: return null
-
-        val itemBehaviour = try {
-            ItemBehaviour.valueOf(behaviourValue.uppercase())
-        } catch (ex: IllegalArgumentException) {
-            Logger.err("Invalid item behaviour '$behaviourValue' for item $id, skipping..")
-            return null
-        }
+        val itemBehaviour =
+            try {
+                ItemBehaviour.valueOf(itemJson.behaviour.uppercase())
+            } catch (_: IllegalArgumentException) {
+                Logger.err("Invalid item behaviour '${itemJson.behaviour}' for item ${itemJson.id}, using default")
+                ItemBehaviour.GAS_MASK // Use a safe default instead
+            }
 
         val behaviourData = mutableMapOf<String, Any>()
-        itemSection.getConfigurationSection("properties")?.let { propertiesSection ->
-            propertiesSection.getKeys(false).forEach { key ->
-                behaviourData[key] = propertiesSection.get(key) ?: ""
-            }
+        itemJson.properties.forEach { (key, jsonElement) ->
+            behaviourData[key] =
+                when {
+                    jsonElement is kotlinx.serialization.json.JsonPrimitive -> {
+                        when {
+                            jsonElement.isString -> {
+                                jsonElement.content
+                            }
+
+                            else -> {
+                                // Try to parse as number or boolean - try integer types first, then double
+                                jsonElement.content.toLongOrNull()
+                                    ?: jsonElement.content.toDoubleOrNull()
+                                    ?: jsonElement.content.toBooleanStrictOrNull()
+                                    ?: jsonElement.content
+                            }
+                        }
+                    }
+
+                    else -> {
+                        jsonElement.toString()
+                    }
+                }
         }
 
-        val itemRecipe: ItemDefinition.CraftingRecipe? =
-            parseRecipe(itemSection.getConfigurationSection("crafting"))
+        val itemRecipe = itemJson.crafting?.let { parseRecipe(it) }
 
         return ItemDefinition(
-            id = id,
-            displayName = displayName,
-            description = description,
-            minecraftId = minecraftId,
-            legacyMinecraftId = legacyMinecraftId,
+            id = itemJson.id,
+            displayName = itemJson.displayName,
+            description = itemJson.description,
+            minecraftId = itemJson.minecraftId,
+            legacyMinecraftId = itemJson.legacyMinecraftId ?: itemJson.minecraftId,
             itemModel = itemModel,
-            legacyItemModel = legacyModelId,
+            legacyItemModel = itemJson.legacyItemModel,
             equipmentSlot = equipmentSlot,
-            maxStackSize = maxStackSize,
+            maxStackSize = itemJson.maxStackSize,
             behaviour = itemBehaviour,
             behaviourData = behaviourData,
             craftingRecipe = itemRecipe,
-            isBlockItem = blockItem
+            isBlockItem = blockItem,
         )
     }
 
-    private fun parseRecipe(craftingSection: ConfigurationSection?): ItemDefinition.CraftingRecipe? {
-        craftingSection ?: return null
+    private fun parseRecipe(craftingJson: CraftingRecipeJson): ItemDefinition.CraftingRecipe? {
+        val craftingType = craftingJson.type.lowercase()
+        val resultAmount = craftingJson.resultAmount
 
-        val craftingType = craftingSection.getString("type") ?: return null
-        val resultAmount = craftingSection.getInt("result-amount", 1)
+        return when (craftingType) {
+            "shaped" -> {
+                if (craftingJson.pattern.isEmpty()) {
+                    Logger.err("Empty pattern for shaped recipe, skipping crafting")
+                    return null
+                }
+                val keys =
+                    craftingJson.key
+                        .mapValues { (_, ingredientJson) ->
+                            ItemDefinition.CraftingRecipe.IngredientEntry(
+                                itemNamespaced = ingredientJson.item,
+                                tag = ingredientJson.tag,
+                                count = ingredientJson.count,
+                            )
+                        }.mapKeys { it.key.first() }
 
-        return when (craftingType.lowercase()) {
-            "shaped" -> parseShapedRecipe(craftingSection, resultAmount)
-            "shapeless" -> parseShapelessRecipe(craftingSection, resultAmount)
+                ItemDefinition.CraftingRecipe.ShapedCraftingRecipe(resultAmount, craftingJson.pattern, keys)
+            }
+
+            "shapeless" -> {
+                if (craftingJson.ingredients.isEmpty()) {
+                    Logger.err("Empty ingredients list for shapeless recipe, skipping crafting")
+                    return null
+                }
+                val ingredients =
+                    craftingJson.ingredients.map { ingredientJson ->
+                        ItemDefinition.CraftingRecipe.IngredientEntry(
+                            itemNamespaced = ingredientJson.item,
+                            tag = ingredientJson.tag,
+                            count = ingredientJson.count,
+                        )
+                    }
+                ItemDefinition.CraftingRecipe.ShapelessCraftingRecipe(resultAmount, ingredients)
+            }
+
             else -> {
                 Logger.err("Invalid crafting type '$craftingType' for item, skipping crafting")
                 null
             }
         }
     }
-
-    private fun parseShapedRecipe(
-        craftingSection: ConfigurationSection,
-        resultAmount: Int
-    ): ItemDefinition.CraftingRecipe.ShapedCraftingRecipe? {
-        val pattern = craftingSection.getStringList("pattern")
-        if (pattern.isEmpty()) {
-            Logger.err("Empty pattern for shaped recipe in item, skipping crafting")
-            return null
-        }
-
-        val keys = parseRecipeKeys(craftingSection.getConfigurationSection("key"))
-        return ItemDefinition.CraftingRecipe.ShapedCraftingRecipe(resultAmount, pattern, keys)
-    }
-
-    private fun parseShapelessRecipe(
-        craftingSection: ConfigurationSection,
-        resultAmount: Int
-    ): ItemDefinition.CraftingRecipe.ShapelessCraftingRecipe? {
-        val ingredientsList = craftingSection.getMapList("ingredients")
-
-        if (ingredientsList.isEmpty()) {
-            Logger.err("Empty ingredients list for shapeless recipe in item, skipping crafting")
-            return null
-        }
-
-        val ingredients = ingredientsList.mapNotNull { ingredientMap ->
-            parseIngredientEntry(ingredientMap)
-        }
-
-        return if (ingredients.isNotEmpty()) {
-            ItemDefinition.CraftingRecipe.ShapelessCraftingRecipe(resultAmount, ingredients)
-        } else {
-            null
-        }
-    }
-
-
-    private fun parseRecipeKeys(keySection: ConfigurationSection?): Map<Char, ItemDefinition.CraftingRecipe.IngredientEntry> {
-        keySection ?: return emptyMap()
-
-        return keySection.getKeys(false).mapNotNull { charKey ->
-            if (charKey.length != 1) {
-                Logger.err("Invalid key character '$charKey' for item, skipping this key entry")
-                return@mapNotNull null
-            }
-
-            val keyEntrySection = keySection.getConfigurationSection(charKey) ?: return@mapNotNull null
-            val ingredient = parseIngredientFromSection(keyEntrySection, charKey)
-            ingredient?.let { charKey[0] to it }
-        }.toMap()
-    }
-
-    private fun parseIngredientFromSection(
-        section: ConfigurationSection,
-        charKey: String
-    ): ItemDefinition.CraftingRecipe.IngredientEntry? {
-        val itemId = section.getString("item")
-        val tag = section.getString("tag")
-        val count = section.getInt("count", 1)
-
-        return when {
-            tag != null -> ItemDefinition.CraftingRecipe.IngredientEntry(null, tag, count)
-            itemId != null -> ItemDefinition.CraftingRecipe.IngredientEntry(itemId, null, count)
-            else -> {
-                Logger.err("Missing 'item' or 'tag' in key entry for character '$charKey' in item")
-                null
-            }
-        }
-    }
-
-    private fun parseIngredientEntry(ingredientMap: Map<out Any?, Any?>?): ItemDefinition.CraftingRecipe.IngredientEntry? {
-        val itemId = ingredientMap?.get("item") as? String
-        val tag = ingredientMap?.get("tag") as? String
-        val count = (ingredientMap?.get("count") as? Number)?.toInt() ?: 1
-
-        return when {
-            tag != null -> ItemDefinition.CraftingRecipe.IngredientEntry(null, tag, count)
-            itemId != null -> ItemDefinition.CraftingRecipe.IngredientEntry(itemId, null, count)
-            else -> {
-                Logger.err("Missing 'item' or 'tag' in ingredient for item")
-                null
-            }
-        }
-    }
-
 }
-

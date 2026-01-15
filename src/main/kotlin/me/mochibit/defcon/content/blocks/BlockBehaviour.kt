@@ -24,21 +24,23 @@ import me.mochibit.defcon.content.blocks.fusionCore.FusionCoreBlock
 import me.mochibit.defcon.content.blocks.warheadInterface.WarheadInterfaceBlock
 import me.mochibit.defcon.content.element.ElementBehaviour
 
-enum class BlockBehaviour(
-) : ElementBehaviour<PluginBlockProperties, PluginBlock> {
+enum class BlockBehaviour : ElementBehaviour<PluginBlockProperties, PluginBlock<*>> {
     FISSION_CORE {
-        override fun create(properties: PluginBlockProperties, behaviourData: Map<String, Any>): PluginBlock {
-            return FissionCoreBlock(properties, behaviourData)
-        }
+        override fun create(
+            properties: PluginBlockProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginBlock<*> = FissionCoreBlock(properties, behaviourData)
     },
     FUSION_CORE {
-        override fun create(properties: PluginBlockProperties, behaviourData: Map<String, Any>): PluginBlock {
-            return FusionCoreBlock(properties, behaviourData)
-        }
+        override fun create(
+            properties: PluginBlockProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginBlock<*> = FusionCoreBlock(properties, behaviourData)
     },
     WARHEAD_INTERFACE {
-        override fun create(properties: PluginBlockProperties, behaviourData: Map<String, Any>): PluginBlock {
-            return WarheadInterfaceBlock(properties, behaviourData)
-        }
-    };
+        override fun create(
+            properties: PluginBlockProperties,
+            behaviourData: Map<String, Any>,
+        ): PluginBlock<*> = WarheadInterfaceBlock(properties, behaviourData)
+    },
 }

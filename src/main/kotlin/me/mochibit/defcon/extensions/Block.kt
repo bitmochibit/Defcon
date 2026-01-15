@@ -27,7 +27,7 @@ import me.mochibit.defcon.registry.BlockRegistry
 import me.mochibit.defcon.registry.ItemRegistry
 import org.bukkit.block.Block
 
-fun Block.getPluginBlock(): PluginBlock? {
+fun Block.getPluginBlock(): PluginBlock<*>? {
     val customBlockData = CustomBlockData(this, Defcon)
     val blockId = customBlockData.getData(PluginBlockPropertyKeys.blockId) ?: return null
     return BlockRegistry.getBlock(blockId)

@@ -19,11 +19,11 @@
 
 package me.mochibit.defcon.events.handlers.items
 
-import me.mochibit.defcon.utils.Logger.warn
 import me.mochibit.defcon.content.items.PluginItem
 import me.mochibit.defcon.events.AutoRegisterHandler
 import me.mochibit.defcon.events.plugin.equip.CustomItemEquipEvent
 import me.mochibit.defcon.extensions.getPluginItem
+import me.mochibit.defcon.utils.Logger.warn
 import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
@@ -42,47 +42,51 @@ import org.bukkit.inventory.ItemStack
  */
 @AutoRegisterHandler(fromVersion = "1.20", toVersion = "1.21.3")
 class LegacyItemEquipHandler : Listener {
-
     /**
      * Enum representing armor slot types with mapping to inventory positions
      */
-    enum class ArmorSlot(val rawSlot: Int, val inventorySlot: Int, val equipSlotName: String) {
+    enum class ArmorSlot(
+        val rawSlot: Int,
+        val inventorySlot: Int,
+        val equipSlotName: String,
+    ) {
         HELMET(5, 39, "HEAD"),
         CHESTPLATE(6, 38, "CHEST"),
         LEGGINGS(7, 37, "LEGS"),
-        BOOTS(8, 36, "FEET");
+        BOOTS(8, 36, "FEET"),
+        ;
 
         companion object {
-            fun fromRawSlot(rawSlot: Int): ArmorSlot? =
-                entries.firstOrNull { it.rawSlot == rawSlot }
+            fun fromRawSlot(rawSlot: Int): ArmorSlot? = entries.firstOrNull { it.rawSlot == rawSlot }
 
-            fun fromInventorySlot(inventorySlot: Int): ArmorSlot? =
-                entries.firstOrNull { it.inventorySlot == inventorySlot }
+            fun fromInventorySlot(inventorySlot: Int): ArmorSlot? = entries.firstOrNull { it.inventorySlot == inventorySlot }
 
             fun fromEquipSlotName(equipSlotName: String): ArmorSlot? =
                 entries.firstOrNull { it.equipSlotName.equals(equipSlotName, ignoreCase = true) }
 
-            fun fromEquipmentSlot(equipmentSlot: EquipmentSlot?): ArmorSlot? = when (equipmentSlot) {
-                EquipmentSlot.HEAD -> HELMET
-                EquipmentSlot.CHEST -> CHESTPLATE
-                EquipmentSlot.LEGS -> LEGGINGS
-                EquipmentSlot.FEET -> BOOTS
-                else -> null
-            }
+            fun fromEquipmentSlot(equipmentSlot: EquipmentSlot?): ArmorSlot? =
+                when (equipmentSlot) {
+                    EquipmentSlot.HEAD -> HELMET
+                    EquipmentSlot.CHEST -> CHESTPLATE
+                    EquipmentSlot.LEGS -> LEGGINGS
+                    EquipmentSlot.FEET -> BOOTS
+                    else -> null
+                }
 
-            fun fromVanillaArmorType(material: Material): ArmorSlot? = when {
-                material.name.endsWith("_HELMET") || material.name.endsWith("_HEAD") ||
-                material.name.contains("SKULL") || material == Material.CARVED_PUMPKIN -> HELMET
+            fun fromVanillaArmorType(material: Material): ArmorSlot? =
+                when {
+                    material.name.endsWith("_HELMET") || material.name.endsWith("_HEAD") ||
+                        material.name.contains("SKULL") || material == Material.CARVED_PUMPKIN -> HELMET
 
-                material.name.endsWith("_CHESTPLATE") || material.name.endsWith("_TUNIC") ||
-                material == Material.ELYTRA -> CHESTPLATE
+                    material.name.endsWith("_CHESTPLATE") || material.name.endsWith("_TUNIC") ||
+                        material == Material.ELYTRA -> CHESTPLATE
 
-                material.name.endsWith("_LEGGINGS") || material.name.endsWith("_PANTS") -> LEGGINGS
+                    material.name.endsWith("_LEGGINGS") || material.name.endsWith("_PANTS") -> LEGGINGS
 
-                material.name.endsWith("_BOOTS") -> BOOTS
+                    material.name.endsWith("_BOOTS") -> BOOTS
 
-                else -> null
-            }
+                    else -> null
+                }
         }
     }
 
@@ -110,7 +114,6 @@ class LegacyItemEquipHandler : Listener {
         // Skip vanilla items
         val pluginItem = cursor.getPluginItem() ?: return
         if (!pluginItem.isEquippable) return
-
 
         // Get slot information
         val targetSlot = ArmorSlot.fromRawSlot(event.rawSlot) ?: return
@@ -148,10 +151,12 @@ class LegacyItemEquipHandler : Listener {
         val pluginItem = currentItem.getPluginItem() ?: return
         if (!pluginItem.isEquippable) return
 
-
         // Ignore clicks in crafting or already in armor slots
         if (event.slotType == InventoryType.SlotType.CRAFTING ||
-            event.slotType == InventoryType.SlotType.ARMOR) return
+            event.slotType == InventoryType.SlotType.ARMOR
+        ) {
+            return
+        }
 
         val player = event.whoClicked as? Player ?: return
 
@@ -184,16 +189,17 @@ class LegacyItemEquipHandler : Listener {
     private fun moveToAlternativeInventorySection(
         item: ItemStack,
         player: Player,
-        event: InventoryClickEvent
+        event: InventoryClickEvent,
     ) {
         // Determine which section to move to based on source section
-        val (startSlot, endSlot) = if (event.rawSlot >= 36 && event.rawSlot <= 44) {
-            // If from hotbar, try main inventory
-            Pair(9, 35)
-        } else {
-            // If from main inventory, try hotbar
-            Pair(0, 8)
-        }
+        val (startSlot, endSlot) =
+            if (event.rawSlot >= 36 && event.rawSlot <= 44) {
+                // If from hotbar, try main inventory
+                Pair(9, 35)
+            } else {
+                // If from main inventory, try hotbar
+                Pair(0, 8)
+            }
 
         // Find first empty slot
         for (i in startSlot..endSlot) {
@@ -231,15 +237,17 @@ class LegacyItemEquipHandler : Listener {
         if (!pluginItem.isEquippable) return
 
         // Get slot information
-        val targetSlot = ArmorSlot.fromRawSlot(armorSlot) ?: run {
-            event.isCancelled = true
-            return
-        }
+        val targetSlot =
+            ArmorSlot.fromRawSlot(armorSlot) ?: run {
+                event.isCancelled = true
+                return
+            }
 
-        val itemSlot = ArmorSlot.fromEquipmentSlot(pluginItem.properties.equipmentSlot) ?: run {
-            event.isCancelled = true
-            return
-        }
+        val itemSlot =
+            ArmorSlot.fromEquipmentSlot(pluginItem.properties.equipmentSlot) ?: run {
+                event.isCancelled = true
+                return
+            }
 
         // Verify item can go in this slot
         if (targetSlot != itemSlot) {
@@ -337,19 +345,20 @@ class LegacyItemEquipHandler : Listener {
         event.isCancelled = true
 
         // Get slot information
-        val targetSlot = ArmorSlot.fromEquipmentSlot(pluginItem.properties.equipmentSlot) ?: run {
-            warn("Could not map equipment slot name to any armor slot")
-            event.isCancelled = false
-            return
-        }
+        val targetSlot =
+            ArmorSlot.fromEquipmentSlot(pluginItem.properties.equipmentSlot) ?: run {
+                warn("Could not map equipment slot name to any armor slot")
+                event.isCancelled = false
+                return
+            }
 
         val equipmentSlot = targetSlot.inventorySlot
         val currentItem = player.inventory.getItem(equipmentSlot)
 
         // Verify and trigger equip event
         if (checkItemSlotCompatibility(item, targetSlot) &&
-            triggerEquipEvent(pluginItem, targetSlot.rawSlot, player)) {
-
+            triggerEquipEvent(pluginItem, targetSlot.rawSlot, player)
+        ) {
             // Create copy with amount 1 for equipping
             val itemToEquip = item.clone().apply { amount = 1 }
 
@@ -358,10 +367,14 @@ class LegacyItemEquipHandler : Listener {
                 EquipmentSlot.HAND -> {
                     handleMainHandItemRemoval(player, currentItem)
                 }
+
                 EquipmentSlot.OFF_HAND -> {
                     handleOffHandItemRemoval(player, currentItem)
                 }
-                else -> return
+
+                else -> {
+                    return
+                }
             }
 
             // Equip the item in the correct slot
@@ -373,7 +386,10 @@ class LegacyItemEquipHandler : Listener {
     /**
      * Handle item removal from main hand when equipping
      */
-    private fun handleMainHandItemRemoval(player: Player, currentItem: ItemStack?) {
+    private fun handleMainHandItemRemoval(
+        player: Player,
+        currentItem: ItemStack?,
+    ) {
         val handSlot = player.inventory.heldItemSlot
         val mainHandItem = player.inventory.getItem(handSlot)
 
@@ -391,7 +407,10 @@ class LegacyItemEquipHandler : Listener {
     /**
      * Handle item removal from off hand when equipping
      */
-    private fun handleOffHandItemRemoval(player: Player, currentItem: ItemStack?) {
+    private fun handleOffHandItemRemoval(
+        player: Player,
+        currentItem: ItemStack?,
+    ) {
         val offhandItem = player.inventory.itemInOffHand
 
         if (offhandItem.type != Material.AIR) {
@@ -475,7 +494,8 @@ class LegacyItemEquipHandler : Listener {
         if (event.action == InventoryAction.PICKUP_ALL ||
             event.action == InventoryAction.PICKUP_HALF ||
             event.action == InventoryAction.PICKUP_SOME ||
-            event.action == InventoryAction.PICKUP_ONE) {
+            event.action == InventoryAction.PICKUP_ONE
+        ) {
             return
         }
 
@@ -494,8 +514,8 @@ class LegacyItemEquipHandler : Listener {
 
         // Handle move to other inventory and hotbar swap
         if (event.action == InventoryAction.MOVE_TO_OTHER_INVENTORY ||
-            event.action == InventoryAction.HOTBAR_SWAP) {
-
+            event.action == InventoryAction.HOTBAR_SWAP
+        ) {
             event.isCancelled = true
 
             // Check if target armor slot is available
@@ -512,7 +532,8 @@ class LegacyItemEquipHandler : Listener {
                 if (event.action == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
                     // Try hotbar first, then main inventory if needed
                     if (!moveItemToSection(currentItem, player, 0, 8, event) &&
-                        player.inventory.itemInOffHand == currentItem) {
+                        player.inventory.itemInOffHand == currentItem
+                    ) {
                         moveItemToSection(currentItem, player, 9, 35, event)
                     }
                 }
@@ -529,7 +550,7 @@ class LegacyItemEquipHandler : Listener {
         player: Player,
         startSlot: Int,
         endSlot: Int,
-        event: InventoryClickEvent
+        event: InventoryClickEvent,
     ): Boolean {
         // Find first empty slot
         for (i in startSlot..endSlot) {
@@ -619,7 +640,7 @@ class LegacyItemEquipHandler : Listener {
         rawSlot: Int,
         player: Player,
         event: InventoryEvent,
-        movedPluginItem: PluginItem
+        movedPluginItem: PluginItem<*>,
     ): Boolean {
         // Check if item can be equipped in this slot
         if (!checkItemSlotCompatibility(item, targetSlot)) {
@@ -647,10 +668,12 @@ class LegacyItemEquipHandler : Listener {
                 event.isCancelled = true
                 event.result = Event.Result.DENY
             }
+
             is InventoryClickEvent -> {
                 event.isCancelled = true
                 event.result = Event.Result.DENY
             }
+
             is InventoryDragEvent -> {
                 event.isCancelled = true
                 event.result = Event.Result.DENY
@@ -661,7 +684,10 @@ class LegacyItemEquipHandler : Listener {
     /**
      * Check if an item is compatible with the target slot
      */
-    private fun checkItemSlotCompatibility(item: ItemStack, targetSlot: ArmorSlot): Boolean {
+    private fun checkItemSlotCompatibility(
+        item: ItemStack,
+        targetSlot: ArmorSlot,
+    ): Boolean {
         // Skip if not a custom equippable item
         val pluginItem = item.getPluginItem() ?: return false
 
@@ -677,9 +703,9 @@ class LegacyItemEquipHandler : Listener {
      * Returns true if event was not cancelled
      */
     private fun triggerEquipEvent(
-        item: PluginItem,
+        item: PluginItem<*>,
         rawSlot: Int,
-        player: Player
+        player: Player,
     ): Boolean {
         val customItemEquipEvent = CustomItemEquipEvent(item, rawSlot, ArmorSlot.fromRawSlot(rawSlot), player)
         Bukkit.getServer().pluginManager.callEvent(customItemEquipEvent)
@@ -689,7 +715,7 @@ class LegacyItemEquipHandler : Listener {
 }
 
 @AutoRegisterHandler(fromVersion = "1.20", toVersion = "1.21.3")
-class LegacyItemEquipDispatchHandler: Listener {
+class LegacyItemEquipDispatchHandler : Listener {
     fun onItemEquip(event: CustomItemEquipEvent) {
         val player = event.player
         val pluginItem = event.equippedItem

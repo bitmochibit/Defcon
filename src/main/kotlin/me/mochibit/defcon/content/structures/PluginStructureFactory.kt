@@ -23,11 +23,9 @@ import me.mochibit.defcon.config.StructuresConfiguration
 import me.mochibit.defcon.content.element.AbstractElementFactory
 
 object PluginStructureFactory :
-    AbstractElementFactory<PluginStructureProperties, PluginStructure, StructuresConfiguration.StructureDefinition>() {
-
-    override fun createProperties(elementDefinition: StructuresConfiguration.StructureDefinition): PluginStructureProperties {
-        return PluginStructureProperties(
-            elementDefinition.id
+    AbstractElementFactory<PluginStructureProperties, PluginStructure<*>, StructuresConfiguration.StructureDefinition>() {
+    override fun createProperties(elementDefinition: StructuresConfiguration.StructureDefinition): PluginStructureProperties =
+        PluginStructureProperties(
+            elementDefinition.id,
         )
-    }
 }

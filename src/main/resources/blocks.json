@@ -1,0 +1,23 @@
+{
+  "blocks": [
+    {
+      "id": "fission-core",
+      "block-basis": "BLACK_GLAZED_TERRACOTTA",
+      "behaviour": "fission_core",
+      "properties": {}
+    },
+    {
+      "id": "fusion-core",
+      "block-basis": "END_ROD",
+      "behaviour": "fusion_core",
+      "properties": {}
+    },
+    {
+      "id": "warhead-interface",
+      "block-basis": "CRAFTER",
+      "behaviour": "warhead_interface",
+      "properties": {}
+    }
+  ]
+}
+

@@ -28,15 +28,17 @@ object PacketEvents {
     const val PLATFORM = "spigot"
 }
 
-
-
 group = "me.mochibit"
 version = "1.3.5b-SNAPSHOT"
 description = "A plugin that adds nuclear energy, along with its advantages and dangers"
 
 // Output configuration
-val outputPluginDirectory: String = project.findProperty("outputDir")?.toString()
-    ?: layout.buildDirectory.dir("libs").get().asFile.path
+val outputPluginDirectory: String =
+    project.findProperty("outputDir")?.toString()
+        ?: layout.buildDirectory
+            .dir("libs")
+            .get()
+            .asFile.path
 
 logger.lifecycle("Output directory: $outputPluginDirectory")
 
@@ -45,11 +47,14 @@ kotlin {
     jvmToolchain(Versions.JVM_TARGET)
 
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(Versions.JVM_TARGET.toString()))
+        jvmTarget.set(
+            org.jetbrains.kotlin.gradle.dsl.JvmTarget
+                .fromTarget(Versions.JVM_TARGET.toString()),
+        )
         freeCompilerArgs.addAll(
             "-Xjvm-default=all",
             "-opt-in=kotlin.RequiresOptIn",
-            "-Xcontext-receivers" // Enable context receivers if needed
+            "-Xcontext-receivers", // Enable context receivers if needed
         )
     }
 }
@@ -92,11 +97,12 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:${Versions.PAPER_API}")
     compileOnly("com.github.retrooper:packetevents-${PacketEvents.PLATFORM}:${Versions.PACKET_EVENTS}")
 
-    // Kotlin standard libraries
     library(kotlin("stdlib", Versions.KOTLIN))
     library(kotlin("reflect", Versions.KOTLIN))
     library("org.jetbrains.kotlinx:kotlinx-coroutines-core:${Versions.KOTLINX_COROUTINES}")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    library("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:${Versions.KOTLINX_COROUTINES}")
+    library("org.jetbrains.kotlinx:kotlinx-serialization-core:1.9.0")
+    library("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
     // Coroutines for Minecraft
     library("com.github.shynixn.mccoroutine:mccoroutine-bukkit-api:${Versions.MCCOROUTINE}")
@@ -142,7 +148,7 @@ tasks.runServer {
             "retrooper",
             "packetevents",
             "v${Versions.PACKET_EVENTS}",
-            "packetevents-${PacketEvents.PLATFORM}-${Versions.PACKET_EVENTS}.jar"
+            "packetevents-${PacketEvents.PLATFORM}-${Versions.PACKET_EVENTS}.jar",
         )
     }
 
@@ -158,7 +164,7 @@ tasks.jar {
 // Shadow JAR configuration
 tasks.shadowJar {
     archiveBaseName.set("Defcon")
-    archiveFileName.set("Defcon-${version}.jar")
+    archiveFileName.set("Defcon-$version.jar")
     archiveClassifier.set("")
     archiveVersion.set(project.version.toString())
 
@@ -186,7 +192,7 @@ tasks.shadowJar {
             "Created-By" to "Gradle ${gradle.gradleVersion}",
             "Implementation-Title" to project.name,
             "Implementation-Version" to project.version,
-            "Kotlin-Version" to Versions.KOTLIN
+            "Kotlin-Version" to Versions.KOTLIN,
         )
     }
 }
@@ -211,7 +217,11 @@ tasks.register<Copy>("installPlugin") {
     into(file(outputPluginDirectory))
 
     doLast {
-        val fileName = tasks.shadowJar.get().archiveFileName.get()
+        val fileName =
+            tasks.shadowJar
+                .get()
+                .archiveFileName
+                .get()
         logger.lifecycle("Plugin installed to: $outputPluginDirectory/$fileName")
     }
 }

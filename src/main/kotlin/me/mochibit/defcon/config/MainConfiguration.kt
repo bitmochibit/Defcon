@@ -19,110 +19,149 @@
 
 package me.mochibit.defcon.config
 
-object MainConfiguration : PluginConfiguration<MainConfiguration.BaseConfiguration>("config") {
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+object MainConfiguration : PluginConfiguration<MainConfiguration.BaseConfiguration>("config") {
+    @Serializable
     data class BaseConfiguration(
-        val resourcePackConfig: ResourcePackConfig,
-        val nuclearExplosionConfig: NuclearExplosionConfig
+        @SerialName("nuclear-explosion-settings")
+        val nuclearExplosionConfig: NuclearExplosionConfig,
+        @SerialName("pack-generator")
+        val packGenerator: PackGenerator? = null,
     ) {
+        // Computed property to ensure resourcePackConfig is always available
+        val resourcePackConfig: ResourcePackConfig
+            get() =
+                packGenerator?.let { packGen ->
+                    ResourcePackConfig(
+                        enabled = packGen.resourcePack.enabled,
+                        serverPort = packGen.resourcePack.serverPort,
+                        fallbackResourceInteger =
+                            ResourcePackConfig.FallbackResourceInteger(
+                                packGen.packFormatFallback.resourcePack,
+                            ),
+                        fallbackDatapackInteger =
+                            ResourcePackConfig.FallbackDatapackInteger(
+                                packGen.packFormatFallback.dataPack,
+                            ),
+                    )
+                } ?: ResourcePackConfig(
+                    enabled = true,
+                    serverPort = 8000,
+                    fallbackResourceInteger = ResourcePackConfig.FallbackResourceInteger(46),
+                    fallbackDatapackInteger = ResourcePackConfig.FallbackDatapackInteger(71),
+                )
+
+        @Serializable
+        data class PackGenerator(
+            @SerialName("resource-pack")
+            val resourcePack: ResourcePackSettings,
+            @SerialName("pack-format-fallback")
+            val packFormatFallback: PackFormatFallback,
+        ) {
+            @Serializable
+            data class ResourcePackSettings(
+                @SerialName("automatic-generation")
+                val enabled: Boolean = true,
+                @SerialName("resource-server-port")
+                val serverPort: Int = 8000,
+            )
+
+            @Serializable
+            data class PackFormatFallback(
+                @SerialName("resource-pack")
+                val resourcePack: Int = 46,
+                @SerialName("data-pack")
+                val dataPack: Int = 71,
+            )
+        }
+
+        @Serializable
         data class ResourcePackConfig(
             val enabled: Boolean,
             val serverPort: Int,
-
             val fallbackResourceInteger: FallbackResourceInteger,
-            val fallbackDatapackInteger: FallbackDatapackInteger
+            val fallbackDatapackInteger: FallbackDatapackInteger,
         ) {
+            @Serializable
             @JvmInline
-            value class FallbackResourceInteger(val value: Int)
+            value class FallbackResourceInteger(
+                val value: Int,
+            )
 
+            @Serializable
             @JvmInline
-            value class FallbackDatapackInteger(val value: Int)
-
+            value class FallbackDatapackInteger(
+                val value: Int,
+            )
         }
 
+        @Serializable
         data class NuclearExplosionConfig(
+            @SerialName("biome-handling")
             val biomeHandling: Boolean = true,
+            @SerialName("shockwave-config")
             val shockwaveConfig: ShockwaveConfig,
+            @SerialName("crater-config")
             val craterConfig: CraterConfig,
+            @SerialName("fallout-config")
             val falloutConfig: FalloutConfig,
+            @SerialName("flash-config")
             val flashConfig: FlashConfig,
+            @SerialName("thermal-config")
             val thermalConfig: ThermalConfig,
-            val soundConfig: SoundConfig
+            @SerialName("sound-config")
+            val soundConfig: SoundConfig,
         ) {
+            @Serializable
             data class ShockwaveConfig(
+                @SerialName("base-radius")
                 val baseRadius: Int,
+                @SerialName("base-height")
                 val baseHeight: Int,
             )
 
+            @Serializable
             data class CraterConfig(
+                @SerialName("base-radius")
                 val baseRadius: Int,
             )
 
+            @Serializable
             data class FalloutConfig(
+                @SerialName("base-radius")
                 val baseRadius: Int,
+                @SerialName("base-spread-height")
                 val baseSpreadHeight: Int,
-                val baseSpreadDepth: Int
+                @SerialName("base-underground-spread-depth")
+                val baseSpreadDepth: Int,
             )
 
+            @Serializable
             data class FlashConfig(
-                val baseRadius: Int
+                @SerialName("base-radius")
+                val baseRadius: Int,
             )
 
+            @Serializable
             data class ThermalConfig(
-                val baseRadius: Int
+                @SerialName("base-radius")
+                val baseRadius: Int,
             )
 
+            @Serializable
             data class SoundConfig(
-                val speed: Int
+                @SerialName("sound-speed")
+                val speed: Int,
             )
         }
-
     }
 
     override suspend fun loadSchema(): BaseConfiguration {
-        val resourcePackConfig = BaseConfiguration.ResourcePackConfig(
-            enabled = config.getBoolean("pack-generator.resource-pack.automatic-generation", true),
-            serverPort = config.getInt("pack-generator.resource-pack.resource-server-port", 8000),
-            fallbackResourceInteger = BaseConfiguration.ResourcePackConfig.FallbackResourceInteger(
-                config.getInt("pack-generator.pack-format-fallback.resource-pack", 46)
-            ),
-            fallbackDatapackInteger = BaseConfiguration.ResourcePackConfig.FallbackDatapackInteger(
-                config.getInt("pack-generator.pack-format-fallback.data-pack", 71)
-            )
-        )
-
-        val nuclearExplosionConfig = BaseConfiguration.NuclearExplosionConfig(
-            biomeHandling = config.getBoolean("nuclear-explosion-settings.biome-handling", true),
-            shockwaveConfig = BaseConfiguration.NuclearExplosionConfig.ShockwaveConfig(
-                baseRadius = config.getInt("nuclear-explosion-settings.shockwave-config.base-radius", 800),
-                baseHeight = config.getInt("nuclear-explosion-settings.shockwave-config.base-height", 300)
-            ),
-            craterConfig = BaseConfiguration.NuclearExplosionConfig.CraterConfig(
-                baseRadius = config.getInt("nuclear-explosion-settings.crater-config.base-radius", 100)
-            ),
-            falloutConfig = BaseConfiguration.NuclearExplosionConfig.FalloutConfig(
-                baseRadius = config.getInt("nuclear-explosion-settings.fallout-config.base-radius", 1600),
-                baseSpreadHeight = config.getInt("nuclear-explosion-settings.fallout-config.base-spread-height", 50),
-                baseSpreadDepth = config.getInt("nuclear-explosion-settings.fallout-config.base-underground-spread-depth", 25)
-            ),
-            flashConfig = BaseConfiguration.NuclearExplosionConfig.FlashConfig(
-                baseRadius = config.getInt("nuclear-explosion-settings.flash-config.base-radius", 1000)
-            ),
-            thermalConfig = BaseConfiguration.NuclearExplosionConfig.ThermalConfig(
-                baseRadius = config.getInt("nuclear-explosion-settings.thermal-config.base-radius", 1000)
-            ),
-            soundConfig = BaseConfiguration.NuclearExplosionConfig.SoundConfig(
-                speed = config.getInt("nuclear-explosion-settings.sound-config.sound-speed", 50)
-            )
-        )
-
-        return BaseConfiguration(
-            resourcePackConfig = resourcePackConfig,
-            nuclearExplosionConfig = nuclearExplosionConfig
-        )
-
+        val configText = readConfigFile()
+        return json.decodeFromString<BaseConfiguration>(configText)
     }
 
     override suspend fun cleanupSchema() {}
-
 }
