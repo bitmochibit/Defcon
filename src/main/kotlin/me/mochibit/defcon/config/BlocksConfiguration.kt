@@ -19,6 +19,7 @@
 
 package me.mochibit.defcon.config
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -29,10 +30,10 @@ import me.mochibit.defcon.content.element.ElementBehaviour
 import me.mochibit.defcon.content.element.ElementDefinition
 import me.mochibit.defcon.utils.Logger
 
-object BlocksConfiguration : PluginConfiguration<List<BlocksConfiguration.BlockDefinition>>("blocks") {
+object BlocksConfiguration : PluginConfiguration<BlocksConfiguration.BlocksConfig>("blocks") {
     @Serializable
     data class BlocksConfig(
-        val blocks: List<BlockDefinitionJson>,
+        val blocks: List<BlockDefinitionJson> = emptyList(),
     )
 
     @Serializable
@@ -51,10 +52,20 @@ object BlocksConfiguration : PluginConfiguration<List<BlocksConfiguration.BlockD
         override val behaviourData: Map<String, Any>,
     ) : ElementDefinition<PluginBlockProperties, PluginBlock<*>>
 
-    override suspend fun loadSchema(): List<BlockDefinition> {
+    override suspend fun loadSchema(): BlocksConfig {
         val configText = readConfigFile()
-        val config = json.decodeFromString<BlocksConfig>(configText)
+        return json.decodeFromString<BlocksConfig>(configText)
+    }
 
+    override fun getDefaultSchema(): BlocksConfig = BlocksConfig()
+
+    override fun getSerializer(): KSerializer<BlocksConfig> = BlocksConfig.serializer()
+
+    override suspend fun cleanupSchema() {}
+
+    // Helper method to get parsed block definitions
+    suspend fun getBlockDefinitions(): List<BlockDefinition> {
+        val config = getSchema()
         return config.blocks.mapNotNull { blockJson ->
             parseBlockDefinition(blockJson)
         }
@@ -70,8 +81,28 @@ object BlocksConfiguration : PluginConfiguration<List<BlocksConfiguration.BlockD
             }
 
         val behaviourData = mutableMapOf<String, Any>()
-        blockJson.properties.forEach { (key, value) ->
-            behaviourData[key] = value.toString()
+        blockJson.properties.forEach { (key, jsonElement) ->
+            behaviourData[key] =
+                when {
+                    jsonElement is kotlinx.serialization.json.JsonPrimitive -> {
+                        when {
+                            jsonElement.isString -> {
+                                jsonElement.content
+                            }
+
+                            else -> {
+                                jsonElement.content.toLongOrNull()
+                                    ?: jsonElement.content.toDoubleOrNull()
+                                    ?: jsonElement.content.toBooleanStrictOrNull()
+                                    ?: jsonElement.content
+                            }
+                        }
+                    }
+
+                    else -> {
+                        jsonElement.toString()
+                    }
+                }
         }
 
         return BlockDefinition(
@@ -81,6 +112,4 @@ object BlocksConfiguration : PluginConfiguration<List<BlocksConfiguration.BlockD
             behaviourData = behaviourData,
         )
     }
-
-    override suspend fun cleanupSchema() {}
 }

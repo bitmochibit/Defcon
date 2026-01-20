@@ -5,7 +5,6 @@ import me.mochibit.defcon.transformer.material.MaterialCategories
 import me.mochibit.defcon.utils.BlockChanger
 import me.mochibit.defcon.utils.ChunkCache
 import me.mochibit.defcon.utils.Geometry.wangNoise
-import org.bukkit.HeightMap
 import org.bukkit.Location
 import org.bukkit.Material
 import kotlin.math.pow
@@ -13,15 +12,16 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
- * Optimized crater generation with terrain-adaptive shaping and Kotlin idiomatic patterns.
+ * Optimized crater generation with natural paraboloid shaping.
  * Creates the bowl-shaped depression and scorched floor.
- * Above-ground destruction is handled by Shockwave for consistent behavior.
+ * Completely clears all blocks above the crater floor, removing buildings and structures.
  */
 class Crater(
     private val center: Location,
     private val radiusX: Int,
-    private val radiusY: Int, // Depth for the paraboloid
+    private val radiusY: Int,
     private val radiusZ: Int,
+    val collapseHeight: Int = 200,
 ) {
     private val world = center.world ?: error("World cannot be null for crater generation")
     private val chunkCache by lazy { ChunkCache.getInstance(world) }
@@ -67,7 +67,7 @@ class Crater(
     }
 
     /**
-     * Represents a point in the crater floor with terrain-adaptive height
+     * Represents a point in the crater floor with natural paraboloid shape
      */
     private data class CraterPoint(
         val x: Int,
@@ -77,12 +77,11 @@ class Crater(
     )
 
     /**
-     * Calculate terrain-adaptive crater floor height
+     * Calculate natural paraboloid crater floor height
      */
-    private fun calculateAdaptiveCraterFloor(
+    private fun calculateCraterFloor(
         dx: Int,
         dz: Int,
-        terrainY: Int,
     ): CraterPoint {
         val x = centerX + dx
         val z = centerZ + dz
@@ -92,31 +91,12 @@ class Crater(
         val maxRadiusSquared = maxOf(radiusX * radiusX, radiusZ * radiusZ)
         val normalizedDistance = sqrt(distSquared.toDouble() / maxRadiusSquared)
 
-        // Paraboloid crater shape (deeper in center)
+        // Paraboloid crater shape (deeper in center, shallower at edges)
         val depthFactor = distSquared.toDouble() / maxRadiusSquared
-        val idealCraterFloorY = centerY - (radiusY * (1.0 - depthFactor)).toInt()
+        val craterFloorY = centerY - (radiusY * (1.0 - depthFactor)).toInt()
 
-        // Edge blending - gradually blend with terrain near edges
-        val edgeBlendStart = 0.8
-        val blendFactor =
-            when {
-                depthFactor < edgeBlendStart -> {
-                    0.7
-                }
-
-                // Strong crater shape in center
-                else -> {
-                    val edgeFactor = (depthFactor - edgeBlendStart) / (1.0 - edgeBlendStart)
-                    0.7 * (1.0 - edgeFactor * 0.85) // Gradually blend to terrain
-                }
-            }
-
-        // Blend crater floor with natural terrain
-        val blendedY = (idealCraterFloorY * blendFactor + terrainY * (1.0 - blendFactor)).toInt()
-
-        // Ensure crater floor stays within valid world bounds only
-        // The blending formula already handles the relationship to terrain
-        val finalY = blendedY.coerceAtLeast(bounds.minY).coerceAtMost(world.maxHeight - 1)
+        // Ensure crater floor stays within valid world bounds
+        val finalY = craterFloorY.coerceAtLeast(bounds.minY).coerceAtMost(world.maxHeight - 1)
 
         return CraterPoint(x, finalY, z, normalizedDistance)
     }
@@ -129,13 +109,7 @@ class Crater(
                     val normalizedDistance = (dx.toDouble() / radiusX).pow(2) + (dz.toDouble() / radiusZ).pow(2)
                     if (normalizedDistance > 1.0) continue
 
-                    val x = centerX + dx
-                    val z = centerZ + dz
-
-                    // Get natural terrain height at this position
-                    val terrainY = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES)
-
-                    yield(calculateAdaptiveCraterFloor(dx, dz, terrainY))
+                    yield(calculateCraterFloor(dx, dz))
                 }
             }
         }
@@ -164,27 +138,19 @@ class Crater(
     }
 
     /**
-     * Clears all blocks from surface down to crater floor, creating the bowl shape.
-     * The crater floor remains solid - we only remove blocks ABOVE it.
-     * Shockwave will then process from radius 0 with sophisticated destruction logic.
+     * Clears all blocks from a reasonable height down to crater floor, creating the bowl shape.
+     * This completely removes all buildings, structures, and terrain above the crater.
      */
     private suspend fun clearToCraterFloor(point: CraterPoint) {
-        // Get the actual surface height at this position
-        val surfaceY = world.getHighestBlockYAt(point.x, point.z, org.bukkit.HeightMap.MOTION_BLOCKING_NO_LEAVES)
+        val maxClearHeight = (centerY + collapseHeight).coerceAtMost(world.maxHeight - 1)
 
-        // Calculate a reasonable max height to clear (higher of surface or center + some height)
-        val maxRemovalY = maxOf(surfaceY, centerY + radiusY).coerceAtMost(world.maxHeight - 1)
-
-        // Clear blocks above crater floor (from max height down to just above the crater floor)
-        // This creates the bowl shape without digging underneath
-        for (y in maxRemovalY downTo (point.y + 1)) {
+        for (y in maxClearHeight downTo (point.y + 1)) {
             val blockType = chunkCache.getBlockMaterialAsync(point.x, y, point.z)
-            if (blockType.canBeRemoved()) {
+            if (blockType.canBeRemoved() && blockType != Material.AIR) {
                 blockChanger.addBlockChange(point.x, y, point.z, Material.AIR, updateBlock = false)
             }
         }
 
-        // Do NOT dig below the crater floor - it should remain solid
         // The scorched surface at point.y is the bottom of the crater
     }
 

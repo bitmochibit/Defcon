@@ -19,6 +19,7 @@
 
 package me.mochibit.defcon.config
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -29,7 +30,7 @@ import me.mochibit.defcon.content.structures.PluginStructureProperties
 import me.mochibit.defcon.content.structures.StructureBehaviour
 import me.mochibit.defcon.utils.Logger
 
-object StructuresConfiguration : PluginConfiguration<List<StructuresConfiguration.StructureDefinition>>("structures") {
+object StructuresConfiguration : PluginConfiguration<StructuresConfiguration.StructuresConfig>("structures") {
     @Serializable
     data class StructuresConfig(
         val structures: List<StructureDefinitionJson>,
@@ -131,14 +132,13 @@ object StructuresConfiguration : PluginConfiguration<List<StructuresConfiguratio
         )
     }
 
-    override suspend fun loadSchema(): List<StructureDefinition> {
+    override suspend fun loadSchema(): StructuresConfig {
         val configText = readConfigFile()
         val config = json.decodeFromString<StructuresConfig>(configText)
-
-        return config.structures.mapNotNull { structureJson ->
-            parseStructureDefinition(structureJson)
-        }
+        return config
     }
+
+    override fun getDefaultSchema(): StructuresConfig = StructuresConfig(structures = emptyList())
 
     private fun parseStructureDefinition(structureJson: StructureDefinitionJson): StructureDefinition? {
         val formation = parseFormation(structureJson.id, structureJson.structure) ?: return null
@@ -164,6 +164,13 @@ object StructuresConfiguration : PluginConfiguration<List<StructuresConfiguratio
             behaviour = behaviour,
             behaviourData = behaviourData,
         )
+    }
+
+    suspend fun getStructureDefinitions(): List<StructureDefinition> {
+        val config = getSchema()
+        return config.structures.mapNotNull { structureJson ->
+            parseStructureDefinition(structureJson)
+        }
     }
 
     private fun parseFormation(
@@ -259,4 +266,6 @@ object StructuresConfiguration : PluginConfiguration<List<StructuresConfiguratio
     override suspend fun cleanupSchema() {
         // No cleanup needed for structures
     }
+
+    override fun getSerializer(): KSerializer<StructuresConfig> = StructuresConfig.serializer()
 }

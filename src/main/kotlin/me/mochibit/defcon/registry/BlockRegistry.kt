@@ -34,7 +34,7 @@ import me.mochibit.defcon.content.element.AbstractElementRegistry
 object BlockRegistry : AbstractElementRegistry<PluginBlockProperties, PluginBlock<*>, BlocksConfiguration.BlockDefinition>(
     PluginBlockFactory,
 ) {
-    override suspend fun retrieveDefinitions(): List<BlocksConfiguration.BlockDefinition> = BlocksConfiguration.getSchema()
+    override suspend fun retrieveDefinitions(): List<BlocksConfiguration.BlockDefinition> = BlocksConfiguration.getBlockDefinitions()
 
     /**
      * Alias for get() - returns the immutable block template

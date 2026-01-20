@@ -67,6 +67,12 @@ class MaterialTransformer(
                 Material.COBBLESTONE_SLAB,
             )
 
+        private val DESTROYED_DOUBLE_SLAB_MATERIALS =
+            setOf(
+                Material.COBBLED_DEEPSLATE,
+                Material.COBBLESTONE,
+            )
+
         private val DESTROYED_WALL_MATERIALS =
             setOf(
                 Material.COBBLED_DEEPSLATE_WALL,
@@ -90,6 +96,56 @@ class MaterialTransformer(
                 Material.COARSE_DIRT,
                 Material.MUD,
                 Material.MUDDY_MANGROVE_ROOTS,
+            )
+
+        private val DOUBLE_SLAB_BLOCKS =
+            setOf(
+                Material.STONE,
+                Material.SMOOTH_STONE,
+                Material.SANDSTONE,
+                Material.PETRIFIED_OAK_SLAB,
+                Material.OAK_PLANKS,
+                Material.SPRUCE_PLANKS,
+                Material.BIRCH_PLANKS,
+                Material.JUNGLE_PLANKS,
+                Material.ACACIA_PLANKS,
+                Material.DARK_OAK_PLANKS,
+                Material.CRIMSON_PLANKS,
+                Material.WARPED_PLANKS,
+                Material.COBBLESTONE,
+                Material.BRICKS,
+                Material.STONE_BRICKS,
+                Material.NETHER_BRICKS,
+                Material.QUARTZ_BLOCK,
+                Material.RED_SANDSTONE,
+                Material.PURPUR_BLOCK,
+                Material.PRISMARINE,
+                Material.PRISMARINE_BRICKS,
+                Material.DARK_PRISMARINE,
+                Material.POLISHED_GRANITE,
+                Material.POLISHED_DIORITE,
+                Material.POLISHED_ANDESITE,
+                Material.RED_NETHER_BRICKS,
+                Material.POLISHED_BLACKSTONE,
+                Material.POLISHED_BLACKSTONE_BRICKS,
+                Material.END_STONE_BRICKS,
+                Material.BLACKSTONE,
+                Material.MOSSY_COBBLESTONE,
+                Material.MOSSY_STONE_BRICKS,
+                Material.DEEPSLATE,
+                Material.COBBLED_DEEPSLATE,
+                Material.POLISHED_DEEPSLATE,
+                Material.DEEPSLATE_BRICKS,
+                Material.DEEPSLATE_TILES,
+                Material.CUT_COPPER,
+                Material.EXPOSED_CUT_COPPER,
+                Material.WEATHERED_CUT_COPPER,
+                Material.OXIDIZED_CUT_COPPER,
+                Material.WAXED_CUT_COPPER,
+                Material.WAXED_EXPOSED_CUT_COPPER,
+                Material.WAXED_WEATHERED_CUT_COPPER,
+                Material.WAXED_OXIDIZED_CUT_COPPER,
+                Material.MUD_BRICKS,
             )
 
         fun defaultRules(): List<TransformationRule> =
@@ -147,6 +203,16 @@ class MaterialTransformer(
                                         ),
                                 ),
                             ),
+                    ),
+                )
+
+                // Double slab destruction (higher priority than single slabs)
+                add(
+                    TransformationRule(
+                        name = "Double Slab Destruction",
+                        priority = 81,
+                        condition = TransformationCondition.MaterialSet(DOUBLE_SLAB_BLOCKS),
+                        outcome = TransformationOutcome.ToRandomMaterial(DESTROYED_DOUBLE_SLAB_MATERIALS),
                     ),
                 )
 

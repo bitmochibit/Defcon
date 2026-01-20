@@ -31,10 +31,12 @@ import me.mochibit.defcon.content.structures.PluginStructureProperties
  * Each structure definition has exactly ONE immutable template instance.
  * Structures are stateless, so the template can be used directly without copying.
  */
-object StructureRegistry : AbstractElementRegistry<PluginStructureProperties, PluginStructure<*>, StructuresConfiguration.StructureDefinition>(
-    PluginStructureFactory,
-) {
-    override suspend fun retrieveDefinitions(): List<StructuresConfiguration.StructureDefinition> = StructuresConfiguration.getSchema()
+object StructureRegistry :
+    AbstractElementRegistry<PluginStructureProperties, PluginStructure<*>, StructuresConfiguration.StructureDefinition>(
+        PluginStructureFactory,
+    ) {
+    override suspend fun retrieveDefinitions(): List<StructuresConfiguration.StructureDefinition> =
+        StructuresConfiguration.getStructureDefinitions()
 
     /**
      * Alias for get() - returns the immutable structure template

@@ -6,7 +6,8 @@
       "base-height": 300
     },
     "crater-config": {
-      "base-radius": 180
+      "base-radius": 60,
+      "base-depth": 60
     },
     "fallout-config": {
       "base-radius": 1600,

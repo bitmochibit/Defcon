@@ -106,7 +106,7 @@ class NuclearExplosion(
                         center,
                         BurningAirBiome,
                         lengthPositiveY = falloutRadius,
-                        lengthNegativeY = craterRadius / 6,
+                        lengthNegativeY = craterRadius / 6 + 10,
                         lengthNegativeX = falloutRadius,
                         lengthNegativeZ = falloutRadius,
                         lengthPositiveX = falloutRadius,
@@ -165,7 +165,7 @@ class NuclearExplosion(
                 Crater(
                     center,
                     pluginConfiguration.nuclearExplosionConfig.craterConfig.baseRadius,
-                    pluginConfiguration.nuclearExplosionConfig.craterConfig.baseRadius / 6,
+                    pluginConfiguration.nuclearExplosionConfig.craterConfig.baseDepth,
                     pluginConfiguration.nuclearExplosionConfig.craterConfig.baseRadius,
                 ).create()
 

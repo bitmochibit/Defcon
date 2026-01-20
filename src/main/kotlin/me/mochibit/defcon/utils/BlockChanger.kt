@@ -1,11 +1,13 @@
 package me.mochibit.defcon.utils
 
+import com.github.shynixn.mccoroutine.bukkit.launch
 import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import me.mochibit.defcon.Defcon
@@ -39,17 +41,16 @@ private data class BlockChange(
 )
 
 /**
- * Optimized BlockChanger using Kotlin Channels and Coroutines for fast parallel processing
+ * Optimized BlockChanger with fluid processing for smooth visual updates
  */
 class BlockChanger private constructor(
     private val world: World,
 ) {
     private val plugin = Defcon
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    // Configuration
-    private val workerCount = 4 // Workers to process and batch blocks
-    private val batchSize = 10000 // Apply blocks in batches for performance
+    private val workerCount = 8
+    private val batchSize = 5000
+    private val batchTimeoutMs = 2L
 
     // State
     private val processingActive = AtomicBoolean(false)
@@ -74,42 +75,66 @@ class BlockChanger private constructor(
     }
 
     /**
-     * Start processing block changes with batching for massive performance improvement
+     * Start processing block changes with time-based batching for fluid updates
      */
     private fun startProcessing() {
         if (!processingActive.compareAndSet(false, true)) return
 
         processingJobs.clear()
 
-        // Launch workers that batch blocks before applying to main thread
+        // Launch workers that batch blocks with timeout for fluid processing
         repeat(workerCount) {
             val job =
-                scope.launch(Dispatchers.Default) {
+                plugin.launch(Dispatchers.Default) {
                     val batch = mutableListOf<Pair<BlockChange, BlockData>>()
+                    var lastBatchTime = System.currentTimeMillis()
 
-                    for (change in blockChannel) {
-                        try {
-                            // Prepare block data on background thread
-                            val oldMaterial = NMSReflectionCache.getBlockMaterial(world, change.x, change.y, change.z)
-                            val newBlockData = change.newMaterial.createBlockData()
-
-                            // Copy relevant properties if materials are compatible
-                            if (oldMaterial != change.newMaterial) {
-                                val oldBlockData = oldMaterial.createBlockData()
-                                copyRelevantBlockData(oldBlockData, newBlockData)
+                    while (processingActive.get() || !blockChannel.isEmpty) {
+                        // Try to receive a change with timeout
+                        val change =
+                            try {
+                                blockChannel.tryReceive().getOrNull()
+                            } catch (_: Exception) {
+                                null
                             }
 
-                            batch.add(change to newBlockData)
+                        if (change != null) {
+                            try {
+                                // Prepare block data on background thread
+                                val newBlockData = change.newMaterial.createBlockData()
 
-                            // Apply batch when it reaches size limit
-                            if (batch.size >= batchSize) {
-                                applyBatch(batch.toList())
-                                batch.clear()
+                                // Skip property copying for AIR blocks (most common case in explosions)
+                                if (change.newMaterial != Material.AIR) {
+                                    val oldMaterial =
+                                        NMSReflectionCache.getBlockMaterial(world, change.x, change.y, change.z)
+                                    if (oldMaterial != change.newMaterial) {
+                                        val oldBlockData = oldMaterial.createBlockData()
+                                        copyRelevantBlockData(oldBlockData, newBlockData)
+                                    }
+                                }
+
+                                batch.add(change to newBlockData)
+                            } catch (_: Exception) {
+                                // Silent catch for resilience
+                            } finally {
+                                pendingChanges.decrementAndGet()
                             }
-                        } catch (_: Exception) {
-                            // Silent catch for resilience
-                        } finally {
-                            pendingChanges.decrementAndGet()
+                        }
+
+                        val currentTime = System.currentTimeMillis()
+                        val timeSinceLastBatch = currentTime - lastBatchTime
+                        val shouldApplyBatch =
+                            batch.isNotEmpty() &&
+                                (batch.size >= batchSize || timeSinceLastBatch >= batchTimeoutMs)
+
+                        // Apply batch when it reaches size limit OR timeout is reached
+                        if (shouldApplyBatch) {
+                            applyBatch(batch.toList())
+                            batch.clear()
+                            lastBatchTime = currentTime
+                        } else if (change == null) {
+                            // No change available, small delay to avoid busy waiting
+                            delay(1L)
                         }
                     }
 
@@ -123,7 +148,7 @@ class BlockChanger private constructor(
     }
 
     /**
-     * Apply a batch of prepared block changes on the main thread - much faster than individual calls
+     * Apply a batch of prepared block changes on the main thread
      */
     private suspend fun applyBatch(batch: List<Pair<BlockChange, BlockData>>) {
         kotlinx.coroutines.withContext(plugin.minecraftDispatcher) {
@@ -197,9 +222,6 @@ class BlockChanger private constructor(
         }
     }
 
-    /**
-     * Add a block change using x, y, z coordinates - suspending for backpressure
-     */
     suspend fun addBlockChange(
         x: Int,
         y: Int,
@@ -222,36 +244,17 @@ class BlockChanger private constructor(
     }
 
     /**
-     * Add a block change using Block object
-     */
-    suspend fun addBlockChange(
-        block: Block,
-        newMaterial: Material,
-        updateBlock: Boolean = false,
-    ) {
-        addBlockChange(block.x, block.y, block.z, newMaterial, updateBlock)
-    }
-
-    /**
-     * Add a block change using Vector3i object
-     */
-    suspend fun addBlockChange(
-        pos: Vector3i,
-        newMaterial: Material,
-        updateBlock: Boolean = false,
-    ) {
-        addBlockChange(pos.x, pos.y, pos.z, newMaterial, updateBlock)
-    }
-
-    /**
      * Wait for all pending block changes to be processed.
      * This is crucial for ensuring changes are applied before subsequent operations.
      */
     suspend fun flush() {
         // Wait until all pending changes are processed
         while (pendingChanges.get() > 0) {
-            kotlinx.coroutines.delay(10) // Small delay to avoid busy waiting
+            delay(10) // Small delay to avoid busy waiting
         }
+
+        // Extra small delay to ensure last batch is applied
+        delay(20)
     }
 
     /**
@@ -261,7 +264,7 @@ class BlockChanger private constructor(
         processingActive.set(false)
 
         // Cancel all processing jobs
-        scope.launch {
+        plugin.launch(Dispatchers.IO) {
             processingJobs.joinAll()
             processingJobs.clear()
             // Close channel

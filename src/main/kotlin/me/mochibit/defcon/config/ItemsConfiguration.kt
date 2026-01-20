@@ -19,6 +19,7 @@
 
 package me.mochibit.defcon.config
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -30,7 +31,7 @@ import me.mochibit.defcon.utils.Logger
 import org.bukkit.NamespacedKey
 import org.bukkit.inventory.EquipmentSlot
 
-object ItemsConfiguration : PluginConfiguration<List<ItemsConfiguration.ItemDefinition>>("items") {
+object ItemsConfiguration : PluginConfiguration<ItemsConfiguration.ItemsConfig>("items") {
     @Serializable
     data class ItemsConfig(
         val items: List<ItemDefinitionJson> = emptyList(),
@@ -114,13 +115,20 @@ object ItemsConfiguration : PluginConfiguration<List<ItemsConfiguration.ItemDefi
 
     override suspend fun cleanupSchema() {}
 
-    override suspend fun loadSchema(): List<ItemDefinition> {
+    override suspend fun loadSchema(): ItemsConfig {
         val configText = readConfigFile()
-        val config = json.decodeFromString<ItemsConfig>(configText)
+        return json.decodeFromString<ItemsConfig>(configText)
+    }
 
+    override fun getDefaultSchema(): ItemsConfig = ItemsConfig()
+
+    override fun getSerializer(): KSerializer<ItemsConfig> = ItemsConfig.serializer()
+
+    // Helper method to get parsed item definitions
+    suspend fun getItemDefinitions(): List<ItemDefinition> {
+        val config = getSchema()
         val items = config.items.map { parseItemDefinition(it, false) }
         val blockItems = config.blockItems.map { parseItemDefinition(it, true) }
-
         return items + blockItems
     }
 

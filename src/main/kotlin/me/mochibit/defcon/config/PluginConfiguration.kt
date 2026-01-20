@@ -29,7 +29,7 @@ import me.mochibit.defcon.utils.Logger.err
 import me.mochibit.defcon.utils.Logger.info
 import java.io.File
 
-abstract class PluginConfiguration<out T>(
+abstract class PluginConfiguration<T>(
     private val configName: String,
 ) {
     private val resourcePath = "$configName.json"
@@ -62,6 +62,9 @@ abstract class PluginConfiguration<out T>(
     private var _schema: T? = null
 
     protected abstract suspend fun loadSchema(): T
+
+    // NEW: Provide default schema instance
+    protected abstract fun getDefaultSchema(): T
 
     protected abstract suspend fun cleanupSchema()
 
@@ -115,7 +118,7 @@ abstract class PluginConfiguration<out T>(
     suspend fun initialize(preload: Boolean = true) =
         coroutineScope {
             try {
-                saveDefaultConfig()
+                saveOrMergeConfig()
 
                 if (preload) {
                     getSchema()
@@ -128,7 +131,7 @@ abstract class PluginConfiguration<out T>(
             }
         }
 
-    private fun saveDefaultConfig() {
+    private fun saveOrMergeConfig() {
         // Ensure the data folder exists
         if (!Defcon.dataFolder.exists()) {
             if (!Defcon.dataFolder.mkdirs()) {
@@ -137,38 +140,122 @@ abstract class PluginConfiguration<out T>(
             }
         }
 
-        if (dataFolderFile.exists()) {
-            info("Configuration file $configName already exists, skipping default save.")
-            return
+        // Ensure parent directories exist
+        dataFolderFile.parentFile?.let { parent ->
+            if (!parent.exists() && !parent.mkdirs()) {
+                throw IllegalStateException("Could not create parent directories for $resourcePath")
+            }
         }
 
         try {
-            val resource = Defcon.getResource(resourcePath)
-            if (resource == null) {
-                info("Resource $resourcePath not found in the jar resources, assuming it's handled by the sub-configuration.")
-                return
-            }
-
-            // Ensure parent directories exist
-            dataFolderFile.parentFile?.let { parent ->
-                if (!parent.exists() && !parent.mkdirs()) {
-                    throw IllegalStateException("Could not create parent directories for $resourcePath")
-                }
-            }
-
-            Defcon.saveResource(resourcePath, false)
-
             if (!dataFolderFile.exists()) {
-                throw IllegalStateException("Configuration file was not created: ${dataFolderFile.absolutePath}")
+                // Create new config with defaults
+                val defaultSchema = getDefaultSchema()
+                val jsonString =
+                    json.encodeToString(
+                        serializer = getSerializer(),
+                        value = defaultSchema,
+                    )
+                dataFolderFile.writeText(jsonString)
+                info("Default configuration created for $configName at ${dataFolderFile.absolutePath}")
+            } else {
+                // Merge existing config with defaults to add missing keys
+                mergeWithDefaults()
             }
-
-            info("Default configuration saved for $configName at ${dataFolderFile.absolutePath}")
         } catch (e: Exception) {
-            err("Could not save default configuration for $configName: ${e.message}")
+            err("Could not save/merge configuration for $configName: ${e.message}")
             e.printStackTrace()
             throw e
         }
     }
+
+    private fun mergeWithDefaults() {
+        try {
+            val existingText = dataFolderFile.readText()
+            val defaultSchema = getDefaultSchema()
+
+            // Decode existing config
+            val existingSchema =
+                json.decodeFromString(
+                    deserializer = getSerializer(),
+                    string = existingText,
+                )
+
+            // Get default JSON
+            val defaultJson =
+                json.encodeToString(
+                    serializer = getSerializer(),
+                    value = defaultSchema,
+                )
+
+            // Get existing JSON
+            val existingJson =
+                json.encodeToString(
+                    serializer = getSerializer(),
+                    value = existingSchema,
+                )
+
+            // If they're different, it means new defaults were added
+            if (defaultJson != existingJson) {
+                // Parse as JsonElement for deep merge
+                val defaultElement = json.parseToJsonElement(defaultJson)
+                val existingElement = json.parseToJsonElement(existingJson)
+
+                // Merge (existing values take precedence, but add missing keys from defaults)
+                val merged = mergeJsonElements(existingElement, defaultElement)
+
+                // Write back merged config
+                val mergedString =
+                    json.encodeToString(
+                        kotlinx.serialization.json.JsonElement
+                            .serializer(),
+                        merged,
+                    )
+                dataFolderFile.writeText(mergedString)
+                info("Configuration $configName merged with new default values")
+            }
+        } catch (e: Exception) {
+            // If merge fails, keep existing config
+            info("Configuration $configName already exists, keeping current values")
+        }
+    }
+
+    private fun mergeJsonElements(
+        existing: kotlinx.serialization.json.JsonElement,
+        default: kotlinx.serialization.json.JsonElement,
+    ): kotlinx.serialization.json.JsonElement =
+        when {
+            existing is kotlinx.serialization.json.JsonObject && default is kotlinx.serialization.json.JsonObject -> {
+                val merged = mutableMapOf<String, kotlinx.serialization.json.JsonElement>()
+
+                // Add all default keys
+                default.forEach { (key, defaultValue) ->
+                    merged[key] =
+                        if (existing.containsKey(key)) {
+                            // Recursively merge nested objects
+                            mergeJsonElements(existing[key]!!, defaultValue)
+                        } else {
+                            // Add missing key from defaults
+                            defaultValue
+                        }
+                }
+
+                // Add any existing keys not in defaults (user additions)
+                existing.forEach { (key, value) ->
+                    if (!merged.containsKey(key)) {
+                        merged[key] = value
+                    }
+                }
+
+                kotlinx.serialization.json.JsonObject(merged)
+            }
+
+            else -> {
+                existing
+            } // Prefer existing value for primitives and arrays
+        }
+
+    protected abstract fun getSerializer(): kotlinx.serialization.KSerializer<T>
 
     companion object {
         private val configurations = mutableSetOf<PluginConfiguration<*>>()

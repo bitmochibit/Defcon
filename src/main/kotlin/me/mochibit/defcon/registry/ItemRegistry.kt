@@ -78,7 +78,7 @@ object ItemRegistry : AbstractElementRegistry<PluginItemProperties, PluginItem<*
         }
     }
 
-    override suspend fun retrieveDefinitions(): List<ItemsConfiguration.ItemDefinition> = ItemsConfiguration.getSchema()
+    override suspend fun retrieveDefinitions(): List<ItemsConfiguration.ItemDefinition> = ItemsConfiguration.getItemDefinitions()
 
     /**
      * Alias for get() - returns the immutable item template

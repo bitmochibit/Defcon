@@ -19,6 +19,7 @@
 
 package me.mochibit.defcon.config
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -26,9 +27,9 @@ object MainConfiguration : PluginConfiguration<MainConfiguration.BaseConfigurati
     @Serializable
     data class BaseConfiguration(
         @SerialName("nuclear-explosion-settings")
-        val nuclearExplosionConfig: NuclearExplosionConfig,
+        val nuclearExplosionConfig: NuclearExplosionConfig = NuclearExplosionConfig(),
         @SerialName("pack-generator")
-        val packGenerator: PackGenerator? = null,
+        val packGenerator: PackGenerator? = PackGenerator(),
     ) {
         // Computed property to ensure resourcePackConfig is always available
         val resourcePackConfig: ResourcePackConfig
@@ -56,9 +57,9 @@ object MainConfiguration : PluginConfiguration<MainConfiguration.BaseConfigurati
         @Serializable
         data class PackGenerator(
             @SerialName("resource-pack")
-            val resourcePack: ResourcePackSettings,
+            val resourcePack: ResourcePackSettings = ResourcePackSettings(),
             @SerialName("pack-format-fallback")
-            val packFormatFallback: PackFormatFallback,
+            val packFormatFallback: PackFormatFallback = PackFormatFallback(),
         ) {
             @Serializable
             data class ResourcePackSettings(
@@ -102,58 +103,60 @@ object MainConfiguration : PluginConfiguration<MainConfiguration.BaseConfigurati
             @SerialName("biome-handling")
             val biomeHandling: Boolean = true,
             @SerialName("shockwave-config")
-            val shockwaveConfig: ShockwaveConfig,
+            val shockwaveConfig: ShockwaveConfig = ShockwaveConfig(),
             @SerialName("crater-config")
-            val craterConfig: CraterConfig,
+            val craterConfig: CraterConfig = CraterConfig(),
             @SerialName("fallout-config")
-            val falloutConfig: FalloutConfig,
+            val falloutConfig: FalloutConfig = FalloutConfig(),
             @SerialName("flash-config")
-            val flashConfig: FlashConfig,
+            val flashConfig: FlashConfig = FlashConfig(),
             @SerialName("thermal-config")
-            val thermalConfig: ThermalConfig,
+            val thermalConfig: ThermalConfig = ThermalConfig(),
             @SerialName("sound-config")
-            val soundConfig: SoundConfig,
+            val soundConfig: SoundConfig = SoundConfig(),
         ) {
             @Serializable
             data class ShockwaveConfig(
                 @SerialName("base-radius")
-                val baseRadius: Int,
+                val baseRadius: Int = 800,
                 @SerialName("base-height")
-                val baseHeight: Int,
+                val baseHeight: Int = 300,
             )
 
             @Serializable
             data class CraterConfig(
                 @SerialName("base-radius")
-                val baseRadius: Int,
+                val baseRadius: Int = 60,
+                @SerialName("base-depth")
+                val baseDepth: Int = 30,
             )
 
             @Serializable
             data class FalloutConfig(
                 @SerialName("base-radius")
-                val baseRadius: Int,
+                val baseRadius: Int = 1600,
                 @SerialName("base-spread-height")
-                val baseSpreadHeight: Int,
+                val baseSpreadHeight: Int = 150,
                 @SerialName("base-underground-spread-depth")
-                val baseSpreadDepth: Int,
+                val baseSpreadDepth: Int = 30,
             )
 
             @Serializable
             data class FlashConfig(
                 @SerialName("base-radius")
-                val baseRadius: Int,
+                val baseRadius: Int = 1000,
             )
 
             @Serializable
             data class ThermalConfig(
                 @SerialName("base-radius")
-                val baseRadius: Int,
+                val baseRadius: Int = 1000,
             )
 
             @Serializable
             data class SoundConfig(
                 @SerialName("sound-speed")
-                val speed: Int,
+                val speed: Int = 50,
             )
         }
     }
@@ -162,6 +165,10 @@ object MainConfiguration : PluginConfiguration<MainConfiguration.BaseConfigurati
         val configText = readConfigFile()
         return json.decodeFromString<BaseConfiguration>(configText)
     }
+
+    override fun getDefaultSchema(): BaseConfiguration = BaseConfiguration()
+
+    override fun getSerializer(): KSerializer<BaseConfiguration> = BaseConfiguration.serializer()
 
     override suspend fun cleanupSchema() {}
 }
