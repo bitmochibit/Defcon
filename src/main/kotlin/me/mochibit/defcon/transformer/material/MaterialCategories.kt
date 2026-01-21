@@ -46,8 +46,22 @@ object MaterialCategories {
 
     val DESTROYED_BLOCK: Set<Material> =
         setOf(
+            Material.TUFF,
+            Material.DEEPSLATE,
             Material.COBBLESTONE,
-            Material.COBBLED_DEEPSLATE,
+            Material.ANDESITE,
+        )
+
+    val LIGHT_BLOCKS: Set<Material> =
+        setOf(
+            Material.GLOWSTONE,
+            Material.SHROOMLIGHT,
+            Material.SEA_LANTERN,
+            Material.LANTERN,
+            Material.TORCH,
+            Material.SOUL_TORCH,
+            Material.CAMPFIRE,
+            Material.SOUL_CAMPFIRE,
         )
 
     val TERRAIN_BLOCKS: Set<Material> =

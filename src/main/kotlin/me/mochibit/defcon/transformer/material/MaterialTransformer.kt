@@ -45,7 +45,6 @@ class MaterialTransformer(
             ?: currentMaterial
 
     companion object {
-        // Pre-computed material sets for better performance
         private val BRICK_MATERIALS =
             setOf(
                 Material.BRICKS,
@@ -63,25 +62,22 @@ class MaterialTransformer(
 
         private val DESTROYED_SLAB_MATERIALS =
             setOf(
-                Material.COBBLED_DEEPSLATE_SLAB,
+                Material.ANDESITE_SLAB,
+                Material.GRANITE_SLAB,
                 Material.COBBLESTONE_SLAB,
-            )
-
-        private val DESTROYED_DOUBLE_SLAB_MATERIALS =
-            setOf(
-                Material.COBBLED_DEEPSLATE,
-                Material.COBBLESTONE,
             )
 
         private val DESTROYED_WALL_MATERIALS =
             setOf(
-                Material.COBBLED_DEEPSLATE_WALL,
+                Material.ANDESITE_WALL,
+                Material.GRANITE_WALL,
                 Material.COBBLESTONE_WALL,
             )
 
         private val DESTROYED_STAIRS_MATERIALS =
             setOf(
-                Material.COBBLED_DEEPSLATE_STAIRS,
+                Material.ANDESITE_STAIRS,
+                Material.GRANITE_STAIRS,
                 Material.COBBLESTONE_STAIRS,
             )
 
@@ -98,56 +94,6 @@ class MaterialTransformer(
                 Material.MUDDY_MANGROVE_ROOTS,
             )
 
-        private val DOUBLE_SLAB_BLOCKS =
-            setOf(
-                Material.STONE,
-                Material.SMOOTH_STONE,
-                Material.SANDSTONE,
-                Material.PETRIFIED_OAK_SLAB,
-                Material.OAK_PLANKS,
-                Material.SPRUCE_PLANKS,
-                Material.BIRCH_PLANKS,
-                Material.JUNGLE_PLANKS,
-                Material.ACACIA_PLANKS,
-                Material.DARK_OAK_PLANKS,
-                Material.CRIMSON_PLANKS,
-                Material.WARPED_PLANKS,
-                Material.COBBLESTONE,
-                Material.BRICKS,
-                Material.STONE_BRICKS,
-                Material.NETHER_BRICKS,
-                Material.QUARTZ_BLOCK,
-                Material.RED_SANDSTONE,
-                Material.PURPUR_BLOCK,
-                Material.PRISMARINE,
-                Material.PRISMARINE_BRICKS,
-                Material.DARK_PRISMARINE,
-                Material.POLISHED_GRANITE,
-                Material.POLISHED_DIORITE,
-                Material.POLISHED_ANDESITE,
-                Material.RED_NETHER_BRICKS,
-                Material.POLISHED_BLACKSTONE,
-                Material.POLISHED_BLACKSTONE_BRICKS,
-                Material.END_STONE_BRICKS,
-                Material.BLACKSTONE,
-                Material.MOSSY_COBBLESTONE,
-                Material.MOSSY_STONE_BRICKS,
-                Material.DEEPSLATE,
-                Material.COBBLED_DEEPSLATE,
-                Material.POLISHED_DEEPSLATE,
-                Material.DEEPSLATE_BRICKS,
-                Material.DEEPSLATE_TILES,
-                Material.CUT_COPPER,
-                Material.EXPOSED_CUT_COPPER,
-                Material.WEATHERED_CUT_COPPER,
-                Material.OXIDIZED_CUT_COPPER,
-                Material.WAXED_CUT_COPPER,
-                Material.WAXED_EXPOSED_CUT_COPPER,
-                Material.WAXED_WEATHERED_CUT_COPPER,
-                Material.WAXED_OXIDIZED_CUT_COPPER,
-                Material.MUD_BRICKS,
-            )
-
         fun defaultRules(): List<TransformationRule> =
             buildList {
                 // Indestructible blocks (highest priority)
@@ -160,12 +106,30 @@ class MaterialTransformer(
                     ),
                 )
 
-                // Glass destruction
+                add(
+                    TransformationRule(
+                        name = "Carbonized trees destruction",
+                        priority = 100,
+                        condition = TransformationCondition.SpecificMaterial(Material.POLISHED_BASALT),
+                        outcome = TransformationOutcome.ToMaterial(Material.AIR),
+                    ),
+                )
+
                 add(
                     TransformationRule(
                         name = "Glass Destruction",
                         priority = 90,
                         condition = TransformationCondition.MaterialCategory(MaterialCategories::isGlass),
+                        outcome = TransformationOutcome.ToMaterial(Material.AIR),
+                    ),
+                )
+
+                // Glowstone/Sea Lantern/Redstone Lamp/Shroomlight destruction
+                add(
+                    TransformationRule(
+                        name = "Light Block Destruction",
+                        priority = 90,
+                        condition = TransformationCondition.MaterialSet(MaterialCategories.LIGHT_BLOCKS),
                         outcome = TransformationOutcome.ToMaterial(Material.AIR),
                     ),
                 )
@@ -203,16 +167,6 @@ class MaterialTransformer(
                                         ),
                                 ),
                             ),
-                    ),
-                )
-
-                // Double slab destruction (higher priority than single slabs)
-                add(
-                    TransformationRule(
-                        name = "Double Slab Destruction",
-                        priority = 81,
-                        condition = TransformationCondition.MaterialSet(DOUBLE_SLAB_BLOCKS),
-                        outcome = TransformationOutcome.ToRandomMaterial(DESTROYED_DOUBLE_SLAB_MATERIALS),
                     ),
                 )
 

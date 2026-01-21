@@ -19,13 +19,20 @@
 
 package me.mochibit.defcon.utils
 
-import kotlinx.coroutines.*
+import com.github.shynixn.mccoroutine.bukkit.launch
+import com.github.shynixn.mccoroutine.bukkit.scope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import me.mochibit.defcon.Defcon
 import org.bukkit.Bukkit
-import org.bukkit.ChunkSnapshot
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.block.data.BlockData
@@ -38,16 +45,16 @@ class ChunkCache private constructor(
     private val world: World,
     private val maxAccessCount: Int = 20,
     private val useLocalCache: Boolean = true,
-    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 ) {
     companion object {
         // Shared cache with memory-efficient eviction
-        private val sharedChunkCache = object : LinkedHashMap<Long, SoftReference<ChunkSnapshot>>(16, 0.75f, true) {
-            private val MAX_SHARED_CACHE_SIZE = 5000
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, SoftReference<ChunkSnapshot>>): Boolean {
-                return size > MAX_SHARED_CACHE_SIZE
+        private val sharedChunkCache =
+            object : LinkedHashMap<Long, SoftReference<SmartChunkSnapshot>>(16, 0.75f, true) {
+                private val MAX_SHARED_CACHE_SIZE = 5000
+
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, SoftReference<SmartChunkSnapshot>>): Boolean =
+                    size > MAX_SHARED_CACHE_SIZE
             }
-        }
 
         private val sharedCacheMutex = Mutex()
         private val instanceCache = ConcurrentHashMap<String, ChunkCache>()
@@ -56,7 +63,7 @@ class ChunkCache private constructor(
         fun getInstance(
             world: World,
             maxAccessCount: Int = 20,
-            useLocalCache: Boolean = true
+            useLocalCache: Boolean = true,
         ): ChunkCache {
             val key = "${world.name}_${maxAccessCount}_$useLocalCache"
             return instanceCache.computeIfAbsent(key) {
@@ -75,39 +82,45 @@ class ChunkCache private constructor(
         fun getMemoryUsage(): Long = memoryStats.get()
 
         // Efficient chunk key packing
-        private fun packChunkKey(chunkX: Int, chunkZ: Int): Long {
-            return (chunkX.toLong() shl 32) or (chunkZ.toLong() and 0xFFFFFFFFL)
-        }
+        fun packChunkKey(
+            chunkX: Int,
+            chunkZ: Int,
+        ): Long = (chunkX.toLong() shl 32) or (chunkZ.toLong() and 0xFFFFFFFFL)
 
-        private fun unpackChunkX(key: Long): Int = (key shr 32).toInt()
-        private fun unpackChunkZ(key: Long): Int = key.toInt()
+        fun unpackChunkX(key: Long): Int = (key shr 32).toInt()
+
+        fun unpackChunkZ(key: Long): Int = key.toInt()
     }
 
     // Local cache - only used if useLocalCache is true
-    private val localCache = if (useLocalCache) {
-        object : LinkedHashMap<Long, ChunkSnapshot>(16, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, ChunkSnapshot>): Boolean {
-                if (size > maxAccessCount) {
-                    // Move to shared cache before eviction
-                    coroutineScope.launch {
-                        sharedCacheMutex.withLock {
-                            sharedChunkCache[eldest.key] = SoftReference(eldest.value)
+    private val localCache =
+        if (useLocalCache) {
+            object : LinkedHashMap<Long, SmartChunkSnapshot>(16, 0.75f, true) {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, SmartChunkSnapshot>): Boolean {
+                    if (size > maxAccessCount) {
+                        // Move to shared cache before eviction
+                        Defcon.launch {
+                            sharedCacheMutex.withLock {
+                                sharedChunkCache[eldest.key] = SoftReference(eldest.value)
+                            }
                         }
+                        return true
                     }
-                    return true
+                    return false
                 }
-                return false
             }
+        } else {
+            null
         }
-    } else null
 
     // Async chunk loading queue
     private val loadingQueue = Channel<ChunkLoadRequest>(capacity = Channel.UNLIMITED)
-    private val loadingJobs = ConcurrentHashMap<Long, Deferred<ChunkSnapshot>>()
+    private val loadingJobs = ConcurrentHashMap<Long, Deferred<SmartChunkSnapshot>>()
+    private val localCacheMutex = Mutex()
 
     init {
         // Start async chunk loader
-        coroutineScope.launch {
+        Defcon.launch {
             for (request in loadingQueue) {
                 processChunkLoadRequest(request)
             }
@@ -116,7 +129,7 @@ class ChunkCache private constructor(
 
     private data class ChunkLoadRequest(
         val chunkKey: Long,
-        val priority: Int = 0
+        val priority: Int = 0,
     )
 
     private suspend fun processChunkLoadRequest(request: ChunkLoadRequest) {
@@ -126,51 +139,65 @@ class ChunkCache private constructor(
         try {
             withContext(Dispatchers.Default) {
                 val chunk = world.getChunkAtAsyncUrgently(chunkX, chunkZ).await()
-                val snapshot = chunk.chunkSnapshot
+                val snapshot = SmartChunkSnapshot(chunk.chunkSnapshot)
 
                 // Store in appropriate cache
                 if (useLocalCache && localCache != null) {
-                    localCache[request.chunkKey] = snapshot
+                    localCacheMutex.withLock {
+                        localCache[request.chunkKey] = snapshot
+                    }
                 } else {
                     sharedCacheMutex.withLock {
                         sharedChunkCache[request.chunkKey] = SoftReference(snapshot)
                     }
                 }
 
-                memoryStats.addAndGet(estimateSnapshotSize(snapshot))
+                memoryStats.addAndGet(estimateSnapshotSize())
             }
         } finally {
             loadingJobs.remove(request.chunkKey)
         }
     }
 
-    private fun estimateSnapshotSize(snapshot: ChunkSnapshot): Long {
+    private fun estimateSnapshotSize(): Long {
         // Rough estimate: 16x16x384 blocks = ~100KB per chunk
         return 100_000L
     }
 
     suspend fun cleanupLocalCache() {
-        localCache?.clear()
+        if (localCache != null) {
+            localCacheMutex.withLock {
+                localCache.clear()
+            }
+        }
     }
 
-    private suspend fun getChunkSnapshotAsync(x: Int, z: Int): ChunkSnapshot {
+    private suspend fun getChunkSnapshotAsync(
+        x: Int,
+        z: Int,
+    ): SmartChunkSnapshot {
         val chunkX = x shr 4
         val chunkZ = z shr 4
         val chunkKey = packChunkKey(chunkX, chunkZ)
 
         // Check local cache first (if enabled)
         if (useLocalCache && localCache != null) {
-            localCache[chunkKey]?.let { return it }
+            localCacheMutex.withLock {
+                localCache[chunkKey]?.let { return it }
+            }
         }
 
         // Check shared cache
-        val sharedSnapshot = sharedCacheMutex.withLock {
-            sharedChunkCache[chunkKey]?.get()
-        }
+        val sharedSnapshot =
+            sharedCacheMutex.withLock {
+                sharedChunkCache[chunkKey]?.get()
+            }
         if (sharedSnapshot != null) {
             // Move to local cache if enabled
             if (useLocalCache && localCache != null) {
-                localCache[chunkKey] = sharedSnapshot
+                localCacheMutex.withLock {
+                    localCache[chunkKey] = sharedSnapshot
+                }
             }
             return sharedSnapshot
         }
@@ -179,22 +206,25 @@ class ChunkCache private constructor(
         loadingJobs[chunkKey]?.let { return it.await() }
 
         // Start async loading
-        val deferred = coroutineScope.async {
-            val chunk = world.getChunkAtAsync(chunkX, chunkZ).await()
-            val snapshot = chunk.chunkSnapshot
+        val deferred =
+            Defcon.scope.async {
+                val chunk = world.getChunkAtAsync(chunkX, chunkZ).await()
+                val snapshot = SmartChunkSnapshot(chunk.chunkSnapshot)
 
-            // Store in appropriate cache
-            if (useLocalCache && localCache != null) {
-                localCache[chunkKey] = snapshot
-            } else {
-                sharedCacheMutex.withLock {
-                    sharedChunkCache[chunkKey] = SoftReference(snapshot)
+                // Store in appropriate cache
+                if (useLocalCache && localCache != null) {
+                    localCacheMutex.withLock {
+                        localCache[chunkKey] = snapshot
+                    }
+                } else {
+                    sharedCacheMutex.withLock {
+                        sharedChunkCache[chunkKey] = SoftReference(snapshot)
+                    }
                 }
-            }
 
-            memoryStats.addAndGet(estimateSnapshotSize(snapshot))
-            snapshot
-        }
+                memoryStats.addAndGet(estimateSnapshotSize())
+                snapshot
+            }
 
         loadingJobs[chunkKey] = deferred
         return deferred.await().also {
@@ -206,26 +236,28 @@ class ChunkCache private constructor(
     suspend fun preloadChunksAsync(
         chunkKeys: Set<Long>,
         batchSize: Int = 10,
-        priority: Int = 0
+        priority: Int = 0,
     ) {
         chunkKeys.chunked(batchSize).forEach { batch ->
-            val jobs = batch.map { key ->
-                coroutineScope.async {
-                    val chunkX = unpackChunkX(key)
-                    val chunkZ = unpackChunkZ(key)
+            val jobs =
+                batch.map { key ->
+                    Defcon.scope.async {
+                        // Skip if already cached
+                        if (useLocalCache && localCache != null) {
+                            val cached = localCacheMutex.withLock { localCache.containsKey(key) }
+                            if (cached) return@async
+                        }
 
-                    // Skip if already cached
-                    if (useLocalCache && localCache?.containsKey(key) == true) return@async
+                        val sharedExists =
+                            sharedCacheMutex.withLock {
+                                sharedChunkCache[key]?.get() != null
+                            }
+                        if (sharedExists) return@async
 
-                    val sharedExists = sharedCacheMutex.withLock {
-                        sharedChunkCache[key]?.get() != null
+                        // Queue for loading
+                        loadingQueue.trySend(ChunkLoadRequest(key, priority))
                     }
-                    if (sharedExists) return@async
-
-                    // Queue for loading
-                    loadingQueue.trySend(ChunkLoadRequest(key, priority))
                 }
-            }
             jobs.awaitAll()
 
             // Small delay between batches to prevent server overload
@@ -238,7 +270,7 @@ class ChunkCache private constructor(
         centerX: Int,
         centerZ: Int,
         radius: Int,
-        batchSize: Int = 10
+        batchSize: Int = 10,
     ) {
         val chunkKeys = mutableSetOf<Long>()
         val centerChunkX = centerX shr 4
@@ -254,68 +286,227 @@ class ChunkCache private constructor(
     }
 
     // Async block access methods
-    suspend fun highestBlockYAtAsync(x: Int, z: Int): Int {
-        return getChunkSnapshotAsync(x, z).getHighestBlockYAt(x and 15, z and 15)
-    }
+    suspend fun highestBlockYAtAsync(
+        x: Int,
+        z: Int,
+    ): Int = getChunkSnapshotAsync(x, z).getHighestBlockYAt(x and 15, z and 15)
 
-    suspend fun getBlockMaterialAsync(x: Int, y: Int, z: Int): Material {
+    suspend fun getBlockMaterialAsync(
+        x: Int,
+        y: Int,
+        z: Int,
+    ): Material {
         if (y < world.minHeight || y > world.maxHeight) return Material.AIR
         return getChunkSnapshotAsync(x, z).getBlockType(x and 15, y, z and 15)
     }
 
-    suspend fun getBlockDataAsync(x: Int, y: Int, z: Int): BlockData {
+    suspend fun getBlockDataAsync(
+        x: Int,
+        y: Int,
+        z: Int,
+    ): BlockData {
         if (y < world.minHeight || y > world.maxHeight) return Bukkit.createBlockData(Material.AIR)
         return getChunkSnapshotAsync(x, z).getBlockData(x and 15, y, z and 15)
     }
 
-    suspend fun getSkyLightLevelAsync(x: Int, y: Int, z: Int): Int {
+    suspend fun getSkyLightLevelAsync(
+        x: Int,
+        y: Int,
+        z: Int,
+    ): Int {
         if (y < world.minHeight || y > world.maxHeight) return 0
         return getChunkSnapshotAsync(x, z).getBlockSkyLight(x and 15, y, z and 15)
     }
 
-    // Batch processing for multiple blocks (very efficient for area processing)
-    suspend fun getBlockMaterialsBatch(coordinates: List<Triple<Int, Int, Int>>): List<Material> {
-        val groupedByChunk = coordinates.groupBy { (x, _, z) ->
-            packChunkKey(x shr 4, z shr 4)
-        }
+    // Update methods that work with SmartChunkSnapshot
+    suspend fun updateBlockType(
+        x: Int,
+        y: Int,
+        z: Int,
+        type: Material,
+    ) {
+        if (y < world.minHeight || y > world.maxHeight) return
+        val snapshot = getChunkSnapshotAsync(x, z)
+        snapshot.updateBlockType(x and 15, y, z and 15, type)
+    }
 
-        val results = Array<Material?>(coordinates.size) { null }
+    suspend fun updateBlockData(
+        x: Int,
+        y: Int,
+        z: Int,
+        data: BlockData,
+    ) {
+        if (y < world.minHeight || y > world.maxHeight) return
+        val snapshot = getChunkSnapshotAsync(x, z)
+        snapshot.updateBlockData(x and 15, y, z and 15, data)
+    }
 
-        groupedByChunk.entries.map { (chunkKey, coords) ->
-            coroutineScope.async {
-                val snapshot = getChunkSnapshotAsync(coords.first().first, coords.first().third)
-                coords.forEachIndexed { _, (x, y, z) ->
-                    val index = coordinates.indexOf(Triple(x, y, z))
-                    results[index] = if (y < world.minHeight || y > world.maxHeight) {
-                        Material.AIR
-                    } else {
-                        snapshot.getBlockType(x and 15, y, z and 15)
+    // Batch update for multiple blocks
+    suspend fun updateBlockTypesBatch(
+        updates: List<Triple<Int, Int, Int>>,
+        type: Material,
+    ) {
+        val groupedByChunk =
+            updates.groupBy { (x, _, z) ->
+                packChunkKey(x shr 4, z shr 4)
+            }
+
+        groupedByChunk.entries
+            .map { (_, coords) ->
+                Defcon.scope.async {
+                    coords.forEach { (x, y, z) ->
+                        if (y in world.minHeight..world.maxHeight) {
+                            val snapshot = getChunkSnapshotAsync(x, z)
+                            snapshot.updateBlockType(x and 15, y, z and 15, type)
+                        }
                     }
                 }
+            }.awaitAll()
+    }
+
+    suspend fun updateBlockDataBatch(updates: Map<Triple<Int, Int, Int>, BlockData>) {
+        val groupedByChunk =
+            updates.keys.groupBy { (x, _, z) ->
+                packChunkKey(x shr 4, z shr 4)
             }
-        }.awaitAll()
+
+        groupedByChunk.entries
+            .map { (_, coords) ->
+                Defcon.scope.async {
+                    coords.forEach { (x, y, z) ->
+                        if (y in world.minHeight..world.maxHeight) {
+                            val snapshot = getChunkSnapshotAsync(x, z)
+                            updates[Triple(x, y, z)]?.let { data ->
+                                snapshot.updateBlockData(x and 15, y, z and 15, data)
+                            }
+                        }
+                    }
+                }
+            }.awaitAll()
+    }
+
+    // Batch processing for multiple blocks (very efficient for area processing)
+    suspend fun getBlockMaterialsBatch(coordinates: List<Triple<Int, Int, Int>>): List<Material> {
+        val groupedByChunk =
+            coordinates.groupBy { (x, _, z) ->
+                packChunkKey(x shr 4, z shr 4)
+            }
+
+        val results = Array<Material?>(coordinates.size) { null }
+        val coordToIndex = coordinates.withIndex().associate { it.value to it.index }
+
+        groupedByChunk.entries
+            .map { (_, coords) ->
+                Defcon.scope.async {
+                    val snapshot = getChunkSnapshotAsync(coords.first().first, coords.first().third)
+                    coords.forEach { (x, y, z) ->
+                        val index = coordToIndex[Triple(x, y, z)]!!
+                        results[index] =
+                            if (y < world.minHeight || y > world.maxHeight) {
+                                Material.AIR
+                            } else {
+                                snapshot.getBlockType(x and 15, y, z and 15)
+                            }
+                    }
+                }
+            }.awaitAll()
 
         return results.map { it ?: Material.AIR }
     }
 
+    suspend fun getBlockDataBatch(coordinates: List<Triple<Int, Int, Int>>): List<BlockData> {
+        val groupedByChunk =
+            coordinates.groupBy { (x, _, z) ->
+                packChunkKey(x shr 4, z shr 4)
+            }
+
+        val results = Array<BlockData?>(coordinates.size) { null }
+        val coordToIndex = coordinates.withIndex().associate { it.value to it.index }
+        val airData = Bukkit.createBlockData(Material.AIR)
+
+        groupedByChunk.entries
+            .map { (_, coords) ->
+                Defcon.scope.async {
+                    val snapshot = getChunkSnapshotAsync(coords.first().first, coords.first().third)
+                    coords.forEach { (x, y, z) ->
+                        val index = coordToIndex[Triple(x, y, z)]!!
+                        results[index] =
+                            if (y < world.minHeight || y > world.maxHeight) {
+                                airData
+                            } else {
+                                snapshot.getBlockData(x and 15, y, z and 15)
+                            }
+                    }
+                }
+            }.awaitAll()
+
+        return results.map { it ?: airData }
+    }
+
     // Cache invalidation for specific chunks
-    suspend fun invalidateChunk(chunkX: Int, chunkZ: Int) {
+    suspend fun invalidateChunk(
+        chunkX: Int,
+        chunkZ: Int,
+    ) {
         val chunkKey = packChunkKey(chunkX, chunkZ)
-        localCache?.remove(chunkKey)
+        if (localCache != null) {
+            localCacheMutex.withLock {
+                localCache.remove(chunkKey)
+            }
+        }
         sharedCacheMutex.withLock {
             sharedChunkCache.remove(chunkKey)
         }
     }
 
+    // Invalidate multiple chunks efficiently
+    suspend fun invalidateChunks(chunkKeys: Set<Long>) {
+        if (localCache != null) {
+            localCacheMutex.withLock {
+                chunkKeys.forEach { localCache.remove(it) }
+            }
+        }
+        sharedCacheMutex.withLock {
+            chunkKeys.forEach { sharedChunkCache.remove(it) }
+        }
+    }
+
     // Force refresh a chunk (useful when blocks have been modified)
-    suspend fun refreshChunk(chunkX: Int, chunkZ: Int) {
+    suspend fun refreshChunk(
+        chunkX: Int,
+        chunkZ: Int,
+    ) {
         invalidateChunk(chunkX, chunkZ)
-        // Preload the chunk again
         preloadChunksAsync(setOf(packChunkKey(chunkX, chunkZ)))
     }
 
+    // Refresh multiple chunks
+    suspend fun refreshChunks(chunkKeys: Set<Long>) {
+        invalidateChunks(chunkKeys)
+        preloadChunksAsync(chunkKeys)
+    }
+
+    // Get cache statistics
+    fun getCacheStats(): CacheStats {
+        val localSize = localCache?.size ?: 0
+        val sharedSize = sharedChunkCache.size
+        val loadingCount = loadingJobs.size
+        return CacheStats(
+            localCacheSize = localSize,
+            sharedCacheSize = sharedSize,
+            loadingJobs = loadingCount,
+            memoryUsage = memoryStats.get(),
+        )
+    }
+
+    data class CacheStats(
+        val localCacheSize: Int,
+        val sharedCacheSize: Int,
+        val loadingJobs: Int,
+        val memoryUsage: Long,
+    )
+
     fun cleanup() {
-        coroutineScope.cancel()
         localCache?.clear()
         loadingJobs.clear()
     }

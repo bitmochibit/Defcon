@@ -89,8 +89,6 @@ class TreeBurner(
         initialBlock: Vector3i,
         explosionPower: Double,
     ) {
-        val material = chunkCache.getBlockMaterialAsync(initialBlock.x, initialBlock.y, initialBlock.z)
-
         // Early exit checks
         if (!isTreeBlock(initialBlock)) {
             return
@@ -126,13 +124,13 @@ class TreeBurner(
 
                 blocksProcessed++
 
-                when {
-                    material in LEAF_BLOCKS -> {
+                when (material) {
+                    in LEAF_BLOCKS -> {
                         blockChanger.addBlockChange(currentX, y, currentZ, Material.AIR, updateBlock = true)
                         processedTreeBlocks.add(currentX, y, currentZ)
                     }
 
-                    material in LOG_BLOCKS || material in WOOD_BLOCKS -> {
+                    in LOG_BLOCKS, in WOOD_BLOCKS -> {
                         processWoodBlock(
                             currentX,
                             y,
@@ -144,6 +142,8 @@ class TreeBurner(
                             explosionPower,
                         )
                     }
+
+                    else -> {}
                 }
             }
         } catch (e: Exception) {

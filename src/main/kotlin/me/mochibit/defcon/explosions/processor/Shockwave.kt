@@ -15,7 +15,6 @@ import me.mochibit.defcon.transformer.material.MaterialCategories
 import me.mochibit.defcon.transformer.material.MaterialTransformer
 import me.mochibit.defcon.utils.BlockChanger
 import me.mochibit.defcon.utils.ChunkCache
-import me.mochibit.defcon.utils.NMSReflectionCache
 import org.bukkit.Location
 import org.bukkit.Material
 import org.joml.Vector3i
@@ -45,12 +44,6 @@ class Shockwave(
 
     // Pre-compute inverse radius for faster calculations
     private val invShockwaveRadius = 1.0f / shockwaveRadius.toFloat()
-
-    // Ground level tracking for better structure detection
-    private var groundLevelSum = 0L
-    private var groundLevelCount = 0
-    private val meanGroundLevel: Int
-        get() = if (groundLevelCount > 0) (groundLevelSum / groundLevelCount).toInt() else worldSeaLevel
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun explode(): Job =
@@ -98,9 +91,9 @@ class Shockwave(
                             blocksProcessed++
                             // getHighestBlockY returns the Y coordinate ABOVE the highest block
                             // So we need to subtract 1 to get the actual block
-                            val highestY = NMSReflectionCache.getHighestBlockY(world, loc.x, loc.z, true)
-                            loc.y = highestY - 1
-                            val firstMaterial = NMSReflectionCache.getBlockMaterial(world, loc.x, loc.y, loc.z)
+                            val highestY = chunkCache.highestBlockYAtAsync(loc.x, loc.z)
+                            loc.y = highestY
+                            val firstMaterial = chunkCache.getBlockMaterialAsync(loc.x, loc.y, loc.z)
                             if (treeBurner.isTreeBlock(firstMaterial)) {
                                 processTrees(loc, adjustedPower)
                             } else {
@@ -146,9 +139,6 @@ class Shockwave(
 
         // Skylight threshold - higher power (crater edge) needs less light to destroy
         val skylightThreshold = ((1.0f - power) * 12).toInt().coerceIn(2, 15)
-
-        // Structure detection threshold - if ground is too far above mean, it's likely a structure
-        val structureHeightThreshold = meanGroundLevel + 8 // 8 blocks above mean ground level
 
         // Use primitive counters
         var consecutiveTerrainBlocks = 0
@@ -204,10 +194,6 @@ class Shockwave(
             val isTerrainBlock = currentBlock in MaterialCategories.TERRAIN_BLOCKS
             val shouldConvertToAir = currentY > convertToAirMinY
 
-            // Check if this terrain block is part of an elevated structure (like a grass balcony)
-            // It's elevated if: it's terrain, higher than mean ground level + threshold, and we've seen air above
-            val isElevatedStructure = isTerrainBlock && y > structureHeightThreshold && hasSeenSignificantAir
-
             // Handle wall blocks with skylight detection
             if (isHeuristicallyWallBlock(x, currentY, z)) {
                 consecutiveTerrainBlocks = 0
@@ -246,23 +232,6 @@ class Shockwave(
             }
 
             if (isTerrainBlock) {
-                // If this is an elevated structure (grass balcony), treat it as a collapsible block
-                if (isElevatedStructure) {
-                    val skylightLevel = chunkCache.getSkyLightLevelAsync(x, currentY, z)
-                    if (Random.nextDouble() > 0.2) { // 80% chance to collapse elevated structures
-                        blockChanger.addBlockChange(x, currentY, z, Material.AIR, updateBlock = false)
-                    } else {
-                        val lightInfluence = skylightLevel * 0.02f
-                        val transformedBlock =
-                            materialTransformer.transformMaterial(
-                                currentBlock,
-                                1.0f - power + lightInfluence,
-                            )
-                        blockChanger.addBlockChange(x, currentY, z, transformedBlock)
-                    }
-                    continue
-                }
-
                 if (++consecutiveTerrainBlocks >= 3) break
 
                 val heightFactor = (currentY - seaLevelMinus3).toFloat() / (y - seaLevelMinus3).coerceAtLeast(1)
