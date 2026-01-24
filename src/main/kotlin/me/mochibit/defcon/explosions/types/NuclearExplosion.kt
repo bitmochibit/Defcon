@@ -30,12 +30,21 @@ import me.mochibit.defcon.biomes.definitions.BurningAirBiome
 import me.mochibit.defcon.biomes.definitions.NuclearFalloutBiome
 import me.mochibit.defcon.config.MainConfiguration
 import me.mochibit.defcon.config.PluginConfiguration
+import me.mochibit.defcon.effects.explosion.generic.ShockwaveEffect
+import me.mochibit.defcon.effects.explosion.nuclear.CondensationCloudVFX
+import me.mochibit.defcon.effects.explosion.nuclear.NuclearExplosionVFX
+import me.mochibit.defcon.effects.explosion.nuclear.NuclearFogVFX
 import me.mochibit.defcon.explosions.ExplosionComponent
+import me.mochibit.defcon.explosions.effects.BlindFlashEffect
 import me.mochibit.defcon.explosions.processor.Crater
+import me.mochibit.defcon.explosions.processor.EntityShockwave
+import me.mochibit.defcon.explosions.processor.ExplosionSoundManager
 import me.mochibit.defcon.explosions.processor.Shockwave
+import me.mochibit.defcon.explosions.processor.ThermalRadiationBurn
 import me.mochibit.defcon.threading.scheduling.runLater
 import org.bukkit.Location
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -48,55 +57,66 @@ class NuclearExplosion(
         Defcon.launch {
             val pluginConfiguration = MainConfiguration.getSchema()
             // VFX
-//            val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
-//            val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
-//            val nuclearFog = NuclearFogVFX(nuclearComponent, center)
-//            val shockwaveEffect = ShockwaveEffect(
-//                center,
-//                shockwaveRadius,
-//                craterRadius/4,
-//                50f,
-//            )
-//
-//            nuclearExplosion.instantiate()
-//            nuclearFog.instantiate()
-//            condensationCloud.instantiate()
-//            shockwaveEffect.instantiate()
-//
-//
-//
-//            launch(Dispatchers.IO) {
-//                val duration = 10.seconds
-//                val blindEffect = BlindFlashEffect(center, flashReach, 200, duration)
-//                blindEffect.start()
-//
-//                val thermalRadiationBurn = ThermalRadiationBurn(center, thermalRadius, duration = 30.seconds)
-//                thermalRadiationBurn.start()
-//            }
+            val nuclearExplosion = NuclearExplosionVFX(nuclearComponent, center)
+            val condensationCloud = CondensationCloudVFX(nuclearComponent, center)
+            val nuclearFog = NuclearFogVFX(nuclearComponent, center)
+            val shockwaveEffect =
+                ShockwaveEffect(
+                    center,
+                    pluginConfiguration.nuclearExplosionConfig.shockwaveConfig.baseRadius,
+                    pluginConfiguration.nuclearExplosionConfig.craterConfig.baseRadius,
+                    50f,
+                )
 
-//            launch(Dispatchers.IO) {
-//                val players = center.world.players
-//
-//                for (player in players) {
-//                    val playerDistance = player.location.distance(center)
-//
-//                    if (playerDistance < shockwaveRadius) {
-//                        ExplosionSoundManager.startRepeatingSounds(
-//                            ExplosionSoundManager.DefaultSounds.LargeExplosionWindBackground,
-//                            player,
-//                            2.minutes,
-//                            6.seconds
-//                        )
-//                    }
-//                }
-//
-//                ExplosionSoundManager.playSoundsWithDelay(
-//                    ExplosionSoundManager.DefaultSounds.DistantExplosion,
-//                    players,
-//                    center,
-//                    soundSpeed.toFloat(),
-//                )
-//            }
+            nuclearExplosion.instantiate()
+            nuclearFog.instantiate()
+            condensationCloud.instantiate()
+            shockwaveEffect.instantiate()
+
+            launch(Dispatchers.IO) {
+                val duration = 10.seconds
+                val blindEffect =
+                    BlindFlashEffect(
+                        center,
+                        pluginConfiguration.nuclearExplosionConfig.flashConfig.baseRadius,
+                        200,
+                        duration,
+                    )
+                blindEffect.start()
+
+                val thermalRadiationBurn =
+                    ThermalRadiationBurn(
+                        center,
+                        pluginConfiguration.nuclearExplosionConfig.thermalConfig.baseRadius,
+                        duration = 30.seconds,
+                    )
+                thermalRadiationBurn.start()
+            }
+
+            launch(Dispatchers.IO) {
+                val players = center.world.players
+
+                for (player in players) {
+                    val playerDistance = player.location.distance(center)
+
+                    if (playerDistance < pluginConfiguration.nuclearExplosionConfig.shockwaveConfig.baseRadius) {
+                        ExplosionSoundManager.startRepeatingSounds(
+                            ExplosionSoundManager.DefaultSounds.LargeExplosionWindBackground,
+                            player,
+                            2.minutes,
+                            6.seconds,
+                        )
+                    }
+                }
+
+                ExplosionSoundManager.playSoundsWithDelay(
+                    ExplosionSoundManager.DefaultSounds.DistantExplosion,
+                    players,
+                    center,
+                    pluginConfiguration.nuclearExplosionConfig.soundConfig.speed
+                        .toFloat(),
+                )
+            }
 
             if (pluginConfiguration.nuclearExplosionConfig.biomeHandling) {
                 launch(Dispatchers.Default) {
@@ -139,16 +159,16 @@ class NuclearExplosion(
 //                )
 //            }
 //
-//            launch(Dispatchers.Default) {
-//                EntityShockwave(
-//                    center,
-//                    shockwaveHeight,
-//                    craterRadius / 6,
-//                    shockwaveRadius,
-//                    craterRadius / 4,
-//                    50f
-//                ).process()
-//            }
+            launch(Dispatchers.Default) {
+                EntityShockwave(
+                    center,
+                    pluginConfiguration.nuclearExplosionConfig.shockwaveConfig.baseHeight,
+                    pluginConfiguration.nuclearExplosionConfig.craterConfig.baseRadius / 6,
+                    pluginConfiguration.nuclearExplosionConfig.shockwaveConfig.baseRadius,
+                    pluginConfiguration.nuclearExplosionConfig.craterConfig.baseRadius / 6,
+                    50f,
+                ).process()
+            }
 
             launch(Dispatchers.Default) {
                 val players = center.world.players

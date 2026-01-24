@@ -18,6 +18,7 @@ import me.mochibit.defcon.utils.ChunkCache
 import org.bukkit.Location
 import org.bukkit.Material
 import org.joml.Vector3i
+import kotlin.math.pow
 import kotlin.random.Random
 
 class Shockwave(
@@ -45,9 +46,31 @@ class Shockwave(
     // Pre-compute inverse radius for faster calculations
     private val invShockwaveRadius = 1.0f / shockwaveRadius.toFloat()
 
+    private fun calculateShockwavePower(radiusProgress: Float): Float =
+        when {
+            radiusProgress < 0.4f -> {
+                // Plateau zone: minimal decay
+                1.0f - (radiusProgress / 0.4f) * 0.05f
+            }
+
+            radiusProgress < 0.7f -> {
+                // Transition zone: moderate decay
+                val transitionProgress = (radiusProgress - 0.4f) / 0.3f
+                0.95f - (transitionProgress * 0.45f)
+            }
+
+            else -> {
+                // Rapid falloff zone
+                val falloffProgress = (radiusProgress - 0.7f) / 0.3f
+                0.5f * (1.0f - falloffProgress.pow(2.0f))
+            }
+        }.coerceIn(0.0f, 1.0f)
+
     @OptIn(ExperimentalCoroutinesApi::class)
     fun explode(): Job =
         Defcon.launch(Dispatchers.IO) {
+            chunkCache.cleanup()
+            chunkCache.cleanupLocalCache()
             try {
                 println("Shockwave starting from crater edge (radius $radiusStart) to $shockwaveRadius")
                 // Shockwave processes from crater edge (radiusStart) to max radius
@@ -70,19 +93,7 @@ class Shockwave(
                     // Invert progress so power is maximum at crater edge
                     // At crater edge (radiusStart): power = 1.0
                     // At max radius: power approaches 0.0
-                    val power = 1.0f - radiusProgress
-
-                    // Apply non-linear falloff for more realistic shockwave behavior
-                    val adjustedPower =
-                        when {
-                            radiusProgress < 0.3f -> power
-
-                            // Full power in inner 30%
-                            radiusProgress < 0.6f -> power * power
-
-                            // Quadratic falloff in middle
-                            else -> power * power * power // Cubic falloff in outer region
-                        }
+                    val power = calculateShockwavePower(radiusProgress)
 
                     // Process blocks in the current radius ring
                     generateShockwaveCircleBresenham(currentRadius)
@@ -95,9 +106,9 @@ class Shockwave(
                             loc.y = highestY
                             val firstMaterial = chunkCache.getBlockMaterialAsync(loc.x, loc.y, loc.z)
                             if (treeBurner.isTreeBlock(firstMaterial)) {
-                                processTrees(loc, adjustedPower)
+                                processTrees(loc, power)
                             } else {
-                                processBlock(loc, adjustedPower, firstMaterial)
+                                processBlock(loc, power, firstMaterial)
                             }
                         }
                 }
@@ -200,7 +211,7 @@ class Shockwave(
                 val skylightLevel = chunkCache.getSkyLightLevelAsync(x, currentY, z)
 
                 when {
-                    currentY > seaLevelPlus5 -> {
+                    currentY > seaLevelMinus3 -> {
                         blockChanger.addBlockChange(x, currentY, z, Material.AIR, updateBlock = false)
                     }
 

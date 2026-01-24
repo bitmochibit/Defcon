@@ -12,9 +12,9 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
- * Optimized crater generation with natural paraboloid shaping.
- * Creates the bowl-shaped depression and scorched floor.
- * Completely clears all blocks above the crater floor, removing buildings and structures.
+ * Optimized crater generation with natural paraboloid shaping anchored to actual terrain.
+ * Creates the bowl-shaped depression, scorched floor, and debris rim around the crater.
+ * Uses terrain detection to find the real ground, ignoring structures above it.
  */
 class Crater(
     private val center: Location,
@@ -31,12 +31,19 @@ class Crater(
     private val centerX = center.blockX
     private val centerY = center.blockY
     private val centerZ = center.blockZ
+
+    // Use sea level as anchor point
+    private val seaLevel = world.seaLevel
+
+    // Debris rim extends beyond crater edge - slightly increased
+    private val debrisRimWidth = (radiusX * 0.3).toInt().coerceAtLeast(5)
+
     private val bounds =
         CraterBounds(
-            minX = centerX - radiusX - 2,
-            maxX = centerX + radiusX + 2,
-            minZ = centerZ - radiusZ - 2,
-            maxZ = centerZ + radiusZ + 2,
+            minX = centerX - radiusX - debrisRimWidth,
+            maxX = centerX + radiusX + debrisRimWidth,
+            minZ = centerZ - radiusZ - debrisRimWidth,
+            maxZ = centerZ + radiusZ + debrisRimWidth,
             minY = maxOf(centerY - radiusY, world.minHeight),
         )
 
@@ -50,6 +57,16 @@ class Crater(
             Material.COAL_BLOCK,
             Material.BLACK_CONCRETE_POWDER,
             Material.BLACK_CONCRETE,
+        )
+
+    // Debris materials for the raised rim
+    private val debrisMaterials =
+        listOf(
+            Material.COARSE_DIRT,
+            Material.GRAVEL,
+            Material.COBBLESTONE,
+            Material.ANDESITE,
+            Material.STONE,
         )
 
     private data class CraterBounds(
@@ -67,92 +84,232 @@ class Crater(
     }
 
     /**
-     * Represents a point in the crater floor with natural paraboloid shape
+     * Represents a point in the crater with natural paraboloid shape
      */
     private data class CraterPoint(
         val x: Int,
         val y: Int,
         val z: Int,
         val normalizedDistance: Double,
+        val isDebrisRim: Boolean,
+        val debrisHeight: Int,
     )
 
     /**
-     * Calculate natural paraboloid crater floor height
+     * Find the actual terrain level by scanning downward from a starting point.
+     * Ignores structures and finds the first real terrain block.
      */
-    private fun calculateCraterFloor(
-        dx: Int,
-        dz: Int,
-    ): CraterPoint {
-        val x = centerX + dx
-        val z = centerZ + dz
+    private suspend fun findActualTerrainLevel(
+        x: Int,
+        z: Int,
+        startY: Int,
+    ): Int =
+        coroutineScope {
+            // Start from the given Y and scan downward
+            for (y in startY downTo world.minHeight) {
+                val material = chunkCache.getBlockMaterialAsync(x, y, z)
 
-        // Distance from center (squared for efficiency)
-        val distSquared = dx * dx + dz * dz
-        val maxRadiusSquared = maxOf(radiusX * radiusX, radiusZ * radiusZ)
-        val normalizedDistance = sqrt(distSquared.toDouble() / maxRadiusSquared)
+                // Found actual terrain - return this level
+                if (material in MaterialCategories.TERRAIN_BLOCKS) {
+                    return@coroutineScope y
+                }
 
-        // Paraboloid crater shape (deeper in center, shallower at edges)
-        val depthFactor = distSquared.toDouble() / maxRadiusSquared
-        val craterFloorY = centerY - (radiusY * (1.0 - depthFactor)).toInt()
-
-        // Ensure crater floor stays within valid world bounds
-        val finalY = craterFloorY.coerceAtLeast(bounds.minY).coerceAtMost(world.maxHeight - 1)
-
-        return CraterPoint(x, finalY, z, normalizedDistance)
-    }
-
-    private fun generateCraterEffectivePlane(): Sequence<CraterPoint> =
-        sequence {
-            for (dx in -radiusX - 2..radiusX + 2) {
-                for (dz in -radiusZ - 2..radiusZ + 2) {
-                    // Check if point is within ellipse bounds
-                    val normalizedDistance = (dx.toDouble() / radiusX).pow(2) + (dz.toDouble() / radiusZ).pow(2)
-                    if (normalizedDistance > 1.0) continue
-
-                    yield(calculateCraterFloor(dx, dz))
+                // If we hit bedrock or go too deep, use sea level as fallback
+                if (material == Material.BEDROCK || y < world.minHeight + 5) {
+                    return@coroutineScope seaLevel
                 }
             }
+
+            // Fallback to sea level if nothing found
+            seaLevel
+        }
+
+    /**
+     * Calculate natural paraboloid crater floor height based on actual terrain.
+     * Finds real ground level, ignoring structures above it.
+     */
+    private suspend fun calculateCraterPoint(
+        dx: Int,
+        dz: Int,
+    ): CraterPoint? =
+        coroutineScope {
+            val x = centerX + dx
+            val z = centerZ + dz
+
+            // Get highest block (might be a structure)
+            val highestY = chunkCache.highestBlockYAtAsync(x, z)
+
+            // Find actual terrain by scanning down from highest point
+            val terrainY = findActualTerrainLevel(x, z, highestY)
+
+            // Distance from center
+            val distSquared = dx * dx + dz * dz
+            val maxRadiusSquared = maxOf(radiusX * radiusX, radiusZ * radiusZ)
+            val normalizedDistance = sqrt(distSquared.toDouble() / maxRadiusSquared)
+
+            // Check if we're in debris rim zone (beyond crater edge but within rim)
+            val debrisRimStart = 1.0
+            val debrisRimEnd = 1.0 + (debrisRimWidth.toDouble() / radiusX)
+
+            if (normalizedDistance > debrisRimEnd) {
+                return@coroutineScope null // Outside crater influence
+            }
+
+            if (normalizedDistance > debrisRimStart) {
+                // We're in the debris rim zone - calculate raised terrain
+                val rimProgress = (normalizedDistance - debrisRimStart) / (debrisRimEnd - debrisRimStart)
+
+                // Increased rim height for more visible debris
+                val maxRimHeight = (radiusY * 0.25).toInt().coerceAtLeast(2).coerceAtMost(6)
+
+                // Apply noise for natural variation
+                val noise = wangNoise(x, 0, z)
+                val noiseVariation = (noise - 0.5) * 0.5
+
+                // Calculate rim elevation: starts high at crater edge, tapers to 0 at outer edge
+                val baseRimHeight = (maxRimHeight * (1.0 - rimProgress * rimProgress)).toInt()
+                val variedRimHeight = (baseRimHeight * (1.0 + noiseVariation)).toInt().coerceAtLeast(0)
+
+                return@coroutineScope CraterPoint(
+                    x = x,
+                    y = terrainY,
+                    z = z,
+                    normalizedDistance = normalizedDistance,
+                    isDebrisRim = true,
+                    debrisHeight = variedRimHeight,
+                )
+            }
+
+            // We're inside the crater - calculate depression from terrain
+            val heightAboveSeaLevel = maxOf(0, terrainY - seaLevel)
+
+            // Paraboloid crater shape (deeper in center, shallower at edges)
+            val depthFactor = distSquared.toDouble() / maxRadiusSquared
+
+            // Base crater depth: full radiusY at center, tapering to 0 at edges
+            val baseDepth = (radiusY * (1.0 - sqrt(depthFactor))).toInt()
+
+            // Adjust depth based on terrain height above sea level
+            // Higher terrain = slightly deeper crater for more natural look
+            val terrainFactor = (heightAboveSeaLevel.toDouble() / radiusY.toDouble()).coerceIn(0.0, 1.0)
+            val adjustedDepth = (baseDepth * (0.8 + terrainFactor * 0.2)).toInt()
+
+            // Calculate final crater floor
+            val craterFloorY = terrainY - adjustedDepth
+
+            // Ensure crater floor stays within valid bounds
+            val minFloorY = maxOf(bounds.minY, seaLevel - radiusY)
+            val finalY = craterFloorY.coerceAtLeast(minFloorY).coerceAtMost(world.maxHeight - 1)
+
+            CraterPoint(
+                x = x,
+                y = finalY,
+                z = z,
+                normalizedDistance = normalizedDistance,
+                isDebrisRim = false,
+                debrisHeight = 0,
+            )
+        }
+
+    private suspend fun generateCraterEffectivePlane(): List<CraterPoint> =
+        coroutineScope {
+            val points = mutableListOf<CraterPoint>()
+
+            val maxRadius = radiusX + debrisRimWidth
+
+            for (dx in -maxRadius..maxRadius) {
+                for (dz in -maxRadius..maxRadius) {
+                    val normalizedDistance = (dx.toDouble() / radiusX).pow(2) + (dz.toDouble() / radiusZ).pow(2)
+
+                    // Include both crater and debris rim
+                    if (normalizedDistance <= (1.0 + debrisRimWidth.toDouble() / radiusX).pow(2)) {
+                        val point = calculateCraterPoint(dx, dz)
+                        if (point != null) {
+                            points.add(point)
+                        }
+                    }
+                }
+            }
+
+            points
         }
 
     private suspend fun generateCrater() =
         coroutineScope {
-            val points = generateCraterEffectivePlane().toList()
+            val points = generateCraterEffectivePlane()
 
-            // Process points concurrently in batches for better performance
             points.forEach { point ->
-                processPoint(point)
+                if (point.isDebrisRim) {
+                    processDebrisRim(point)
+                } else {
+                    processCraterFloor(point)
+                }
             }
         }
 
-    private suspend fun processPoint(point: CraterPoint) {
+    private suspend fun processCraterFloor(point: CraterPoint) {
         applyFloorScorching(point)
         clearToCraterFloor(point)
     }
 
-    private suspend fun applyFloorScorching(point: CraterPoint) {
-        val blockType = chunkCache.getBlockMaterialAsync(point.x, point.y, point.z)
-        if (!blockType.canBeScorched()) return
+    private suspend fun processDebrisRim(point: CraterPoint) =
+        coroutineScope {
+            // First, clear any structures above terrain level
+            val maxClearHeight = (centerY + collapseHeight).coerceAtMost(world.maxHeight - 1)
+            for (y in maxClearHeight downTo (point.y + 1)) {
+                val blockType = chunkCache.getBlockMaterialAsync(point.x, y, point.z)
+                if (blockType.canBeRemoved() && blockType != Material.AIR) {
+                    blockChanger.addBlockChange(point.x, y, point.z, Material.AIR, updateBlock = false)
+                }
+            }
 
-        val material = selectScorchMaterial(point.normalizedDistance, point.x, point.z)
-        blockChanger.addBlockChange(point.x, point.y, point.z, material, updateBlock = false)
-    }
+            // Build up debris rim above the terrain
+            val baseY = point.y
+            val targetHeight = baseY + point.debrisHeight
 
-    /**
-     * Clears all blocks from a reasonable height down to crater floor, creating the bowl shape.
-     * This completely removes all buildings, structures, and terrain above the crater.
-     */
-    private suspend fun clearToCraterFloor(point: CraterPoint) {
-        val maxClearHeight = (centerY + collapseHeight).coerceAtMost(world.maxHeight - 1)
+            // Add debris blocks
+            for (y in baseY + 1..targetHeight) {
+                // Select debris material with variation
+                val noise = wangNoise(point.x, y, point.z)
+                val materialIndex = ((noise * debrisMaterials.size).toInt()).coerceIn(debrisMaterials.indices)
+                val debrisMaterial = debrisMaterials[materialIndex]
 
-        for (y in maxClearHeight downTo (point.y + 1)) {
-            val blockType = chunkCache.getBlockMaterialAsync(point.x, y, point.z)
-            if (blockType.canBeRemoved() && blockType != Material.AIR) {
-                blockChanger.addBlockChange(point.x, y, point.z, Material.AIR, updateBlock = false)
+                blockChanger.addBlockChange(point.x, y, point.z, debrisMaterial, updateBlock = false)
+            }
+
+            // Scorch the top of the debris rim
+            if (point.debrisHeight > 0) {
+                if (wangNoise(point.x, 0, point.z) > 0.4) {
+                    val scorchMaterial = scorchMaterials.take(3).random()
+                    blockChanger.addBlockChange(point.x, targetHeight, point.z, scorchMaterial, updateBlock = false)
+                }
             }
         }
 
-        // The scorched surface at point.y is the bottom of the crater
-    }
+    private suspend fun applyFloorScorching(point: CraterPoint) =
+        coroutineScope {
+            val blockType = chunkCache.getBlockMaterialAsync(point.x, point.y, point.z)
+            if (!blockType.canBeScorched()) return@coroutineScope
+
+            val material = selectScorchMaterial(point.normalizedDistance, point.x, point.z)
+            blockChanger.addBlockChange(point.x, point.y, point.z, material, updateBlock = false)
+        }
+
+    /**
+     * Clears all blocks from collapse height down to crater floor.
+     * This punches through any structures.
+     */
+    private suspend fun clearToCraterFloor(point: CraterPoint) =
+        coroutineScope {
+            val maxClearHeight = (centerY + collapseHeight).coerceAtMost(world.maxHeight - 1)
+
+            for (y in maxClearHeight downTo (point.y + 1)) {
+                val blockType = chunkCache.getBlockMaterialAsync(point.x, y, point.z)
+                if (blockType.canBeRemoved() && blockType != Material.AIR) {
+                    blockChanger.addBlockChange(point.x, y, point.z, Material.AIR, updateBlock = false)
+                }
+            }
+        }
 
     private fun selectScorchMaterial(
         normalizedDistance: Double,
