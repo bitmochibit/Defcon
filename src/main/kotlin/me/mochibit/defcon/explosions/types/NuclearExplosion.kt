@@ -41,8 +41,11 @@ import me.mochibit.defcon.explosions.processor.EntityShockwave
 import me.mochibit.defcon.explosions.processor.ExplosionSoundManager
 import me.mochibit.defcon.explosions.processor.Shockwave
 import me.mochibit.defcon.explosions.processor.ThermalRadiationBurn
+import me.mochibit.defcon.extensions.toVector3i
+import me.mochibit.defcon.radiation.RadiationAreaFactory
 import me.mochibit.defcon.threading.scheduling.runLater
 import org.bukkit.Location
+import org.joml.Vector3i
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
@@ -143,21 +146,24 @@ class NuclearExplosion(
                 }
             }
 //
-//            runLater(1.minutes, Dispatchers.Default) {
-//                RadiationAreaFactory.fromCenter(
-//                    center.toVector3i(), center.world, 5.0, 20000,
-//                    Vector3i(
-//                        falloutRadius,
-//                        falloutSpreadAir,
-//                        falloutRadius
-//                    ),
-//                    Vector3i(
-//                        -falloutRadius,
-//                        -falloutSpreadUnderground,
-//                        -falloutRadius
-//                    ),
-//                )
-//            }
+            runLater(1.minutes, Dispatchers.Default) {
+                RadiationAreaFactory.fromCenter(
+                    center.toVector3i(),
+                    center.world,
+                    5.0,
+                    20000,
+                    Vector3i(
+                        pluginConfiguration.nuclearExplosionConfig.falloutConfig.baseRadius,
+                        pluginConfiguration.nuclearExplosionConfig.falloutConfig.baseSpreadHeight,
+                        pluginConfiguration.nuclearExplosionConfig.falloutConfig.baseRadius,
+                    ),
+                    Vector3i(
+                        -pluginConfiguration.nuclearExplosionConfig.falloutConfig.baseRadius,
+                        -pluginConfiguration.nuclearExplosionConfig.falloutConfig.baseSpreadDepth,
+                        -pluginConfiguration.nuclearExplosionConfig.falloutConfig.baseRadius,
+                    ),
+                )
+            }
 //
             launch(Dispatchers.Default) {
                 EntityShockwave(

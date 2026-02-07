@@ -29,7 +29,7 @@ object PacketEvents {
 }
 
 group = "me.mochibit"
-version = "1.3.5b-SNAPSHOT"
+version = "1.3.6-SNAPSHOT"
 description = "A plugin that adds nuclear energy, along with its advantages and dangers"
 
 // Output configuration
