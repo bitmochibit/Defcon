@@ -21,7 +21,7 @@ object Versions {
     const val MOCKBUKKIT = "4.0.0"
     const val MCCOROUTINE = "2.22.0"
     const val REFLECTIONS = "0.10.2"
-    const val JVM_TARGET = 23
+    const val JVM_TARGET = 21
 }
 
 object PacketEvents {
