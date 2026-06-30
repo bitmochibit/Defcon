@@ -9,6 +9,9 @@ configurations {
     commonResources{
         canBeResolved = true
     }
+    commonKotlin{
+        canBeResolved = true
+    }
 }
 
 dependencies {
@@ -19,11 +22,17 @@ dependencies {
     }
     commonJava project(path: ':common', configuration: 'commonJava')
     commonResources project(path: ':common', configuration: 'commonResources')
+    commonKotlin project(path: ':common', configuration: 'commonKotlin')
 }
 
 tasks.named('compileJava', JavaCompile) {
     dependsOn(configurations.commonJava)
     source(configurations.commonJava)
+}
+
+tasks.named('compileKotlin', org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
+    dependsOn(configurations.commonKotlin)
+    source(configurations.commonKotlin)
 }
 
 processResources {

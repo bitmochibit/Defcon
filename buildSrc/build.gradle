@@ -1,3 +1,12 @@
 plugins {
     id 'groovy-gradle-plugin'
 }
+
+repositories {
+    gradlePluginPortal()
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlin_version}"
+    implementation "org.jetbrains.kotlin:kotlin-serialization:${kotlin_version}"
+}
