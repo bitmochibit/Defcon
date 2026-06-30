@@ -36,6 +36,10 @@ pluginManagement {
                 includeGroupAndSubgroups('net.minecraftforge')
             }
         }
+        maven {
+            name = "Kotlin for Forge"
+            url = uri("https://thedarkcolour.github.io/KotlinForForge/")
+        }
     }
 }
 
