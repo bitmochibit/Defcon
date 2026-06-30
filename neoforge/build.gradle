@@ -5,6 +5,8 @@ plugins {
 
 dependencies {
     runtimeOnly "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+    implementation 'com.tterrag.registrate:Registrate:MC1.21-1.3.0+67'
+    jarJar(group: 'com.tterrag.registrate', name: 'Registrate', version: "[MC1.21-1.3.0+67]")
 }
 
 neoForge {
