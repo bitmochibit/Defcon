@@ -114,3 +114,7 @@ run/
 /build/
 /.gradle/
 /.kotlin/
+/paper/build/
+/neoforge/build/
+/common/build/
+/buildSrc/build/

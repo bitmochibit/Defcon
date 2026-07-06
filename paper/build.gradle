@@ -4,6 +4,8 @@ plugins {
     id 'com.gradleup.shadow' version '9.0.0-beta12'
     id 'xyz.jpenilla.run-paper' version '2.3.1'
     id 'de.eldoria.plugin-yml.bukkit' version '0.7.1'
+    id 'org.jetbrains.kotlin.jvm'
+    id 'org.jetbrains.kotlin.plugin.serialization'
 }
 
 ext {
@@ -33,11 +35,14 @@ layout.buildDirectory.dir("libs").get().asFile.path
 
 logger.lifecycle("Output directory: ${outputPluginDirectory}")
 
+def jvmTarget = ext.JVM_TARGET
+def kotlinVersion = ext.KOTLIN_VERSION
+
 kotlin {
-    jvmToolchain(ext.JVM_TARGET as int)
+    jvmToolchain(jvmTarget as int)
 
     compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(ext.JVM_TARGET.toString())
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(jvmTarget.toString())
         freeCompilerArgs = [
             "-Xjvm-default=all",
             "-opt-in=kotlin.RequiresOptIn",
@@ -61,7 +66,7 @@ bukkit {
     permissions {
         register("defcon.admin") {
             description = "Gives access to all Defcon admin commands"
-            setProperty('default', BukkitPluginDescription.Permission.Default.OP)
+            setDefault('OP')
         }
     }
 }
@@ -180,7 +185,7 @@ tasks.named("shadowJar") {
         "Created-By": "Gradle ${gradle.gradleVersion}",
         "Implementation-Title": project.name,
         "Implementation-Version": project.version,
-        "Kotlin-Version": ext.KOTLIN_VERSION
+        "Kotlin-Version": kotlinVersion
         )
     }
 }
@@ -214,10 +219,10 @@ tasks.register("cleanBuildInstall") {
     group = "build"
     description = "Cleans the project, builds it, and installs the plugin to the output directory"
     dependsOn "clean", "installPlugin"
+}
 
-    tasks.named("clean").configure {
-        mustRunAfter "installPlugin"
-    }
+tasks.named("clean") {
+    mustRunAfter "installPlugin"
 }
 
 gradle.taskGraph.whenReady {
