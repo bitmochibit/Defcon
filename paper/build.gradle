@@ -1,0 +1,227 @@
+import java.time.Instant
+
+plugins {
+    id 'com.gradleup.shadow' version '9.0.0-beta12'
+    id 'xyz.jpenilla.run-paper' version '2.3.1'
+    id 'de.eldoria.plugin-yml.bukkit' version '0.7.1'
+}
+
+ext {
+    KOTLIN_VERSION = "2.2.0"
+    KOTLINX_COROUTINES = "1.10.2"
+    PAPER_API = "1.21.4-R0.1-SNAPSHOT"
+    PACKET_EVENTS = "2.7.0"
+    CUSTOM_BLOCK_DATA = "2.2.4"
+    GSON = "2.10.1"
+    JUNIT = "5.10.1"
+    MOCKITO = "5.8.0"
+    MOCKBUKKIT = "4.0.0"
+    MCCOROUTINE = "2.22.0"
+    REFLECTIONS = "0.10.2"
+    JVM_TARGET = 21
+
+    PACKET_EVENTS_PLATFORM = "spigot"
+}
+
+group = "me.mochibit"
+version = "1.3.6-SNAPSHOT"
+description = "A plugin that adds nuclear energy, along with its advantages and dangers"
+
+def outputPluginDirectory = project.hasProperty("outputDir") ?
+project.property("outputDir").toString() :
+layout.buildDirectory.dir("libs").get().asFile.path
+
+logger.lifecycle("Output directory: ${outputPluginDirectory}")
+
+kotlin {
+    jvmToolchain(ext.JVM_TARGET as int)
+
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(ext.JVM_TARGET.toString())
+        freeCompilerArgs = [
+            "-Xjvm-default=all",
+            "-opt-in=kotlin.RequiresOptIn",
+            "-Xcontext-receivers"
+        ]
+    }
+}
+
+
+bukkit {
+    main = "me.mochibit.defcon.DefconPlugin"
+    apiVersion = "1.21"
+    name = "Defcon"
+    version = project.version.toString()
+    description = project.description
+    authors = ["MochiBit"]
+    website = "https://github.com/mochibit/defcon"
+
+    depend = ["packetevents"]
+
+    permissions {
+        register("defcon.admin") {
+            description = "Gives access to all Defcon admin commands"
+            setProperty('default', BukkitPluginDescription.Permission.Default.OP)
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = "papermc-repo"
+        url = uri("https://repo.papermc.io/repository/maven-public/")
+    }
+    maven {
+        name = "sonatype"
+        url = uri("https://oss.sonatype.org/content/groups/public/")
+    }
+    maven {
+        url = uri("https://hub.jeff-media.com/nexus/repository/jeff-media-public/") // CustomBlockData
+    }
+    maven { url = uri("https://repo.codemc.io/repository/maven-releases/") }
+    maven { url = uri("https://repo.codemc.io/repository/maven-snapshots/") }
+}
+
+dependencies {
+    compileOnly "io.papermc.paper:paper-api:${PAPER_API}"
+    compileOnly "com.github.retrooper:packetevents-${PACKET_EVENTS_PLATFORM}:${PACKET_EVENTS}"
+
+    library "org.jetbrains.kotlin:kotlin-stdlib:${KOTLIN_VERSION}"
+    library "org.jetbrains.kotlin:kotlin-reflect:${KOTLIN_VERSION}"
+    library "org.jetbrains.kotlinx:kotlinx-coroutines-core:${KOTLINX_COROUTINES}"
+    library "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:${KOTLINX_COROUTINES}"
+    library "org.jetbrains.kotlinx:kotlinx-serialization-core:1.9.0"
+    library "org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0"
+
+
+    library "com.github.shynixn.mccoroutine:mccoroutine-bukkit-api:${MCCOROUTINE}"
+    library "com.github.shynixn.mccoroutine:mccoroutine-bukkit-core:${MCCOROUTINE}"
+
+
+    library "com.google.code.gson:gson:${GSON}"
+
+
+    implementation "com.jeff-media:custom-block-data:${CUSTOM_BLOCK_DATA}"
+    implementation("org.reflections:reflections:${REFLECTIONS}") {
+        exclude group: "org.slf4j"
+        exclude group: "com.google.code.findbugs"
+    }
+
+
+    testImplementation "org.jetbrains.kotlin:kotlin-test"
+    testImplementation "org.junit.jupiter:junit-jupiter:${JUNIT}"
+    testImplementation "org.mockbukkit.mockbukkit:mockbukkit-v1.21:${MOCKBUKKIT}"
+    testImplementation "org.mockito:mockito-core:${MOCKITO}"
+    testImplementation "io.papermc.paper:paper-api:${PAPER_API}"
+}
+
+
+tasks.named("test") {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+        showStandardStreams = false
+    }
+    maxParallelForks = Math.max((int) (Runtime.getRuntime().availableProcessors() / 2), 1)
+
+    jvmArgs "-Xmx2G", "-XX:+UseG1GC"
+}
+
+
+tasks.named("runServer") {
+    minecraftVersion("1.21.4")
+
+    downloadPlugins {
+        github(
+            "retrooper",
+            "packetevents",
+            "v${PACKET_EVENTS}",
+            "packetevents-${PACKET_EVENTS_PLATFORM}-${PACKET_EVENTS}.jar"
+        )
+    }
+
+
+    jvmArgs "-Xmx4G", "-XX:+UseG1GC"
+}
+
+
+tasks.named("jar") {
+    enabled = false
+}
+
+
+tasks.named("shadowJar") {
+    archiveBaseName.set("Defcon")
+    archiveFileName.set("Defcon-${version}.jar")
+    archiveClassifier.set("")
+    archiveVersion.set(project.version.toString())
+
+
+    relocate "com.jeff_media.customblockdata", "me.mochibit.lib.customblockdata"
+    relocate "org.reflections", "me.mochibit.lib.reflections"
+
+
+    minimize {
+        exclude(dependency("org.jetbrains.kotlin:.*"))
+        exclude(dependency("org.jetbrains.kotlinx:.*"))
+    }
+
+    exclude "META-INF/*.DSA", "META-INF/*.RSA", "META-INF/*.SF"
+    exclude "META-INF/maven/**"
+    exclude "**/*.kotlin_metadata"
+    exclude "**/*.kotlin_builtins"
+
+
+    manifest {
+        attributes(
+            "Built-By": System.getProperty("user.name"),
+        "Build-Timestamp": Instant.now().toString(),
+        "Created-By": "Gradle ${gradle.gradleVersion}",
+        "Implementation-Title": project.name,
+        "Implementation-Version": project.version,
+        "Kotlin-Version": ext.KOTLIN_VERSION
+        )
+    }
+}
+
+artifacts {
+    archives tasks.named("shadowJar")
+}
+
+
+tasks.named("build") {
+    dependsOn tasks.named("shadowJar")
+}
+
+
+tasks.register("installPlugin", Copy) {
+    group = "build"
+    description = "Installs the built plugin to the output directory"
+    dependsOn tasks.named("shadowJar")
+
+    from tasks.named("shadowJar").map { it.archiveFile }
+    into file(outputPluginDirectory)
+
+    doLast {
+        def fileName = tasks.named("shadowJar").get().archiveFileName.get()
+        logger.lifecycle("Plugin installed to: ${outputPluginDirectory}/${fileName}")
+    }
+}
+
+
+tasks.register("cleanBuildInstall") {
+    group = "build"
+    description = "Cleans the project, builds it, and installs the plugin to the output directory"
+    dependsOn "clean", "installPlugin"
+
+    tasks.named("clean").configure {
+        mustRunAfter "installPlugin"
+    }
+}
+
+gradle.taskGraph.whenReady {
+    System.setProperty("org.gradle.parallel", "true")
+    System.setProperty("org.gradle.configureondemand", "true")
+    System.setProperty("org.gradle.caching", "true")
+}

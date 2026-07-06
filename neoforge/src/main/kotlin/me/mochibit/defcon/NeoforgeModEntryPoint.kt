@@ -1,10 +1,13 @@
 package me.mochibit.defcon
 
+import me.mochibit.defcon.DefconMod.MOD_ID
 import net.neoforged.bus.api.IEventBus
+
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.fml.common.Mod
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
+import net.neoforged.neoforge.registries.RegisterEvent
 
 
 @Mod(MOD_ID)
@@ -17,7 +20,7 @@ class NeoforgeModEntryPoint(
             private set
 
         fun onRegister(event: RegisterEvent) {
-            CreateHarmonicsMod.commonPreFreezeSetup(event.registry)
+            DefconMod.commonPreFreezeSetup(event.registry)
         }
     }
 
@@ -38,14 +41,14 @@ class NeoforgeModEntryPoint(
     private fun initialize() {
         ModEventBus.addListener(NeoforgeModEntryPoint::onRegister)
 
-        CreateHarmonicsMod.commonSetup {
+        DefconMod.commonSetup {
             registerEventListeners(this@NeoforgeModEntryPoint.modEventBus)
         }
 
-        provideLang()
+//        provideLang()
 
-        autoRegister<NeoforgeRegistry>()
-        ModEventBus.addListener(NeoforgeModPackets::registerPayloads)
+//        autoRegister<NeoforgeRegistry>()
+//        ModEventBus.addListener(NeoforgeModPackets::registerPayloads)
     }
 }
 

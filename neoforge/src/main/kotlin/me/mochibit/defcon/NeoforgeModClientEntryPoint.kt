@@ -1,23 +1,16 @@
 package me.mochibit.defcon
 
-import me.mochibit.createharmonics.CreateHarmonicsMod.MOD_ID
-import me.mochibit.createharmonics.config.ModConfigs
-import me.mochibit.createharmonics.ponder.ModPonderPlugin
-import net.createmod.catnip.config.ui.BaseConfigScreen
-import net.createmod.ponder.foundation.PonderIndex
-import net.minecraft.client.gui.screens.Screen
+import me.mochibit.defcon.DefconMod.MOD_ID
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.ModContainer
-import net.neoforged.fml.ModLoadingContext
 import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.fml.common.Mod
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory
 
-@Mod(CreateHarmonicsMod.MOD_ID, dist = [Dist.CLIENT])
+@Mod(MOD_ID, dist = [Dist.CLIENT])
 class NeoforgeModClientEntryPoint(
     val modEventBus: IEventBus,
     val container: ModContainer,
@@ -59,6 +52,6 @@ class NeoforgeModClientEntryPoint(
     }
 
     private fun initialize() {
-        CreateHarmonicsClientMod.setup()
+        DefconClientMod.setup()
     }
 }
