@@ -1,5 +1,7 @@
 package me.mochibit.defcon.foundation.services
 
+import java.nio.file.Path
+
 interface PlatformService {
     enum class Platform {
         NEOFORGE,
@@ -30,6 +32,8 @@ interface PlatformService {
     fun setupEventBridge()
 
     fun setupClientEventBridge()
+
+    fun getModRootPaths(): List<Path>
 }
 
 val platformService: PlatformService by lazy {

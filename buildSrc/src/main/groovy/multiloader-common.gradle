@@ -54,6 +54,10 @@ repositories {
     maven { // Registrate
         url "https://maven.ithundxr.dev/snapshots"
     }
+    maven {
+        name = "Kotlin for Forge"
+        url = uri("https://thedarkcolour.github.io/KotlinForForge/")
+    }
     mavenLocal()
 }
 

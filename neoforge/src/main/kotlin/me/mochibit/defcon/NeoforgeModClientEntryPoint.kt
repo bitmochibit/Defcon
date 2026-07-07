@@ -1,14 +1,13 @@
 package me.mochibit.defcon
 
 import me.mochibit.defcon.DefconMod.MOD_ID
+import me.mochibit.defcon.content.explosion.particle.ExplosionDustParticle
+import me.mochibit.defcon.foundation.registry.ModParticles
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.bus.api.IEventBus
-import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.ModContainer
-import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.fml.common.Mod
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
-import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent
+import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent
 
 @Mod(MOD_ID, dist = [Dist.CLIENT])
 class NeoforgeModClientEntryPoint(
@@ -21,37 +20,21 @@ class NeoforgeModClientEntryPoint(
             private set
     }
 
-    @EventBusSubscriber(value = [Dist.CLIENT], modid = MOD_ID)
-    object ClientModSetup {
-        @JvmStatic
-        @SubscribeEvent
-        fun onClientSetup(event: FMLClientSetupEvent) {
-//            BaseConfigScreen.setDefaultActionFor(MOD_ID) { base ->
-//                base.withSpecs(
-//                    ModConfigs.client.specification,
-//                    ModConfigs.common.specification,
-//                    ModConfigs.server.specification,
-//                )
-//            }
-        }
-
-        @JvmStatic
-        @SubscribeEvent
-        fun onLoadComplete(event: FMLLoadCompleteEvent) {
-//            ModLoadingContext.get().registerExtensionPoint(IConfigScreenFactory::class.java) {
-//                IConfigScreenFactory { _: ModContainer, previousScreen: Screen ->
-//                    BaseConfigScreen(previousScreen, MOD_ID)
-//                }
-//            }
-        }
-    }
-
     init {
         instance = this
         initialize()
     }
 
+    fun registerParticleFactories(event: RegisterParticleProvidersEvent) {
+        event.registerSpriteSet(ModParticles.ExplosionDustParticle.get()) { sheet ->
+            ExplosionDustParticle.Provider(
+                sheet
+            )
+        }
+    }
+
     private fun initialize() {
         DefconClientMod.setup()
+        modEventBus.addListener(this::registerParticleFactories)
     }
 }

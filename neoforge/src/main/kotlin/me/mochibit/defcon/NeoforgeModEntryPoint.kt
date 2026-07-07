@@ -1,14 +1,13 @@
 package me.mochibit.defcon
 
 import me.mochibit.defcon.DefconMod.MOD_ID
+import me.mochibit.defcon.foundation.registry.NeoforgeModPackets
+import me.mochibit.defcon.foundation.registry.NeoforgeRegistry
+import me.mochibit.defcon.foundation.registry.autoRegister
 import net.neoforged.bus.api.IEventBus
-
-import net.neoforged.bus.api.SubscribeEvent
-import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.fml.common.Mod
-import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.neoforge.registries.RegisterEvent
-
 
 @Mod(MOD_ID)
 class NeoforgeModEntryPoint(
@@ -26,29 +25,17 @@ class NeoforgeModEntryPoint(
 
     init {
         instance = this
+        modEventBus.addListener(NeoforgeModEntryPoint::onRegister)
         initialize()
     }
 
-    @EventBusSubscriber(modid = MOD_ID)
-    object ModSetup {
-        @JvmStatic
-        @SubscribeEvent
-        fun registerCapabilities(event: RegisterCapabilitiesEvent) {
-            // Register platform specific capabilities here
-        }
-    }
-
     private fun initialize() {
-        ModEventBus.addListener(NeoforgeModEntryPoint::onRegister)
-
         DefconMod.commonSetup {
             registerEventListeners(this@NeoforgeModEntryPoint.modEventBus)
         }
 
-//        provideLang()
-
-//        autoRegister<NeoforgeRegistry>()
-//        ModEventBus.addListener(NeoforgeModPackets::registerPayloads)
+        autoRegister<NeoforgeRegistry>()
+        ModEventBus.addListener(NeoforgeModPackets::registerPayloads)
     }
 }
 
