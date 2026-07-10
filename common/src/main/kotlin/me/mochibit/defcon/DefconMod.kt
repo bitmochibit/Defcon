@@ -43,31 +43,6 @@ object DefconMod {
         _registrate.registrateConfiguration()
         ModDispatchers.setupEvents()
         autoRegister<CommonRegistry>()
-
-        val rootPaths = platformService.getModRootPaths()
-        ClassGraph()
-            .enableAllInfo()
-            .acceptPackages("me.mochibit.defcon.foundation.registry")
-            .overrideClasspath(*rootPaths.toTypedArray())
-            .scan()
-            .use { scanResult ->
-                scanResult.getClassesImplementing(CommonRegistry::class.java.name)
-                    .mapNotNull { classInfo ->
-                        try {
-                            val clazz = Class.forName(
-                                classInfo.name,
-                                true,
-                                DefconMod::class.java.classLoader
-                            )
-                            clazz.kotlin.objectInstance as? CommonRegistry
-                        } catch (e: Exception) {
-                            null
-                        }
-                    }
-                    .sortedBy { it.registrationOrder }
-                    .filter { it.targetEnvironment == null || it.targetEnvironment == platformService.environment }
-                    .forEach { it.javaClass.name.info() }
-            }
     }
 }
 

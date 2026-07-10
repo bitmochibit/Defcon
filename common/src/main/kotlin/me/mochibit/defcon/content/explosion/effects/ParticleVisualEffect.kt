@@ -7,43 +7,65 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.Serializable
+import me.mochibit.defcon.foundation.async.ModDispatchers
+import me.mochibit.defcon.foundation.particles.ParticleSpawner
 import net.minecraft.core.BlockPos
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
-abstract class ParticleVisualEffect(
-    val center: BlockPos,
-    val effectDuration: Duration,
-    val scope: CoroutineScope
+@Serializable
+sealed interface EffectParams {
+    val center: BlockPos
+    val effectDuration: Duration
+}
+
+
+abstract class ParticleVisualEffect<T : EffectParams>(
+    protected val params: T,
+    protected val particleSpawner: ParticleSpawner,
+    protected val scope: CoroutineScope
 ) {
     private var lifecycleLoop: Job? = null
+    private var lastTickMillis = 0L
+
 
     fun start() {
         if (lifecycleLoop?.isActive == true) return
+        lastTickMillis = System.currentTimeMillis()
 
-        lifecycleLoop = scope.launch {
+        lifecycleLoop = scope.launch(ModDispatchers.Client()) {
             onStart()
             try {
-                withTimeout(effectDuration) {
+                withTimeout(params.effectDuration) {
                     while (isActive) {
-                        step()
+                        val now = System.currentTimeMillis()
+                        val dt = ((now - lastTickMillis) / 1000f).coerceAtLeast(0f)
+                        lastTickMillis = now
+
+                        onStep(dt)
                         delay(50.milliseconds)
                     }
                 }
             } catch (e: TimeoutCancellationException) {
-                // Effect timed out
             } finally {
                 onStop()
             }
         }
     }
 
-    fun step() {
-        onStep()
+    fun step(deltaTime: Float) {
+        onStep(deltaTime)
     }
 
     fun stop() {
         lifecycleLoop?.cancel()
+    }
+
+    fun fastForward(ticks: Long) {
+        repeat(ticks.toInt().coerceAtMost(2000)) {
+            onStep(0f)
+        }
     }
 
 
@@ -51,6 +73,6 @@ abstract class ParticleVisualEffect(
 
     protected abstract fun onStop()
 
-    protected abstract fun onStep()
+    protected abstract fun onStep(deltaTime: Float)
 }
 

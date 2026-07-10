@@ -2,10 +2,10 @@ package me.mochibit.defcon.foundation.particles
 
 import kotlinx.coroutines.*
 import me.mochibit.defcon.content.explosion.particle.ExplosionDustParticleOptions
-import me.mochibit.defcon.foundation.async.ServerCoroutineScope
 import me.mochibit.defcon.foundation.particles.shape.EmitterShape
 import me.mochibit.defcon.foundation.particles.shape.PointShape
 import me.mochibit.defcon.foundation.particles.shape.mutator.ShapeMutator
+import net.minecraft.client.Minecraft
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.phys.Vec3
 import org.joml.Matrix4d
@@ -14,29 +14,33 @@ import org.joml.Vector3f
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
-data class ParticleSpawnTemplate(
-    val scale: Float = 1.0f,
-    val speed: Float = 1.0f,
-    val initialVelocity: Vector3f = Vector3f(0f, 0f, 0f),
+fun interface ParticleSpawner {
+    fun spawn(
+        options: ExplosionDustParticleOptions,
+        x: Double, y: Double, z: Double,
+        vx: Double, vy: Double, vz: Double
+    )
+}
 
-    val initialTemperature: Float = 3000f,
-    val coolingRate: Float = 400f,
-    val ambientTemperature: Float = 0f,
-    val colorOverride: Vector3f? = null,
+fun serverParticleSpawner(level: ServerLevel): ParticleSpawner =
+    ParticleSpawner { options, x, y, z, vx, vy, vz ->
+        val origin = Vec3(x, y, z)
+        for (player in level.players()) {
+            if (player.blockPosition().closerToCenterThan(origin, 512.0)) {
+                level.sendParticles(player, options, true, x, y, z,
+                    0, vx, vy, vz, 1.0)
+            }
+        }
+    }
 
-    val baseLifetime: Int = 40,
-    val randomLifetime: Int = 20,
-    val friction: Float = 0.95f,
-    val gravity: Float = 0.0f,
-    val maxSpeed: Float = 0.5f,
-    val hasCollision: Boolean = true,
-    val speedUpWhenYMotionIsBlocked: Boolean = true,
-    val shrinkOverTime: Boolean = true,
-)
+fun clientParticleSpawner(level: net.minecraft.client.multiplayer.ClientLevel): ParticleSpawner =
+    ParticleSpawner { options, x, y, z, vx, vy, vz ->
+        level.addParticle(options, true, x, y, z, vx, vy, vz)
+    }
 
 class ParticleEmitter<T : EmitterShape>(
     val emitterScope: CoroutineScope,
-    val level: ServerLevel,
+    val spawner: ParticleSpawner,
     var origin: Vec3,
     val emitterShape: T,
     val transform: Matrix4d = Matrix4d(),
@@ -46,7 +50,7 @@ class ParticleEmitter<T : EmitterShape>(
 ) {
 
     var visible = true
-    var spawnRate = 5
+    var spawnRate = 10
 
     val radialVelocity = Vector3f(0f, 0f, 0f)
 
@@ -55,35 +59,15 @@ class ParticleEmitter<T : EmitterShape>(
     var baseCoolingRate = 15f
     var minBaseTemperature = 0f
 
-    private var job: Job? = null
-    private var lastTickMillis = 0L
 
-    fun start() {
-        lastTickMillis = System.currentTimeMillis()
-        job = emitterScope.launch {
-            try {
-                while (isActive) {
-                    val now = System.currentTimeMillis()
-                    val dtSeconds = (now - lastTickMillis) / 1000f
-                    lastTickMillis = now
-
-                    if (baseTemperature > minBaseTemperature) {
-                        baseTemperature = (baseTemperature - baseCoolingRate * dtSeconds)
-                            .coerceAtLeast(minBaseTemperature)
-                    }
-
-                    if (visible) spawnBatch()
-                    delay(50L.milliseconds)
-                }
-            } catch (e: CancellationException) {
-                // expected
-            }
+    fun step(deltaTime: Float) {
+        if (baseTemperature > minBaseTemperature) {
+            baseTemperature = (baseTemperature - baseCoolingRate * deltaTime)
+                .coerceAtLeast(minBaseTemperature)
         }
+        if (visible) spawnBatch()
     }
 
-    fun stop() {
-        job?.cancel()
-    }
 
     fun setVisibilityAfterDelay(visible: Boolean, delay: Duration) = apply {
         emitterScope.launch {
@@ -154,7 +138,7 @@ class ParticleEmitter<T : EmitterShape>(
                 shrinkOverTime = template.shrinkOverTime,
             )
 
-            level.sendParticles(options, worldX, worldY, worldZ, 1, 0.0, 0.0, 0.0, 0.0)
+            spawner.spawn(options, worldX, worldY, worldZ, vx, vy, vz)
         }
     }
 

@@ -32,8 +32,6 @@ interface PlatformService {
     fun setupEventBridge()
 
     fun setupClientEventBridge()
-
-    fun getModRootPaths(): List<Path>
 }
 
 val platformService: PlatformService by lazy {

@@ -29,12 +29,4 @@ class NeoforgePlatformService : PlatformService {
     override fun setupClientEventBridge() {
         NeoforgeClientEventBridge.setup()
     }
-
-    override fun getModRootPaths(): List<Path> {
-        val modFileInfo = ModList.get().getModFileById(MOD_ID)
-            ?: throw IllegalArgumentException("No mod file found for id '$MOD_ID'")
-
-        val secureJar = modFileInfo.file.secureJar
-        return listOf(modFileInfo.file.secureJar.primaryPath)
-    }
 }

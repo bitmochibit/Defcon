@@ -4,6 +4,9 @@ import kotlinx.coroutines.*
 import me.mochibit.defcon.content.explosion.effects.NuclearExplosionEffect
 import me.mochibit.defcon.foundation.async.ClientCoroutineScope
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
+import me.mochibit.defcon.foundation.extension.inTicks
+import me.mochibit.defcon.foundation.network.packet.ExplosionEffectStartPacket
+import me.mochibit.defcon.foundation.registry.ModPackets
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import java.util.UUID
@@ -77,10 +80,13 @@ class NuclearExplosion(
     level: ServerLevel,
     epicenter: BlockPos,
 ) : Explosion(level, epicenter) {
-
     init {
+        val explosionUUID = UUID.randomUUID();
         step(ExplosionScope.SERVER) {
-            NuclearExplosionEffect(serverLevel, epicenter, 2.minutes, this.serverScope).start()
+            ModPackets.broadcast(ExplosionEffectStartPacket(
+                explosionUUID.toString(), "nuclear",
+                epicenter, level.gameTime, 2.minutes.inTicks()
+            ))
 //            NuclearFogVFX(config, center).instantiate()
 //            CondensationCloudVFX(config, center).instantiate()
 //            ShockwaveEffect(center, config.shockwaveConfig.baseRadius, config.craterConfig.baseRadius, 50f).instantiate()

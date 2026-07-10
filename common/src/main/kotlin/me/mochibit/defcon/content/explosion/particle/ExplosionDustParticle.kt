@@ -61,9 +61,11 @@ class ExplosionDustParticle(
         yd = ySpeed * options.speed
         zd = zSpeed * options.speed
 
+        clampToMaxSpeed()
+
         quadSize *= 0.75f * options.scale
         lifetime = ((options.baseLifetime + random.nextInt(options.randomLifetime.coerceAtLeast(1)))
-                * options.scale).toInt().coerceAtLeast(1)
+                ).coerceAtLeast(1)
 
         applyColorForAge()
         setSpriteFromAge(sprites)
@@ -86,15 +88,17 @@ class ExplosionDustParticle(
     override fun tick() {
         super.tick()
         applyColorForAge()
+        clampToMaxSpeed()
+//        setSpriteFromAge(sprites)
+    }
 
-        if (options.maxSpeed > 0f) {
-            val speed = Math.sqrt(xd * xd + yd * yd + zd * zd)
-            if (speed > options.maxSpeed) {
-                val f = options.maxSpeed / speed
-                xd *= f; yd *= f; zd *= f
-            }
+    private fun clampToMaxSpeed() {
+        if (options.maxSpeed <= 0f) return
+        val speed = Math.sqrt(xd * xd + yd * yd + zd * zd)
+        if (speed > options.maxSpeed) {
+            val f = options.maxSpeed / speed
+            xd *= f; yd *= f; zd *= f
         }
-        setSpriteFromAge(sprites)
     }
 
     override fun getQuadSize(scaleFactor: Float): Float {
