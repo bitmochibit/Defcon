@@ -122,7 +122,6 @@ class ExplosionDustParticleOptions(
     val scale: Float = 1.0f,
     val speed: Float = 1.0f,
 
-    // Colore/temperatura
     val initialTemperature: Float = 3000f,
     val coolingRate: Float = 400f,
     val ambientTemperature: Float = 0f,

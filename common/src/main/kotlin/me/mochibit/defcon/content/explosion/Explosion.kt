@@ -3,6 +3,7 @@ package me.mochibit.defcon.explosions
 import kotlinx.coroutines.*
 import me.mochibit.defcon.content.explosion.effects.NuclearExplosionEffect
 import me.mochibit.defcon.content.explosion.effects.NuclearExplosionParams
+import me.mochibit.defcon.content.explosion.processor.Crater
 import me.mochibit.defcon.explosion.processor.Shockwave
 import me.mochibit.defcon.foundation.async.ClientCoroutineScope
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
@@ -121,11 +122,17 @@ class NuclearExplosion(
 //            },
             ExplosionScope.SERVER to {
 //                killPlayersInCrater(center, config)
-//                Crater(center, config.craterConfig.baseRadius, config.craterConfig.baseDepth, config.craterConfig.baseRadius).create()
+                Crater(
+                    this.serverLevel,
+                    epicenter,
+                    100,
+                    50,
+                    100
+                ).create()
                 Shockwave(
                     this.serverLevel,
                     epicenter,
-                    10,
+                    101,
                     1000,
                     shockwaveHeight = 200,
                 )

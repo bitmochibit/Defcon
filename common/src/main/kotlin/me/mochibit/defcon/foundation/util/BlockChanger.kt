@@ -35,7 +35,7 @@ class BlockChanger private constructor(
         CoroutineScope(ServerCoroutineScope.coroutineContext + SupervisorJob(ServerCoroutineScope.coroutineContext[Job]))
 
     private val workerCount = 1
-    private val batchSize = 1000
+    private val batchSize = 10000
     private val batchTimeoutMs = 50L
 
     private val processingActive = AtomicBoolean(false)
