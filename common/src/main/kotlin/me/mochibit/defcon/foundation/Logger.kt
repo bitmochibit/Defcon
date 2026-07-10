@@ -2,7 +2,7 @@ package me.mochibit.defcon.foundation
 import com.mojang.logging.LogUtils
 object Logger {
     private val logger = LogUtils.getLogger()
-    private const val PREFIX = "[CreateHarmonics] "
+    private const val PREFIX = "[Defcon] "
 
     fun info(message: String) {
         logger.info(PREFIX + message)

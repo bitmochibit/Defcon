@@ -2,6 +2,8 @@ package me.mochibit.defcon.explosions
 
 import kotlinx.coroutines.*
 import me.mochibit.defcon.content.explosion.effects.NuclearExplosionEffect
+import me.mochibit.defcon.content.explosion.effects.NuclearExplosionParams
+import me.mochibit.defcon.explosion.processor.Shockwave
 import me.mochibit.defcon.foundation.async.ClientCoroutineScope
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
 import me.mochibit.defcon.foundation.extension.inTicks
@@ -10,6 +12,7 @@ import me.mochibit.defcon.foundation.registry.ModPackets
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Level
 import kotlin.time.Duration.Companion.minutes
 
@@ -68,7 +71,7 @@ abstract class Explosion(protected val level: ServerLevel, protected val center:
 }
 
 object ExplosionRegistry {
-    private val active = java.util.concurrent.ConcurrentHashMap<UUID, Explosion>()
+    private val active = ConcurrentHashMap<UUID, Explosion>()
     fun register(id: UUID, explosion: Explosion) { active[id] = explosion }
     fun unregister(id: UUID) { active.remove(id) }
     fun cancel(id: UUID) = active[id]?.cancel("manually cancelled")
@@ -84,8 +87,7 @@ class NuclearExplosion(
         val explosionUUID = UUID.randomUUID();
         step(ExplosionScope.SERVER) {
             ModPackets.broadcast(ExplosionEffectStartPacket(
-                explosionUUID.toString(), "nuclear",
-                epicenter, level.gameTime, 2.minutes.inTicks()
+                explosionUUID.toString(), NuclearExplosionParams(epicenter, effectDuration = 2.minutes)
             ))
 //            NuclearFogVFX(config, center).instantiate()
 //            CondensationCloudVFX(config, center).instantiate()
@@ -110,19 +112,25 @@ class NuclearExplosion(
 //        step(ExplosionScope.SERVER) {
 //            scheduleRadiationDelayed(center, config)
 //        }
-//        parallel(
+        parallel(
 //            ExplosionScope.SERVER to {
 //                EntityShockwave(
 //                    center, config.shockwaveConfig.baseHeight, config.craterConfig.baseRadius / 6,
 //                    config.shockwaveConfig.baseRadius, config.craterConfig.baseRadius / 6, 50f,
 //                ).process()
 //            },
-//            ExplosionScope.SERVER to {
+            ExplosionScope.SERVER to {
 //                killPlayersInCrater(center, config)
 //                Crater(center, config.craterConfig.baseRadius, config.craterConfig.baseDepth, config.craterConfig.baseRadius).create()
-//                Shockwave(center, config.craterConfig.baseRadius, config.shockwaveConfig.baseRadius, config.shockwaveConfig.baseHeight)
-//                    .explode().join()
-//            },
-//        )
+                Shockwave(
+                    this.serverLevel,
+                    epicenter,
+                    10,
+                    1000,
+                    shockwaveHeight = 200,
+                )
+                    .explode().join()
+            },
+        )
     }
 }

@@ -21,14 +21,11 @@ import java.util.concurrent.ConcurrentHashMap
 @Serializable
 class ExplosionEffectStartPacket(
     val effectId: String,
-    val effectType: String,
-    @Contextual val center: BlockPos,
-    val startGameTime: Long,
-    val effectDurationTicks: Int
+    val params: EffectParams,
 ) : ModPacket, S2CPacket
 {
     override fun handle(context: ModPacket.Context): Boolean {
-        handleParticleEffectStart(effectId, NuclearExplosionParams(center, effectDurationTicks.ticks()))
+        handleParticleEffectStart(effectId, params)
         return true;
     }
 }
