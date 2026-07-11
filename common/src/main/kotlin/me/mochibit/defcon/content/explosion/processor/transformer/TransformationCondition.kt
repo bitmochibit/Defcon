@@ -18,6 +18,20 @@ sealed class TransformationCondition {
         ): Boolean = state in blocks
     }
 
+    data class BlockSet(
+        val types: Set<Block>,
+    ) : TransformationCondition() {
+        override fun matches(
+            state: BlockState,
+            explosionPower: Float,
+        ): Boolean = state.block in types
+
+        companion object {
+            fun fromStates(states: Set<BlockState>): BlockSet =
+                BlockSet(states.mapTo(mutableSetOf()) { it.block })
+        }
+    }
+
     data class MaterialCategory(
         val predicate: (BlockState) -> Boolean,
     ) : TransformationCondition() {

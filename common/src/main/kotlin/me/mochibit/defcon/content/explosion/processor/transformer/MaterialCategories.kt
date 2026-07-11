@@ -111,6 +111,12 @@ object MaterialCategories {
                     Blocks.PINK_TULIP.defaultBlockState(),
                 ),
             )
+
+            addAll(
+                listOf(
+                    Blocks.VINE.defaultBlockState()
+                )
+            )
         }
     }
 

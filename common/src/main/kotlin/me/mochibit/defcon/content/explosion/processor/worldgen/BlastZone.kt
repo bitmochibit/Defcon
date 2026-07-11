@@ -19,7 +19,11 @@ class BlastZoneSavedData : SavedData() {
     }
 
 
-    fun zoneForChunk(chunkX: Int, chunkZ: Int, featherRadius: Int = 0): BlastZone? {
+    fun zoneForChunk(
+        chunkX: Int,
+        chunkZ: Int,
+        marginFor: (BlastZone) -> Double = { 0.0 },
+    ): BlastZone? {
         val minX = chunkX shl 4
         val minZ = chunkZ shl 4
         val maxX = minX + 15
@@ -29,8 +33,8 @@ class BlastZoneSavedData : SavedData() {
             val closestZ = zone.centerZ.coerceIn(minZ, maxZ)
             val dx = (closestX - zone.centerX).toDouble()
             val dz = (closestZ - zone.centerZ).toDouble()
-            val effectiveRadius = (zone.radius + featherRadius).toDouble()
-            dx * dx + dz * dz <= effectiveRadius.pow(2)
+            val effectiveRadius = zone.radius + marginFor(zone)
+            dx * dx + dz * dz <= effectiveRadius * effectiveRadius
         }
     }
 

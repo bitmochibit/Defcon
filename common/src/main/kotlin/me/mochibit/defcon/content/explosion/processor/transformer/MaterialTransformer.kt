@@ -187,11 +187,10 @@ class MaterialTransformer(
                     TransformationRule(
                         name = "Plant Destruction - High Power",
                         priority = 60,
-                        condition =
-                            TransformationCondition.PowerThreshold(
-                                TransformationCondition.MaterialSet(MaterialCategories.PLANTS),
-                                minPower = 0.5f,
-                            ),
+                        condition = TransformationCondition.PowerThreshold(
+                            TransformationCondition.BlockSet.fromStates(MaterialCategories.PLANTS),
+                            minPower = 0.5f,
+                        ),
                         outcome = TransformationOutcome.ToMaterial(Blocks.AIR.defaultBlockState()),
                     ),
                 )
@@ -200,7 +199,7 @@ class MaterialTransformer(
                     TransformationRule(
                         name = "Plant Destruction - Low Power",
                         priority = 59,
-                        condition = TransformationCondition.MaterialSet(MaterialCategories.PLANTS),
+                        condition = TransformationCondition.BlockSet.fromStates(MaterialCategories.PLANTS),
                         outcome = TransformationOutcome.ToRandomMaterial(MaterialCategories.DEAD_PLANTS),
                     ),
                 )

@@ -378,13 +378,15 @@ object TreeBurnCore {
 
     inline fun floodFillTree(
         initialLog: BlockPos,
-        maxBlocks: Int = 400,
+        maxBlocks: Int = 600,
+        maxRadius: Int = 12,
         getState: (BlockPos) -> BlockState,
     ): TreeStructure {
         val visited = HashSet<Long>()
         val logs = mutableListOf<BlockPos>()
         val leaves = mutableListOf<BlockPos>()
         val queue = ArrayDeque<BlockPos>()
+        val maxRadiusSq = maxRadius * maxRadius
 
         queue.add(initialLog)
         visited.add(initialLog.asLong())
@@ -409,6 +411,9 @@ object TreeBurnCore {
                 val n = pos.relative(dir)
                 val key = n.asLong()
                 if (key in visited) continue
+
+                val distSq = initialLog.distSqr(n)
+                if (distSq > maxRadiusSq) continue
 
                 val nState = getState(n)
                 val nBlock = nState.block

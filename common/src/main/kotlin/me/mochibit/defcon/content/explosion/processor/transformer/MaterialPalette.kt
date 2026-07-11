@@ -6,6 +6,7 @@ import org.joml.SimplexNoise
 data class MaterialPalette(
     val materials: Set<MaterialPaletteEntry>,
     val noiseScale: Float = 0.1f,
+    val chaosWeight: Float = 0.6f,
 ) {
     fun getRandom(): BlockState {
         val totalWeight = materials.sumOf { it.weight }
@@ -22,21 +23,26 @@ data class MaterialPalette(
     }
 
     fun getWithNoise(x: Int, z: Int, y: Int = 0): BlockState {
-        val noiseValue = SimplexNoise.noise(x * noiseScale, y * noiseScale, z * noiseScale)
-        val normalizedNoise = noiseValue+ 1 / 2f
+        val coherent = (SimplexNoise.noise(x * noiseScale, y * noiseScale, z * noiseScale) + 1f) / 2f
+        val chaotic = hashNoise(x, y, z)
+        val blended = (coherent * (1f - chaosWeight) + chaotic * chaosWeight).coerceIn(0f, 1f)
 
         val totalWeight = materials.sumOf { it.weight }
-        val targetWeight = (normalizedNoise * totalWeight).toInt()
+        val targetWeight = (blended * totalWeight).toInt().coerceIn(0, totalWeight - 1)
 
         var cumulativeWeight = 0
         for (entry in materials) {
             cumulativeWeight += entry.weight
-            if (targetWeight < cumulativeWeight) {
-                return entry.material
-            }
+            if (targetWeight < cumulativeWeight) return entry.material
         }
-
         return materials.first().material
+    }
+
+    private fun hashNoise(x: Int, y: Int, z: Int): Float {
+        var h = x * 374761393 + y * 668265263 + z * 2147483647
+        h = (h xor (h ushr 13)) * 1274126177
+        h = h xor (h ushr 16)
+        return (h and 0xFFFFFF).toFloat() / 0xFFFFFF.toFloat()
     }
 }
 

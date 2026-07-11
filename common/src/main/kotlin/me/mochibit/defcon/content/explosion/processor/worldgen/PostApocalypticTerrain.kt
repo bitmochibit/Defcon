@@ -24,8 +24,11 @@ object PostApocalypticTerrain {
     const val FEATHER_RADIUS_BLOCKS = 24
 
     private const val EDGE_FEATHER = 20.0
+    private const val WOBBLE_FACTOR = 0.12
     private const val MAX_CRATER_DEPTH = 10
     private const val WITHER_ROSE_CHANCE = 0.15f
+
+    fun maxFeatherMargin(radius: Int): Double = EDGE_FEATHER + radius * WOBBLE_FACTOR
 
 
     fun apply(level: WorldGenLevel, chunk: ChunkAccess, zone: BlastZone) {
@@ -33,6 +36,8 @@ object PostApocalypticTerrain {
         val random = RandomSource.create(chunkPos.toLong())
         val transformer = MaterialTransformer(random = Random(chunkPos.toLong() xor 0x5DEECE66DL))
         val processedTreeBlocks = LongOpenHashSet()
+        val seaLevel = level.seaLevel
+
 
         for (x in 0 until 16) {
             for (z in 0 until 16) {
@@ -56,7 +61,8 @@ object PostApocalypticTerrain {
 
 
                 val craterDepth = (MAX_CRATER_DEPTH * severity).toInt().coerceAtLeast(1)
-                val minTouchY = (surfaceY - craterDepth).coerceAtLeast(chunk.minBuildHeight)
+                if (surfaceY <= seaLevel) continue
+                val minTouchY = (surfaceY - craterDepth).coerceAtLeast(chunk.minBuildHeight).coerceAtLeast(seaLevel)
                 val maxTouchY = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z)
                     .coerceAtLeast(surfaceY) + 8
 
@@ -93,9 +99,7 @@ object PostApocalypticTerrain {
 
 
                         state.`is`(Blocks.WATER) -> {
-                          continue
                         }
-
 
                         else -> {
                             val transformed = transformer.transformMaterial(state, explosionPower, worldX, worldZ, y)
