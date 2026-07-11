@@ -1,21 +1,20 @@
 package me.mochibit.defcon.foundation.util
 
-
 import it.unimi.dsi.fastutil.shorts.ShortArraySet
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
 import me.mochibit.defcon.foundation.async.withMainContext
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.core.SectionPos
-import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.Level
-import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.LevelChunkSection
+import net.minecraft.world.level.levelgen.Heightmap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -25,6 +24,11 @@ private data class BlockChange(
     val pos: BlockPos,
     val newState: BlockState,
     val updateBlock: Boolean,
+)
+
+private val TRACKED_HEIGHTMAPS = arrayOf(
+    Heightmap.Types.MOTION_BLOCKING,
+    Heightmap.Types.WORLD_SURFACE,
 )
 
 class BlockChanger private constructor(
@@ -71,14 +75,9 @@ class BlockChanger private constructor(
                             (System.currentTimeMillis() - startTime) < batchTimeoutMs
                         ) {
                             val change = blockChannel.tryReceive().getOrNull() ?: break
-
-                            try {
-                                batch.add(change)
-                                pendingChanges.decrementAndGet()
-                                collected++
-                            } catch (e: Exception) {
-                                pendingChanges.decrementAndGet()
-                            }
+                            batch.add(change)
+                            pendingChanges.decrementAndGet()
+                            collected++
                         }
 
                         if (batch.isNotEmpty()) {
@@ -104,6 +103,14 @@ class BlockChanger private constructor(
             withMainContext {
                 val sectionUpdates = HashMap<SectionPos, Pair<ShortArraySet, LevelChunkSection>>()
 
+                // pos to notify -> pos that caused the change (i.e. the neighbor we DID change)
+                val notifySet = HashMap<Long, Pair<BlockPos, BlockState>>()
+                val changedKeys = HashSet<Long>()
+
+                for (change in chunkBatch) {
+                    changedKeys.add(change.pos.asLong())
+                }
+
                 for (change in chunkBatch) {
                     try {
                         val pos = change.pos
@@ -119,53 +126,66 @@ class BlockChanger private constructor(
                         val localZ = pos.z and 15
 
                         val oldState = section.getBlockState(localX, localY, localZ)
+                        if (oldState == change.newState) continue
 
                         section.setBlockState(localX, localY, localZ, change.newState, false)
                         chunk.isUnsaved = true
 
-                        if (!oldState.isAir && change.newState.isAir) {
-                            val abovePos = pos.above()
-                            val aboveState = level.getBlockState(abovePos)
-                            if (!aboveState.isAir) {
-                                level.neighborChanged(abovePos, oldState.block, pos)
-                            }
+                        for (type in TRACKED_HEIGHTMAPS) {
+                            chunk.getOrCreateHeightmapUnprimed(type)
+                                .update(localX, pos.y, localZ, change.newState)
                         }
+
+                        level.chunkSource.lightEngine.checkBlock(pos)
 
                         val secPos = SectionPos.of(pos)
                         val (localPositions, _) = sectionUpdates.getOrPut(secPos) {
                             Pair(ShortArraySet(), section)
                         }
+                        localPositions.add(SectionPos.sectionRelativePos(pos))
 
 
-                        val shortLocation = SectionPos.sectionRelativePos(pos)
-                        localPositions.add(shortLocation)
-
-                    } catch (_: Exception) {}
+                        if (oldState.block !== change.newState.block) {
+                            for (dir in Direction.entries) {
+                                val n = pos.relative(dir)
+                                val key = n.asLong()
+                                if (key !in changedKeys) {
+                                    notifySet.putIfAbsent(key, pos to change.newState)
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {
+                    }
                 }
 
                 for ((secPos, data) in sectionUpdates) {
                     try {
                         val localPositions = data.first
                         val section = data.second
-
                         if (localPositions.isEmpty()) continue
 
-                        val packet = ClientboundSectionBlocksUpdatePacket(
-                            secPos,
-                            localPositions,
-                            section
-                        )
-
+                        val packet = ClientboundSectionBlocksUpdatePacket(secPos, localPositions, section)
                         level.chunkSource.chunkMap.getPlayers(secPos.chunk(), false).forEach { player ->
                             player.connection.send(packet)
                         }
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                    }
+                }
+
+                for ((posLong, causeInfo) in notifySet) {
+                    try {
+                        val notifyPos = BlockPos.of(posLong)
+                        val (fromPos, fromState) = causeInfo
+                        level.neighborChanged(notifyPos, fromState.block, fromPos)
+                    } catch (_: Exception) {
+                    }
                 }
             }
 
             delay(1.milliseconds)
         }
     }
+
     suspend fun addBlockChange(
         x: Int,
         y: Int,
@@ -187,7 +207,6 @@ class BlockChanger private constructor(
         while (pendingChanges.get() > 0) {
             delay(20.milliseconds)
         }
-
         delay(50.milliseconds)
     }
 

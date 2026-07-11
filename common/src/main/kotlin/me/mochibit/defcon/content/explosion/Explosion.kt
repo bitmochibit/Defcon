@@ -4,6 +4,8 @@ import kotlinx.coroutines.*
 import me.mochibit.defcon.content.explosion.effects.NuclearExplosionEffect
 import me.mochibit.defcon.content.explosion.effects.NuclearExplosionParams
 import me.mochibit.defcon.content.explosion.processor.Crater
+import me.mochibit.defcon.content.explosion.processor.worldgen.BlastZone
+import me.mochibit.defcon.content.explosion.processor.worldgen.BlastZoneSavedData
 import me.mochibit.defcon.explosion.processor.Shockwave
 import me.mochibit.defcon.foundation.async.ClientCoroutineScope
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
@@ -85,6 +87,8 @@ class NuclearExplosion(
     epicenter: BlockPos,
 ) : Explosion(level, epicenter) {
     init {
+        BlastZoneSavedData.get(level).addZone(BlastZone(epicenter.x, epicenter.z, 1000))
+
         val explosionUUID = UUID.randomUUID();
         step(ExplosionScope.SERVER) {
             ModPackets.broadcast(ExplosionEffectStartPacket(

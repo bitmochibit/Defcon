@@ -11,6 +11,7 @@ import net.minecraft.world.level.LightLayer
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.LevelChunk
+import net.minecraft.world.level.chunk.status.ChunkStatus
 import net.minecraft.world.level.lighting.LightEngine
 
 fun Level.getBlockState(x: Int, y: Int, z: Int): BlockState {

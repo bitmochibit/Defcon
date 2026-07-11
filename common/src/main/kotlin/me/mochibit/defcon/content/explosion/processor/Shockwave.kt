@@ -8,10 +8,12 @@ import me.mochibit.defcon.content.explosion.processor.TreeBurner
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialCategories
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
+import me.mochibit.defcon.foundation.async.withMainContext
 import me.mochibit.defcon.foundation.extension.getBlockState
 import me.mochibit.defcon.foundation.util.BlockChanger
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.LightLayer
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.levelgen.Heightmap
@@ -70,6 +72,23 @@ class Shockwave(
                 println("Shockwave starting from crater edge (radius $radiusStart) to $shockwaveRadius")
                 val effectiveShockwaveRange = (shockwaveRadius - radiusStart).toFloat()
 
+                val chunkRadius = (shockwaveRadius shr 4) + 1
+                val centerChunkX = centerX shr 4
+                val centerChunkZ = centerZ shr 4
+                val loadedChunks: Set<Long> = withMainContext {
+                    val set = HashSet<Long>()
+                    for (cx in -chunkRadius..chunkRadius) {
+                        for (cz in -chunkRadius..chunkRadius) {
+                            val chunkX = centerChunkX + cx
+                            val chunkZ = centerChunkZ + cz
+                            if (level.hasChunk(chunkX, chunkZ)) {
+                                set.add(ChunkPos.asLong(chunkX, chunkZ))
+                            }
+                        }
+                    }
+                    set
+                }
+
                 var blocksProcessed = 0
 
                 for (currentRadius in radiusStart..shockwaveRadius) {
@@ -84,6 +103,8 @@ class Shockwave(
                     generateShockwaveCircleBresenham(currentRadius)
                         .flowOn(Dispatchers.Default)
                         .collect { pos ->
+                            val chunkKey = ChunkPos.asLong(pos.x shr 4, pos.z shr 4)
+                            if (chunkKey !in loadedChunks) return@collect
                             blocksProcessed++
                             val highestY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, pos.x, pos.z) - 1
                             val groundLevelY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, pos.x, pos.z)
