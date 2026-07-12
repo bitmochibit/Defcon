@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import me.mochibit.defcon.content.explosion.processor.TreeBurnCore
 import me.mochibit.defcon.content.explosion.processor.WorldgenTreeBurner
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
+import me.mochibit.defcon.explosion.processor.Shockwave
 import net.minecraft.core.BlockPos
 import net.minecraft.tags.BiomeTags
 import net.minecraft.util.RandomSource
@@ -18,7 +19,6 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-//TODO: fix no biome blending near the edges of the blast zone
 object PostApocalypticTerrain {
 
     const val FEATHER_RADIUS_BLOCKS = 24
@@ -35,7 +35,6 @@ object PostApocalypticTerrain {
         val chunkPos = chunk.pos
         val random = RandomSource.create(chunkPos.toLong())
         val transformer = MaterialTransformer(random = Random(chunkPos.toLong() xor 0x5DEECE66DL))
-        val processedTreeBlocks = LongOpenHashSet()
         val seaLevel = level.seaLevel
 
 
@@ -46,25 +45,19 @@ object PostApocalypticTerrain {
 
                 val dx = (worldX - zone.centerX).toDouble()
                 val dz = (worldZ - zone.centerZ).toDouble()
-                val dist = sqrt(dx * dx + dz * dz)
+                val dist = sqrt(dx * dx + dz * dz).toFloat()
 
                 val angle = atan2(dz, dx)
-                val effectiveRadius = zone.radius + organicWobble(zone, angle)
-                val innerEdge = effectiveRadius - EDGE_FEATHER * 0.4
-                val outerEdge = effectiveRadius + EDGE_FEATHER
-                val severity = 1.0 - smoothstep(innerEdge, outerEdge, dist)
-                if (severity <= 0.0) continue
+                val effectiveRadius = zone.radius + organicWobble(zone, angle).toFloat()
 
-                val explosionPower = severity.toFloat()
+                val explosionPower = Shockwave.calculateShockwavePower(dist/effectiveRadius)
 
                 val surfaceY = chunk.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z)
 
 
-                val craterDepth = (MAX_CRATER_DEPTH * severity).toInt().coerceAtLeast(1)
-                if (surfaceY <= seaLevel) continue
+                val craterDepth = (MAX_CRATER_DEPTH * explosionPower).toInt().coerceAtLeast(1)
                 val minTouchY = (surfaceY - craterDepth).coerceAtLeast(chunk.minBuildHeight).coerceAtLeast(seaLevel)
-                val maxTouchY = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z)
-                    .coerceAtLeast(surfaceY) + 8
+                val maxTouchY = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z).coerceAtLeast(surfaceY) + 32
 
                 var y = minTouchY
                 while (y <= maxTouchY) {
@@ -75,7 +68,6 @@ object PostApocalypticTerrain {
                     }
 
                     val pos = BlockPos(worldX, y, worldZ)
-                    if (processedTreeBlocks.contains(pos.asLong())) { y++; continue }
 
                     val state = chunk.getBlockState(pos)
                     val block = state.block
@@ -89,8 +81,8 @@ object PostApocalypticTerrain {
                                 trunkOrAnyLogPos = pos,
                                 zoneCenterX = zone.centerX,
                                 zoneCenterZ = zone.centerZ,
-                                explosionPower = severity,
-                                processed = processedTreeBlocks,
+                                explosionPower = explosionPower,
+
                             )
                         }
                         block in TreeBurnCore.LEAF_BLOCKS -> {
@@ -103,8 +95,12 @@ object PostApocalypticTerrain {
 
                         else -> {
                             val transformed = transformer.transformMaterial(state, explosionPower, worldX, worldZ, y)
-                            if (transformed !== state && random.nextFloat() < severity) {
-                                chunk.setBlockState(pos, transformed, false)
+                            if (transformed !== state  ) {
+                                if (explosionPower <= 0.3 && random.nextFloat() < explosionPower) {
+                                    chunk.setBlockState(pos, transformed, false)
+                                } else {
+                                    chunk.setBlockState(pos, transformed, false)
+                                }
                             }
                         }
                     }
@@ -112,11 +108,6 @@ object PostApocalypticTerrain {
                 }
             }
         }
-    }
-
-    private fun smoothstep(edge0: Double, edge1: Double, x: Double): Double {
-        val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0.0, 1.0)
-        return t * t * (3 - 2 * t)
     }
 
     private fun organicWobble(zone: BlastZone, angle: Double): Double {

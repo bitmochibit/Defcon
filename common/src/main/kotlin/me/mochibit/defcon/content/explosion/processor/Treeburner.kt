@@ -434,9 +434,9 @@ object TreeBurnCore {
         return TreeStructure(logs, leaves)
     }
 
-    fun calculateTiltFactor(blockY: Int, treeMinHeight: Int, heightRange: Int, explosionPower: Double): Double {
+    fun calculateTiltFactor(blockY: Int, treeMinHeight: Int, heightRange: Int, explosionPower: Float): Double {
         if (blockY == treeMinHeight) return 0.0
-        val heightFactor = (blockY - treeMinHeight).toDouble() / heightRange
+        val heightFactor = (blockY - treeMinHeight) / heightRange
         return heightFactor * explosionPower * 6.0
     }
 }
@@ -451,11 +451,10 @@ object WorldgenTreeBurner {
         trunkOrAnyLogPos: BlockPos,
         zoneCenterX: Int,
         zoneCenterZ: Int,
-        explosionPower: Double,
-        processed: LongOpenHashSet,
+        explosionPower: Float,
         distanceRatioCompletelyDestroy: Double = 0.1,
     ) {
-        if (processed.contains(trunkOrAnyLogPos.asLong())) return
+
 
         val tree = TreeBurnCore.floodFillTree(trunkOrAnyLogPos, MAX_TREE_BLOCKS) { level.getBlockState(it) }
         if (tree.logs.isEmpty()) return
@@ -471,12 +470,10 @@ object WorldgenTreeBurner {
 
 
         for (leaf in tree.leaves) {
-            if (!processed.add(leaf.asLong())) continue
             level.setBlock(leaf, Blocks.AIR.defaultBlockState(), 2)
         }
 
         for (pos in tree.logs.sortedByDescending { it.y }) {
-            if (!processed.add(pos.asLong())) continue
             val originalBlock = level.getBlockState(pos).block
 
             if (explosionPower >= (1.0 - distanceRatioCompletelyDestroy)) {
@@ -494,7 +491,6 @@ object WorldgenTreeBurner {
                     level.setBlock(pos, Blocks.AIR.defaultBlockState(), 2)
                     val newPos = BlockPos(newX, pos.y, newZ)
                     level.setBlock(newPos, burnt.defaultBlockState(), 2)
-                    processed.add(newPos.asLong())
                     continue
                 }
             }

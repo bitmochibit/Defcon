@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.flowOn
 import me.mochibit.defcon.content.explosion.processor.TreeBurner
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialCategories
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
+import me.mochibit.defcon.content.explosion.processor.worldgen.BlastZoneSavedData
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
 import me.mochibit.defcon.foundation.async.withMainContext
 import me.mochibit.defcon.foundation.extension.getBlockState
@@ -33,6 +34,28 @@ class Shockwave(
     private val shockwaveHeight: Int,
     private val materialTransformer: MaterialTransformer = MaterialTransformer(),
 ) {
+    companion object {
+        /**
+         * Function describing the decay rate of the shockwave power
+         */
+        fun calculateShockwavePower(radiusProgress: Float): Float =
+            when {
+                radiusProgress < 0.4f -> {
+                    1.0f - (radiusProgress / 0.4f) * 0.05f
+                }
+
+                radiusProgress < 0.7f -> {
+                    val transitionProgress = (radiusProgress - 0.4f) / 0.3f
+                    0.95f - (transitionProgress * 0.45f)
+                }
+
+                else -> {
+                    val falloffProgress = (radiusProgress - 0.7f) / 0.3f
+                    0.5f * (1.0f - falloffProgress.pow(2.0f))
+                }
+            }.coerceIn(0.0f, 1.0f)
+    }
+
     private val centerX = center.x
     private val centerZ = center.z
 
@@ -44,26 +67,6 @@ class Shockwave(
     private val worldMinHeight = level.minBuildHeight
     private val worldMaxHeight = level.maxBuildHeight
     private val seaLevelMinus3 = worldSeaLevel - 3
-    private val seaLevelPlus5 = worldSeaLevel + 5
-
-    private val invShockwaveRadius = 1.0f / shockwaveRadius.toFloat()
-
-    private fun calculateShockwavePower(radiusProgress: Float): Float =
-        when {
-            radiusProgress < 0.4f -> {
-                1.0f - (radiusProgress / 0.4f) * 0.05f
-            }
-
-            radiusProgress < 0.7f -> {
-                val transitionProgress = (radiusProgress - 0.4f) / 0.3f
-                0.95f - (transitionProgress * 0.45f)
-            }
-
-            else -> {
-                val falloffProgress = (radiusProgress - 0.7f) / 0.3f
-                0.5f * (1.0f - falloffProgress.pow(2.0f))
-            }
-        }.coerceIn(0.0f, 1.0f)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun explode(): Job =
@@ -105,8 +108,9 @@ class Shockwave(
                         .collect { pos ->
                             val chunkKey = ChunkPos.asLong(pos.x shr 4, pos.z shr 4)
                             if (chunkKey !in loadedChunks) return@collect
+                            if (BlastZoneSavedData.get(level).isChunkWorldgenProcessed(pos.x shr 4, pos.z shr 4)) return@collect
                             blocksProcessed++
-                            val highestY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, pos.x, pos.z) - 1
+                            val highestY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, pos.x, pos.z) + 1
                             val groundLevelY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, pos.x, pos.z)
                             val loc = BlockPos(pos.x, highestY, pos.z)
                             val firstState = level.getBlockState(loc)

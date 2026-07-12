@@ -44,6 +44,7 @@ public abstract class ChunkGeneratorMixin {
                 );
 
         if (blastZone != null) {
+            BlastZoneSavedData.get(serverLevel).markChunkWorldgenProcessed(chunkPos.x, chunkPos.z);
             PostApocalypticTerrain.INSTANCE.apply(level, chunk, blastZone);
         }
     }

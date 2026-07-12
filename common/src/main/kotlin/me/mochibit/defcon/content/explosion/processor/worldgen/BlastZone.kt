@@ -1,10 +1,12 @@
 package me.mochibit.defcon.content.explosion.processor.worldgen
 
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.Tag
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.saveddata.SavedData
 import kotlin.math.pow
 
@@ -17,6 +19,16 @@ class BlastZoneSavedData : SavedData() {
         zones.add(zone)
         setDirty()
     }
+
+    private val worldgenProcessedChunks = LongOpenHashSet()
+
+    fun markChunkWorldgenProcessed(chunkX: Int, chunkZ: Int) {
+        worldgenProcessedChunks.add(ChunkPos.asLong(chunkX, chunkZ))
+        setDirty()
+    }
+
+    fun isChunkWorldgenProcessed(chunkX: Int, chunkZ: Int): Boolean =
+        worldgenProcessedChunks.contains(ChunkPos.asLong(chunkX, chunkZ))
 
 
     fun zoneForChunk(
@@ -48,6 +60,9 @@ class BlastZoneSavedData : SavedData() {
             list.add(zoneTag)
         }
         tag.put("zones", list)
+
+        tag.putLongArray("worldgen_processed_chunks", worldgenProcessedChunks.toLongArray())
+
         return tag
     }
 
@@ -61,6 +76,11 @@ class BlastZoneSavedData : SavedData() {
                 val zoneTag = list.getCompound(i)
                 data.zones.add(BlastZone(zoneTag.getInt("x"), zoneTag.getInt("z"), zoneTag.getInt("r")))
             }
+
+            if (tag.contains("worldgen_processed_chunks")) {
+                data.worldgenProcessedChunks.addAll(tag.getLongArray("worldgen_processed_chunks").asList())
+            }
+
             return data
         }
 
@@ -71,4 +91,3 @@ class BlastZoneSavedData : SavedData() {
             level.dataStorage.computeIfAbsent(factory, ID)
     }
 }
-
