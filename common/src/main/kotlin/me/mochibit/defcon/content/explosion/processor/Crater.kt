@@ -31,9 +31,7 @@ class Crater(
 
     // Use sea level as anchor point
     private val seaLevel = level.seaLevel
-
-    // Debris rim extends beyond crater edge - slightly increased
-    private val debrisRimWidth = (radiusX * 0.3).toInt().coerceAtLeast(5)
+    val debrisRimWidth = (radiusX * 0.3).toInt().coerceAtLeast(5)
 
     private val bounds =
         CraterBounds(

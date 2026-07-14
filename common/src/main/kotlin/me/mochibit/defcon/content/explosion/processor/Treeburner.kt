@@ -443,7 +443,7 @@ object TreeBurnCore {
 
 object WorldgenTreeBurner {
 
-    private const val MAX_TREE_BLOCKS = 250
+    private const val MAX_TREE_BLOCKS = 700
 
 
     fun burnTree(

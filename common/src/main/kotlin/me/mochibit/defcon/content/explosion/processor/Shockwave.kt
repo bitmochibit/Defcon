@@ -75,22 +75,6 @@ class Shockwave(
                 println("Shockwave starting from crater edge (radius $radiusStart) to $shockwaveRadius")
                 val effectiveShockwaveRange = (shockwaveRadius - radiusStart).toFloat()
 
-                val chunkRadius = (shockwaveRadius shr 4) + 1
-                val centerChunkX = centerX shr 4
-                val centerChunkZ = centerZ shr 4
-                val loadedChunks: Set<Long> = withMainContext {
-                    val set = HashSet<Long>()
-                    for (cx in -chunkRadius..chunkRadius) {
-                        for (cz in -chunkRadius..chunkRadius) {
-                            val chunkX = centerChunkX + cx
-                            val chunkZ = centerChunkZ + cz
-                            if (level.hasChunk(chunkX, chunkZ)) {
-                                set.add(ChunkPos.asLong(chunkX, chunkZ))
-                            }
-                        }
-                    }
-                    set
-                }
 
                 var blocksProcessed = 0
 
@@ -106,18 +90,15 @@ class Shockwave(
                     generateShockwaveCircleBresenham(currentRadius)
                         .flowOn(Dispatchers.Default)
                         .collect { pos ->
-                            val chunkKey = ChunkPos.asLong(pos.x shr 4, pos.z shr 4)
-                            if (chunkKey !in loadedChunks) return@collect
                             if (BlastZoneSavedData.get(level).isChunkWorldgenProcessed(pos.x shr 4, pos.z shr 4)) return@collect
                             blocksProcessed++
-                            val highestY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, pos.x, pos.z) + 1
-                            val groundLevelY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, pos.x, pos.z)
+                            val highestY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, pos.x, pos.z)-1
                             val loc = BlockPos(pos.x, highestY, pos.z)
                             val firstState = level.getBlockState(loc)
                             if (treeBurner.isTreeBlock(firstState)) {
-                                processTrees(loc, power, groundLevelY)
+                                processTrees(loc, power)
                             } else {
-                                processBlock(loc, power, firstState, groundLevelY)
+                                processBlock(loc, power, firstState)
                             }
                         }
                 }
@@ -132,19 +113,17 @@ class Shockwave(
     private suspend fun processTrees(
         location: BlockPos,
         power: Float,
-        groundLevelY: Int
     ) {
         treeBurner.processTreeBurn(location, power.toDouble())
         val terrainLocation = treeBurner.getTreeTerrain(location)
         val terrainState = level.getBlockState(terrainLocation)
-        processBlock(terrainLocation, power, terrainState, groundLevelY)
+        processBlock(terrainLocation, power, terrainState)
     }
 
     private suspend fun processBlock(
         blockLocation: BlockPos,
         power: Float, // power: 1.0 = max destruction (crater edge), 0.0 = min destruction (far from center)
         firstBlockState: BlockState,
-        groundLevelY: Int
     ) {
         val x = blockLocation.x
         val y = blockLocation.y
@@ -205,7 +184,7 @@ class Shockwave(
                 }
             }
 
-            val isTerrainBlock = y <= groundLevelY
+            val isTerrainBlock = currentState in MaterialCategories.TERRAIN_BLOCKS
             val shouldConvertToAir = currentY > convertToAirMinY
 
             if (isHeuristicallyWallBlock(x, currentY, z)) {

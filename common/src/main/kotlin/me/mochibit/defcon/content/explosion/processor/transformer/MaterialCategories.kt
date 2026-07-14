@@ -1,7 +1,16 @@
 package me.mochibit.defcon.content.explosion.processor.transformer
 
+import me.mochibit.defcon.foundation.services.contentService
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.tags.BlockTags
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.BushBlock
+import net.minecraft.world.level.block.CropBlock
+import net.minecraft.world.level.block.FlowerBlock
+import net.minecraft.world.level.block.GrassBlock
+import net.minecraft.world.level.block.SaplingBlock
+import net.minecraft.world.level.block.TallGrassBlock
+import net.minecraft.world.level.block.VineBlock
 import net.minecraft.world.level.block.state.BlockState
 
 object MaterialCategories {
@@ -77,55 +86,29 @@ object MaterialCategories {
 
     val PLANTS: Set<BlockState> by lazy {
         buildSet {
-            // Grass types
-            addAll(
-                listOf(
-                    Blocks.SHORT_GRASS.defaultBlockState(),
-                    Blocks.TALL_GRASS.defaultBlockState(),
-                    Blocks.FERN.defaultBlockState(),
-                    Blocks.LARGE_FERN.defaultBlockState(),
-                ),
-            )
-
-            // Saplings - filter all materials that contain "SAPLING"
-            addAll(BuiltInRegistries.BLOCK.filter { it.name.getString(100).contains("sapling") }.map { it.defaultBlockState() })
-
-            // Flowers
-            addAll(
-                listOf(
-                    Blocks.POPPY.defaultBlockState(),
-                    Blocks.DANDELION.defaultBlockState(),
-                    Blocks.BLUE_ORCHID.defaultBlockState(),
-                    Blocks.ALLIUM.defaultBlockState(),
-                    Blocks.AZURE_BLUET.defaultBlockState(),
-                    Blocks.OXEYE_DAISY.defaultBlockState(),
-                    Blocks.CORNFLOWER.defaultBlockState(),
-                    Blocks.LILY_OF_THE_VALLEY.defaultBlockState(),
-                    Blocks.PINK_PETALS.defaultBlockState(),
-                    Blocks.LILAC.defaultBlockState(),
-                    Blocks.PEONY.defaultBlockState(),
-                    Blocks.SUNFLOWER.defaultBlockState(),
-                    Blocks.RED_TULIP.defaultBlockState(),
-                    Blocks.ORANGE_TULIP.defaultBlockState(),
-                    Blocks.WHITE_TULIP.defaultBlockState(),
-                    Blocks.PINK_TULIP.defaultBlockState(),
-                ),
-            )
-
-            addAll(
-                listOf(
-                    Blocks.VINE.defaultBlockState()
-                )
+            addAll(BuiltInRegistries.BLOCK
+                .filter{
+                    when (it) {
+                        is BushBlock, is VineBlock -> true
+                        else -> false
+                    }
+                }
+                .map { it.defaultBlockState() }
             )
         }
     }
 
     // Helper functions for categories
-    fun isSlab(state: BlockState): Boolean = state.block.name.getString(100).endsWith("_slab")
 
-    fun isWall(state: BlockState): Boolean = state.block.name.getString(100).endsWith("_wall")
+    fun isSlab(state: BlockState): Boolean =
+        state.`is`(BlockTags.SLABS)
 
-    fun isStairs(state: BlockState): Boolean = state.block.name.getString(100).endsWith("_stairs")
+    fun isWall(state: BlockState): Boolean =
+        state.`is`(BlockTags.WALLS)
 
-    fun isGlass(state: BlockState): Boolean = state.block.name.getString(100).contains("glass", ignoreCase = true)
+    fun isStairs(state: BlockState): Boolean =
+        state.`is`(BlockTags.STAIRS)
+
+    fun isGlass(state: BlockState): Boolean =
+        contentService.isGlass(state)
 }

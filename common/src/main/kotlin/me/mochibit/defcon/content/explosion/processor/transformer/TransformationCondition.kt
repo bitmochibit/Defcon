@@ -15,7 +15,7 @@ sealed class TransformationCondition {
         override fun matches(
             state: BlockState,
             explosionPower: Float,
-        ): Boolean = state in blocks
+        ): Boolean = state.block.defaultBlockState() in blocks
     }
 
     data class BlockSet(
@@ -47,7 +47,7 @@ sealed class TransformationCondition {
         override fun matches(
             state: BlockState,
             explosionPower: Float,
-        ): Boolean = this.state == state
+        ): Boolean = this.state.block.defaultBlockState() == state.block.defaultBlockState()
     }
 
     data class PowerThreshold(

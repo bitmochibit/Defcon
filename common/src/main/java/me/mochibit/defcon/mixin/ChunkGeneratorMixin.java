@@ -12,6 +12,7 @@ import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.ChunkPos;
 
 import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -31,6 +32,10 @@ public abstract class ChunkGeneratorMixin {
             CallbackInfo ci
     ) {
         if (!(level instanceof WorldGenRegion worldGenRegion)) {
+            return;
+        }
+
+        if (chunk.getInhabitedTime() > 0) {
             return;
         }
         ServerLevel serverLevel = worldGenRegion.getLevel();

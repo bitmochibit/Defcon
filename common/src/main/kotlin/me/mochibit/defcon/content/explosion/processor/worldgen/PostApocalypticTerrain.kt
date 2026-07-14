@@ -17,6 +17,7 @@ import net.minecraft.world.level.levelgen.Heightmap
 import kotlin.math.atan2
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.math.pow
 import kotlin.random.Random
 
 object PostApocalypticTerrain {
@@ -37,7 +38,6 @@ object PostApocalypticTerrain {
         val transformer = MaterialTransformer(random = Random(chunkPos.toLong() xor 0x5DEECE66DL))
         val seaLevel = level.seaLevel
 
-
         for (x in 0 until 16) {
             for (z in 0 until 16) {
                 val worldX = chunkPos.minBlockX + x
@@ -50,13 +50,16 @@ object PostApocalypticTerrain {
                 val angle = atan2(dz, dx)
                 val effectiveRadius = zone.radius + organicWobble(zone, angle).toFloat()
 
-                val explosionPower = Shockwave.calculateShockwavePower(dist/effectiveRadius)
+                val explosionPower = Shockwave.calculateShockwavePower(dist / effectiveRadius)
+
+                if (explosionPower <= 0.0f) {
+                    continue
+                }
 
                 val surfaceY = chunk.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z)
 
-
                 val craterDepth = (MAX_CRATER_DEPTH * explosionPower).toInt().coerceAtLeast(1)
-                val minTouchY = (surfaceY - craterDepth).coerceAtLeast(chunk.minBuildHeight).coerceAtLeast(seaLevel)
+                val minTouchY = (surfaceY - craterDepth).coerceAtLeast(chunk.minBuildHeight).coerceAtLeast(seaLevel-3)
                 val maxTouchY = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z).coerceAtLeast(surfaceY) + 32
 
                 var y = minTouchY
@@ -68,37 +71,32 @@ object PostApocalypticTerrain {
                     }
 
                     val pos = BlockPos(worldX, y, worldZ)
-
                     val state = chunk.getBlockState(pos)
                     val block = state.block
 
                     when {
                         state.isAir -> {}
-
-                        block in TreeBurnCore.LOG_BLOCKS || block in TreeBurnCore.WOOD_BLOCKS -> {
-                            WorldgenTreeBurner.burnTree(
-                                level = level,
-                                trunkOrAnyLogPos = pos,
-                                zoneCenterX = zone.centerX,
-                                zoneCenterZ = zone.centerZ,
-                                explosionPower = explosionPower,
-
-                            )
-                        }
-                        block in TreeBurnCore.LEAF_BLOCKS -> {
-                            chunk.setBlockState(pos, Blocks.AIR.defaultBlockState(), false)
-                        }
-
-
-                        state.`is`(Blocks.WATER) -> {
-                        }
+//
+//                        block in TreeBurnCore.LOG_BLOCKS || block in TreeBurnCore.WOOD_BLOCKS -> {
+//                            WorldgenTreeBurner.burnTree(
+//                                level = level,
+//                                trunkOrAnyLogPos = pos,
+//                                zoneCenterX = zone.centerX,
+//                                zoneCenterZ = zone.centerZ,
+//                                explosionPower = explosionPower,
+//                            )
+//                        }
+//                        block in TreeBurnCore.LEAF_BLOCKS -> {
+//                            chunk.setBlockState(pos, Blocks.AIR.defaultBlockState(), false)
+//                        }
+//
+//
+//                        state.`is`(Blocks.WATER) -> {}
 
                         else -> {
                             val transformed = transformer.transformMaterial(state, explosionPower, worldX, worldZ, y)
-                            if (transformed !== state  ) {
-                                if (explosionPower <= 0.3 && random.nextFloat() < explosionPower) {
-                                    chunk.setBlockState(pos, transformed, false)
-                                } else {
+                            if (transformed !== state) {
+                                if (random.nextFloat() < explosionPower) {
                                     chunk.setBlockState(pos, transformed, false)
                                 }
                             }

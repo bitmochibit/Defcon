@@ -126,17 +126,20 @@ class NuclearExplosion(
 //            },
             ExplosionScope.SERVER to {
 //                killPlayersInCrater(center, config)
-                Crater(
+                val crater = Crater(
                     this.serverLevel,
                     epicenter,
                     100,
                     50,
                     100
-                ).create()
+                ).apply {
+                    create()
+                }
+
                 Shockwave(
                     this.serverLevel,
                     epicenter,
-                    101,
+                    100 + crater.debrisRimWidth,
                     1000,
                     shockwaveHeight = 200,
                 )
