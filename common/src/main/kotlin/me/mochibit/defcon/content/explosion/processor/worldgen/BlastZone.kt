@@ -1,6 +1,7 @@
 package me.mochibit.defcon.content.explosion.processor.worldgen
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet
+import me.mochibit.defcon.content.explosion.processor.TreeBurner
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
@@ -10,7 +11,14 @@ import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.saveddata.SavedData
 import kotlin.math.pow
 
-data class BlastZone(val centerX: Int, val centerZ: Int, val radius: Int)
+data class BlastZone(
+    val centerX: Int,
+    val centerY: Int,
+    val centerZ: Int,
+    val radius: Int,
+    val radiusStart: Int = 0,
+    val shockwaveHeight: Int = 200,
+)
 
 class BlastZoneSavedData : SavedData() {
     val zones = mutableListOf<BlastZone>()
@@ -55,8 +63,11 @@ class BlastZoneSavedData : SavedData() {
         zones.forEach { zone ->
             val zoneTag = CompoundTag()
             zoneTag.putInt("x", zone.centerX)
+            zoneTag.putInt("y", zone.centerY)
             zoneTag.putInt("z", zone.centerZ)
             zoneTag.putInt("r", zone.radius)
+            zoneTag.putInt("rs", zone.radiusStart)
+            zoneTag.putInt("h", zone.shockwaveHeight)
             list.add(zoneTag)
         }
         tag.put("zones", list)
@@ -74,7 +85,16 @@ class BlastZoneSavedData : SavedData() {
             val list = tag.getList("zones", Tag.TAG_COMPOUND.toInt())
             for (i in 0 until list.size) {
                 val zoneTag = list.getCompound(i)
-                data.zones.add(BlastZone(zoneTag.getInt("x"), zoneTag.getInt("z"), zoneTag.getInt("r")))
+                data.zones.add(
+                    BlastZone(
+                        zoneTag.getInt("x"),
+                        zoneTag.getInt("y"),
+                        zoneTag.getInt("z"),
+                        zoneTag.getInt("r"),
+                        zoneTag.getInt("rs"),
+                        zoneTag.getInt("h"),
+                    )
+                )
             }
 
             if (tag.contains("worldgen_processed_chunks")) {

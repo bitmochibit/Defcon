@@ -31,14 +31,8 @@ public abstract class ChunkGeneratorMixin {
             net.minecraft.world.level.StructureManager structureManager,
             CallbackInfo ci
     ) {
-        if (!(level instanceof WorldGenRegion worldGenRegion)) {
-            return;
-        }
 
-        if (chunk.getInhabitedTime() > 0) {
-            return;
-        }
-        ServerLevel serverLevel = worldGenRegion.getLevel();
+        ServerLevel serverLevel = level.getLevel();
         ChunkPos chunkPos = chunk.getPos();
 
         BlastZone blastZone = BlastZoneSavedData.get(serverLevel)

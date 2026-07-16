@@ -87,8 +87,6 @@ class NuclearExplosion(
     epicenter: BlockPos,
 ) : Explosion(level, epicenter) {
     init {
-        BlastZoneSavedData.get(level).addZone(BlastZone(epicenter.x, epicenter.z, 1000))
-
         val explosionUUID = UUID.randomUUID();
         step(ExplosionScope.SERVER) {
             ModPackets.broadcast(ExplosionEffectStartPacket(
@@ -132,18 +130,25 @@ class NuclearExplosion(
                     100,
                     50,
                     100
-                ).apply {
-                    create()
-                }
+                )
+
+                val radiusStart = 100 + crater.debrisRimWidth
+                val shockwaveRadius = 1000
+                val shockwaveHeight = 200
+
+                BlastZoneSavedData.get(this.serverLevel).addZone(
+                    BlastZone(epicenter.x, epicenter.y, epicenter.z, shockwaveRadius, radiusStart, shockwaveHeight)
+                )
+
+                crater.create()
 
                 Shockwave(
                     this.serverLevel,
                     epicenter,
-                    100 + crater.debrisRimWidth,
-                    1000,
-                    shockwaveHeight = 200,
-                )
-                    .explode().join()
+                    radiusStart,
+                    shockwaveRadius,
+                    shockwaveHeight = shockwaveHeight,
+                ).explode().join()
             },
         )
     }

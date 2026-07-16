@@ -1,11 +1,13 @@
 package me.mochibit.defcon.content.explosion.processor
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet
+import me.mochibit.defcon.content.explosion.processor.core.ColumnCarveContext
 import me.mochibit.defcon.foundation.util.BlockChanger
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.WorldGenLevel
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
@@ -21,8 +23,6 @@ import kotlin.math.sqrt
  */
 @JvmInline
 value class PackedPos private constructor(val packed: Long) {
-
-    constructor(pos: BlockPos) : this(pack(pos.x, pos.y, pos.z))
     constructor(x: Int, y: Int, z: Int) : this(pack(x, y, z))
 
     val x: Int get() = unpackX(packed)
@@ -81,7 +81,7 @@ object TreeBurnCore {
 
     val BURNT_REPLACEMENTS: Map<Block, Block> = buildMap {
         TREE_BLOCKS.forEach { block ->
-            val path = BuiltInRegistries.BLOCK.getKey(block)?.path.orEmpty()
+            val path = BuiltInRegistries.BLOCK.getKey(block).path.orEmpty()
             put(
                 block,
                 when {
@@ -101,14 +101,14 @@ object TreeBurnCore {
         val isEmpty: Boolean get() = logs.isEmpty()
     }
 
-    inline fun findTrunkBaseY(start: BlockPos, maxSearch: Int = 40, getState: (BlockPos) -> BlockState): Int {
-        var pos = start
-        var lastLogY = start.y
+    inline fun findTrunkBaseY(startX: Int, startY: Int, startZ: Int, maxSearch: Int = 40, getState: (x: Int, y: Int, z :Int) -> BlockState): Int {
+        var posY = startY
+        var lastLogY = startY
         repeat(maxSearch) {
-            val block = getState(pos).block
+            val block = getState(startX, startY, startZ).block
             if (block in LOG_BLOCKS || block in WOOD_BLOCKS) {
-                lastLogY = pos.y
-                pos = pos.below()
+                lastLogY = posY
+                posY -= 1
             } else return lastLogY
         }
         return lastLogY
@@ -161,121 +161,54 @@ object TreeBurnCore {
  * Always resolves and consumes an entire connected tree at once: leaves are
  * always removed, trunks are always tilted and turned to basalt/blackstone.
  */
-class TreeBurner(private val level: ServerLevel, private val center: BlockPos) {
-    private val blockChanger = BlockChanger.getInstance(level)
+class TreeBurner(
+    private val ctx: ColumnCarveContext,
+    private val center: BlockPos,
+) {
     private val processedTreeBlocks = LongOpenHashSet()
 
     fun isPosProcessed(x: Int, y: Int, z: Int) = processedTreeBlocks.contains(PackedPos(x, y, z).packed)
 
+    fun isTreeBlock(x: Int, y: Int, z: Int): Boolean = TreeBurnCore.isTreeBlockType(ctx.getState(x, y, z).block)
 
-    fun isTreeBlock(pos: BlockPos): Boolean = TreeBurnCore.isTreeBlockType(level.getBlockState(pos).block)
-
-    suspend fun processTreeBlockAt(pos: BlockPos, explosionPower: Double, trunkTopY: Int?, trunkBaseY: Int?) {
-        if (!processedTreeBlocks.add(PackedPos(pos).packed)) return
-        val state = level.getBlockState(pos)
+    fun processTreeBlockAt(x: Int, y: Int, z: Int, explosionPower: Double, trunkTopY: Int?, trunkBaseY: Int?) {
+        if (!processedTreeBlocks.add(PackedPos(x,y,z).packed)) return
+        val state = ctx.getState(x, y, z)
         val block = state.block
 
         if (block in TreeBurnCore.LEAF_BLOCKS) {
-            blockChanger.addBlockChange(pos.x, pos.y, pos.z, Blocks.AIR.defaultBlockState(), updateBlock = true)
+            ctx.setState(x, y, z, Blocks.AIR.defaultBlockState())
             return
         }
 
-        val top = trunkTopY ?: pos.y
-        val base = trunkBaseY ?: pos.y
+        val top = trunkTopY ?: y
+        val base = trunkBaseY ?: y
         val heightRange = (top - base).coerceAtLeast(1)
-        val tilt = TreeBurnCore.calculateTiltFactor(pos.y, base, heightRange, explosionPower)
+        val tilt = TreeBurnCore.calculateTiltFactor(y, base, heightRange, explosionPower)
         val burnt = TreeBurnCore.burntReplacementFor(block).defaultBlockState()
-        val direction = shockwaveDirectionFrom(pos)
-        applyTiltedTrunk(pos, tilt, direction, burnt)
+        val direction = shockwaveDirectionFrom(x, z)
+        applyTiltedTrunk(x, y, z, tilt, direction, burnt)
     }
 
-    fun findLocalTrunkBase(pos: BlockPos) =
-        TreeBurnCore.findTrunkBaseY(pos) { level.getBlockState(it) }
+    fun findLocalTrunkBase(x: Int, y: Int, z: Int): Int =
+        TreeBurnCore.findTrunkBaseY(x, y, z) { x, y, z -> ctx.getState(x, y, z) }
 
-    fun getTreeTerrain(startLoc: BlockPos): BlockPos = BlockPos(startLoc.x, findTreeBase(startLoc) - 1, startLoc.z)
-
-    private fun shockwaveDirectionFrom(origin: BlockPos): Vector2f {
-        val dx = (origin.x - center.x).toFloat()
-        val dz = (origin.z - center.z).toFloat()
+    private fun shockwaveDirectionFrom(originX: Int, originZ: Int): Vector2f {
+        val dx = (originX - center.x).toFloat()
+        val dz = (originZ - center.z).toFloat()
         val invMag = 1.0f / sqrt(dx * dx + dz * dz).coerceAtLeast(0.001f)
         return Vector2f(dx * invMag, dz * invMag)
     }
 
-    private suspend fun applyTiltedTrunk(pos: BlockPos, tilt: Double, direction: Vector2f, burntState: BlockState) {
-        val newX = pos.x + (direction.x * tilt).toInt()
-        val newZ = pos.z + (direction.y * tilt).toInt()
-        if (tilt <= 0.0 || (newX == pos.x && newZ == pos.z)) {
-            blockChanger.addBlockChange(pos.x, pos.y, pos.z, burntState, updateBlock = true)
+    private fun applyTiltedTrunk(x: Int, y: Int, z: Int, tilt: Double, direction: Vector2f, burntState: BlockState) {
+        val newX = x + (direction.x * tilt).toInt()
+        val newZ = z + (direction.y * tilt).toInt()
+        if (tilt <= 0.0 || (newX == x && newZ == z)) {
+            ctx.setState(x, y, z, burntState)
             return
         }
-        blockChanger.addBlockChange(pos.x, pos.y, pos.z, Blocks.AIR.defaultBlockState(), updateBlock = true)
-        blockChanger.addBlockChange(newX, pos.y, newZ, burntState, updateBlock = true)
-        processedTreeBlocks.add(PackedPos(newX, pos.y, newZ).packed)
-    }
-
-    private fun findTreeBase(startBlock: BlockPos): Int {
-        val minY = maxOf(level.minBuildHeight, startBlock.y)
-        val currentX = startBlock.x
-        val currentZ = startBlock.z
-        var currentY = startBlock.y
-
-        while (currentY > minY) {
-            val state = level.getBlockState(BlockPos(currentX, currentY, currentZ))
-            when {
-                state.isAir -> currentY--
-                !TreeBurnCore.isTreeBlockType(state.block) -> return currentY + 1
-                else -> currentY--
-            }
-        }
-
-        return minY
-    }
-}
-
-/** Worldgen-time tree burning: same rules as [TreeBurner], applied synchronously during chunk decoration. */
-object WorldgenTreeBurner {
-    private const val MAX_TREE_BLOCKS = 700
-
-    fun burnColumnBlock(
-        level: WorldGenLevel,
-        pos: BlockPos,
-        state: BlockState,
-        zoneCenterX: Int,
-        zoneCenterZ: Int,
-        explosionPower: Float,
-        trunkExtentCache: HashMap<Long, IntRange>,
-    ): Boolean {
-        val block = state.block
-        val isLog = block in TreeBurnCore.LOG_BLOCKS || block in TreeBurnCore.WOOD_BLOCKS
-        val isLeaf = block in TreeBurnCore.LEAF_BLOCKS
-        if (!isLog && !isLeaf) return false
-
-        if (isLeaf) {
-            level.setBlock(pos, Blocks.AIR.defaultBlockState(), 2)
-            return true
-        }
-
-        val columnKey = (pos.x.toLong() shl 32) or (pos.z.toLong() and 0xFFFFFFFFL)
-        val extent = trunkExtentCache.getOrPut(columnKey) {
-            TreeBurnCore.findTrunkExtent(pos) { level.getBlockState(it) }
-        }
-
-        val heightRange = (extent.last - extent.first).coerceAtLeast(1)
-        val tilt = TreeBurnCore.calculateTiltFactor(pos.y, extent.first, heightRange, explosionPower.toDouble())
-
-        val dx = (pos.x - zoneCenterX).toFloat()
-        val dz = (pos.z - zoneCenterZ).toFloat()
-        val invMag = 1.0f / sqrt(dx * dx + dz * dz).coerceAtLeast(0.001f)
-        val newX = pos.x + (dx * invMag * tilt).roundToInt()
-        val newZ = pos.z + (dz * invMag * tilt).roundToInt()
-        val burnt = TreeBurnCore.burntReplacementFor(block).defaultBlockState()
-
-        if (tilt > 0.0 && (newX != pos.x || newZ != pos.z)) {
-            level.setBlock(pos, Blocks.AIR.defaultBlockState(), 2)
-            level.setBlock(BlockPos(newX, pos.y, newZ), burnt, 2)
-        } else {
-            level.setBlock(pos, burnt, 2)
-        }
-        return true
+        ctx.setState(x, y, z, Blocks.AIR.defaultBlockState())
+        ctx.setState(newX, y, newZ, burntState)
+        processedTreeBlocks.add(PackedPos(newX, y, newZ).packed)
     }
 }

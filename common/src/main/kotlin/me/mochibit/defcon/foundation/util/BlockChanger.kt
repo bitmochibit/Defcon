@@ -33,7 +33,7 @@ private val TRACKED_HEIGHTMAPS = arrayOf(
 )
 
 class BlockChanger private constructor(
-    private val level: ServerLevel,
+    private val level: Level,
 ) {
 
     private val workerScope =
@@ -102,48 +102,48 @@ class BlockChanger private constructor(
         val blocksPerTick = 5000
 
         for (chunkBatch in batch.chunked(blocksPerTick)) {
-            val changedPositions = ArrayList<BlockPos>(chunkBatch.size)
-            for (change in chunkBatch) {
-                try {
-                    val pos = change.pos
+            withMainContext {
+                val changedPositions = ArrayList<BlockPos>(chunkBatch.size)
+                for (change in chunkBatch) {
+                    try {
+                        val pos = change.pos
 
-                    val chunk = level.getChunkAt(pos)
+                        val chunk = level.getChunkAt(pos)
 
-                    val sectionIndex = chunk.getSectionIndex(pos.y)
-                    if (sectionIndex < 0 || sectionIndex >= chunk.sections.size) continue
-                    val section = chunk.sections[sectionIndex]
+                        val sectionIndex = chunk.getSectionIndex(pos.y)
+                        if (sectionIndex < 0 || sectionIndex >= chunk.sections.size) continue
+                        val section = chunk.sections[sectionIndex]
 
-                    val localX = pos.x and 15
-                    val localY = pos.y and 15
-                    val localZ = pos.z and 15
+                        val localX = pos.x and 15
+                        val localY = pos.y and 15
+                        val localZ = pos.z and 15
 
-                    val oldState = section.getBlockState(localX, localY, localZ)
-                    if (oldState == change.newState) continue
+                        val oldState = section.getBlockState(localX, localY, localZ)
+                        if (oldState == change.newState) continue
 
-                    section.setBlockState(localX, localY, localZ, change.newState, false)
-                    chunk.isUnsaved = true
+                        section.setBlockState(localX, localY, localZ, change.newState, false)
+                        chunk.isUnsaved = true
 
-                    for (type in TRACKED_HEIGHTMAPS) {
-                        chunk.getOrCreateHeightmapUnprimed(type)
-                            .update(localX, pos.y, localZ, change.newState)
+                        for (type in TRACKED_HEIGHTMAPS) {
+                            chunk.getOrCreateHeightmapUnprimed(type)
+                                .update(localX, pos.y, localZ, change.newState)
+                        }
+
+                        level.chunkSource.lightEngine.checkBlock(pos)
+                        level.sendBlockUpdated(pos, oldState, change.newState, 2)
+
+                        if (oldState.block !== change.newState.block) {
+                            changedPositions.add(pos)
+                        }
+                    } catch (e: Exception) {
+                        println("Failed to write block at ${change.pos}: ${e.message}")
                     }
+                }
 
-                    level.chunkSource.lightEngine.checkBlock(pos)
-                    level.sendBlockUpdated(pos, oldState, change.newState, 2)
-
-                    if (oldState.block !== change.newState.block) {
-                        changedPositions.add(pos)
-                    }
-                } catch (e: Exception) {
-                    println("Failed to write block at ${change.pos}: ${e.message}")
+                if (changedPositions.isNotEmpty()) {
+                    cleanupUnsupported(changedPositions)
                 }
             }
-
-            if (changedPositions.isNotEmpty()) {
-                cleanupUnsupported(changedPositions)
-            }
-
-
             delay(1.milliseconds)
         }
     }
@@ -195,7 +195,7 @@ class BlockChanger private constructor(
         }
     }
 
-    suspend fun addBlockChange(
+    fun addBlockChange(
         x: Int,
         y: Int,
         z: Int,
@@ -205,7 +205,7 @@ class BlockChanger private constructor(
         val change = BlockChange(BlockPos(x, y, z), newState, updateBlock)
 
         pendingChanges.incrementAndGet()
-        blockChannel.send(change)
+        blockChannel.trySend(change)
 
         if (!processingActive.get()) {
             startProcessing()
@@ -233,7 +233,7 @@ class BlockChanger private constructor(
         private val instances = ConcurrentHashMap<ResourceKey<Level>, BlockChanger>()
 
         @JvmStatic
-        fun getInstance(level: ServerLevel): BlockChanger {
+        fun getInstance(level: Level): BlockChanger {
             return instances.computeIfAbsent(level.dimension()) { BlockChanger(level) }
         }
 

@@ -8,7 +8,7 @@ import kotlin.random.Random
 
 class MaterialTransformer(
     rules: List<TransformationRule> = defaultRules(),
-    private val random: Random = Random.Default,
+    val random: Random = Random.Default,
 ) {
     private val sortedRules: List<TransformationRule> by lazy {
         rules.sortedByDescending { it.priority }
