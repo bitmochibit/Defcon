@@ -4,20 +4,22 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import me.mochibit.defcon.content.explosion.processor.TreeBurnCore
 import me.mochibit.defcon.content.explosion.processor.TreeBurner
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialCategories
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
 import me.mochibit.defcon.content.explosion.processor.worldgen.BlastZoneSavedData
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
-import me.mochibit.defcon.foundation.async.withMainContext
 import me.mochibit.defcon.foundation.extension.getBlockState
 import me.mochibit.defcon.foundation.util.BlockChanger
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.LightLayer
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.chunk.LevelChunk
+import net.minecraft.world.level.chunk.status.ChunkStatus
 import net.minecraft.world.level.levelgen.Heightmap
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.pow
 import kotlin.random.Random
 
@@ -88,19 +90,20 @@ class Shockwave(
                     val power = calculateShockwavePower(radiusProgress)
 
                     generateShockwaveCircleBresenham(currentRadius)
-                        .flowOn(Dispatchers.Default)
+                        .flowOn(Dispatchers.IO)
                         .collect { pos ->
-                            if (BlastZoneSavedData.get(level).isChunkWorldgenProcessed(pos.x shr 4, pos.z shr 4)) return@collect
+                            val chunkX = pos.x shr 4
+                            val chunkZ = pos.z shr 4
+
+                            if (BlastZoneSavedData.get(level).isChunkWorldgenProcessed(chunkX, chunkZ)) return@collect
+                            if (!level.hasChunk(chunkX, chunkZ)) return@collect
                             blocksProcessed++
-                            val highestY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, pos.x, pos.z)-1
+
+                            val highestY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, pos.x, pos.z) - 1
                             val loc = BlockPos(pos.x, highestY, pos.z)
-                            val firstState = level.getBlockState(loc)
-                            if (treeBurner.isTreeBlock(firstState)) {
-                                processTrees(loc, power)
-                            } else {
-                                processBlock(loc, power, firstState)
-                            }
+                            processBlock(loc, power, level.getBlockState(loc))
                         }
+
                 }
             } catch (e: Exception) {
                 println("ERROR in Shockwave: ${e.message}")
@@ -109,16 +112,6 @@ class Shockwave(
                 cleanup()
             }
         }
-
-    private suspend fun processTrees(
-        location: BlockPos,
-        power: Float,
-    ) {
-        treeBurner.processTreeBurn(location, power.toDouble())
-        val terrainLocation = treeBurner.getTreeTerrain(location)
-        val terrainState = level.getBlockState(terrainLocation)
-        processBlock(terrainLocation, power, terrainState)
-    }
 
     private suspend fun processBlock(
         blockLocation: BlockPos,
@@ -130,6 +123,7 @@ class Shockwave(
         val z = blockLocation.z
 
         val blockPosForLight = BlockPos.MutableBlockPos(x, y, z)
+        val blockPosForTrees = BlockPos.MutableBlockPos(x, y, z)
 
         val randomOffset = Random.nextInt(1, 6)
         val convertToAirMinY = (worldSeaLevel + randomOffset) + (shockwaveHeight * 0.5f * (1.0f - power)).toInt()
@@ -139,6 +133,8 @@ class Shockwave(
         val skylightThreshold = ((1.0f - power) * 12).toInt().coerceIn(2, 15)
 
         var consecutiveTerrainBlocks = 0
+        var trunkTopY: Int? = null
+        var trunkBaseY: Int? = null
         var consecutiveAirBlocks = 0
         var consecutiveFluids = 0
         var consecutiveBlacklisted = 0
@@ -146,14 +142,19 @@ class Shockwave(
         for (currentY in y downTo maxOf(seaLevelMinus3, worldMinHeight)) {
             if (treeBurner.isPosProcessed(x, currentY, z)) continue
 
-            val currentState =
-                if (currentY == y) {
-                    firstBlockState
-                } else {
-                    level.getBlockState(x, currentY, z)
-                }
+            val currentState = if (currentY == y) firstBlockState else level.getBlockState(x, currentY, z)
 
-            if (treeBurner.isTreeBlock(currentState)) continue
+            blockPosForTrees.set(x, currentY, z)
+            if (treeBurner.isTreeBlock(blockPosForTrees)) {
+                val block = currentState.block
+                if (trunkTopY == null && (block in TreeBurnCore.LOG_BLOCKS || block in TreeBurnCore.WOOD_BLOCKS)) {
+                    trunkTopY = currentY
+                    trunkBaseY = treeBurner.findLocalTrunkBase(BlockPos(x, currentY, z))
+                }
+                treeBurner.processTreeBlockAt(BlockPos(x, currentY, z), power.toDouble(), trunkTopY, trunkBaseY)
+                consecutiveTerrainBlocks = 0
+                continue
+            }
 
 
             when {
@@ -217,7 +218,7 @@ class Shockwave(
                             val transformedBlock =
                                 materialTransformer.transformMaterial(
                                     currentState,
-                                    1.0f - power + lightInfluence,
+                                    1.0f - power + lightInfluence, x, currentY, z
                                 )
                             blockChanger.addBlockChange(x, currentY, z, transformedBlock)
                         }
@@ -229,6 +230,7 @@ class Shockwave(
                             materialTransformer.transformMaterial(
                                 currentState,
                                 1.0f - power + lightInfluence,
+                                x, currentY, z
                             )
                         blockChanger.addBlockChange(x, currentY, z, transformedBlock)
                     }
@@ -280,12 +282,13 @@ class Shockwave(
                 val transformedBlock =
                     materialTransformer.transformMaterial(
                         currentState,
-                        1.0f - power + noiseInfluence + lightInfluence,
+                        1.0f - power + noiseInfluence + lightInfluence, x, currentY, z
                     )
                 blockChanger.addBlockChange(x, currentY, z, transformedBlock)
 
                 val aboveState = level.getBlockState(x, currentY + 1, z)
-                if (!aboveState.isAir && !treeBurner.isTreeBlock(aboveState)) {
+                blockPosForTrees.set(x,currentY+1, z)
+                if (!aboveState.isAir && !treeBurner.isTreeBlock(blockPosForTrees)) {
                     blockPosForLight.set(x, currentY + 1, z)
                     val aboveSkylightLevel = level.getBrightness(LightLayer.SKY, blockPosForLight)
                     val aboveNoise = generateTerrainNoise(x, currentY + 1, z, terrainNoiseStrength * 0.7f)
@@ -294,6 +297,7 @@ class Shockwave(
                         materialTransformer.transformMaterial(
                             aboveState,
                             1.0f - power + (aboveNoise * 0.2f) + aboveLightInfluence,
+                            x, currentY+1, z
                         )
                     blockChanger.addBlockChange(x, currentY + 1, z, transformedAbove)
                 }
@@ -317,6 +321,7 @@ class Shockwave(
                         materialTransformer.transformMaterial(
                             currentState,
                             1.0f - power + (blockNoise * 0.2f) + lightInfluence,
+                            x, currentY, z
                         )
                     blockChanger.addBlockChange(x, currentY, z, transformedBlock, updateBlock = false)
                 }

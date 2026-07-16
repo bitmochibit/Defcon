@@ -1,5 +1,6 @@
 package me.mochibit.defcon.content.explosion.processor.transformer
 
+import me.mochibit.defcon.foundation.util.copyPropertiesTo
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
 import kotlin.random.Random
@@ -16,14 +17,12 @@ class MaterialTransformer(
     fun transformMaterial(
         currentState: BlockState,
         explosionPower: Float,
-        x: Int = 0,
-        z: Int = 0,
-        y: Int = 0,
-    ): BlockState =
-        sortedRules
-            .find { it.matches(currentState, explosionPower) }
-            ?.transform(currentState, explosionPower, random, x, z, y)
-            ?: currentState
+        x: Int = 0, z: Int = 0, y: Int = 0,
+    ): BlockState {
+        val rule = sortedRules.find { it.matches(currentState, explosionPower) } ?: return currentState
+        val transformed = rule.transform(currentState, explosionPower, random, x, z, y)
+        return currentState.copyPropertiesTo(transformed)
+    }
 
     companion object {
         private val BRICK_MATERIALS =

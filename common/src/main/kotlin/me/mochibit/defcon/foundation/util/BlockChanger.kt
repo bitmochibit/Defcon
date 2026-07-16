@@ -12,6 +12,7 @@ import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.LevelChunkSection
 import net.minecraft.world.level.levelgen.Heightmap
@@ -54,7 +55,7 @@ class BlockChanger private constructor(
     }
 
     private fun initializeChannel() {
-        blockChannel = Channel(capacity = 100_000)
+        blockChannel = Channel(capacity = Channel.UNLIMITED)
     }
 
     private fun startProcessing() {
@@ -96,93 +97,101 @@ class BlockChanger private constructor(
         }
     }
 
+
     private suspend fun applyBatchOptimized(batch: List<BlockChange>) {
-        val blocksPerTick = 2000
+        val blocksPerTick = 5000
 
         for (chunkBatch in batch.chunked(blocksPerTick)) {
-            withMainContext {
-                val sectionUpdates = HashMap<SectionPos, Pair<ShortArraySet, LevelChunkSection>>()
+            val changedPositions = ArrayList<BlockPos>(chunkBatch.size)
+            for (change in chunkBatch) {
+                try {
+                    val pos = change.pos
 
-                // pos to notify -> pos that caused the change (i.e. the neighbor we DID change)
-                val notifySet = HashMap<Long, Pair<BlockPos, BlockState>>()
-                val changedKeys = HashSet<Long>()
+                    val chunk = level.getChunkAt(pos)
 
-                for (change in chunkBatch) {
-                    changedKeys.add(change.pos.asLong())
-                }
+                    val sectionIndex = chunk.getSectionIndex(pos.y)
+                    if (sectionIndex < 0 || sectionIndex >= chunk.sections.size) continue
+                    val section = chunk.sections[sectionIndex]
 
-                for (change in chunkBatch) {
-                    try {
-                        val pos = change.pos
-                        val chunk = level.getChunk(pos.x shr 4, pos.z shr 4) ?: continue
+                    val localX = pos.x and 15
+                    val localY = pos.y and 15
+                    val localZ = pos.z and 15
 
-                        val sectionIndex = chunk.getSectionIndex(pos.y)
-                        if (sectionIndex < 0 || sectionIndex >= chunk.sections.size) continue
+                    val oldState = section.getBlockState(localX, localY, localZ)
+                    if (oldState == change.newState) continue
 
-                        val section = chunk.sections[sectionIndex]
+                    section.setBlockState(localX, localY, localZ, change.newState, false)
+                    chunk.isUnsaved = true
 
-                        val localX = pos.x and 15
-                        val localY = pos.y and 15
-                        val localZ = pos.z and 15
-
-                        val oldState = section.getBlockState(localX, localY, localZ)
-                        if (oldState == change.newState) continue
-
-                        section.setBlockState(localX, localY, localZ, change.newState, false)
-                        chunk.isUnsaved = true
-
-                        for (type in TRACKED_HEIGHTMAPS) {
-                            chunk.getOrCreateHeightmapUnprimed(type)
-                                .update(localX, pos.y, localZ, change.newState)
-                        }
-
-                        level.chunkSource.lightEngine.checkBlock(pos)
-
-                        val secPos = SectionPos.of(pos)
-                        val (localPositions, _) = sectionUpdates.getOrPut(secPos) {
-                            Pair(ShortArraySet(), section)
-                        }
-                        localPositions.add(SectionPos.sectionRelativePos(pos))
-
-
-                        if (oldState.block !== change.newState.block) {
-                            for (dir in Direction.entries) {
-                                val n = pos.relative(dir)
-                                val key = n.asLong()
-                                if (key !in changedKeys) {
-                                    notifySet.putIfAbsent(key, pos to change.newState)
-                                }
-                            }
-                        }
-                    } catch (_: Exception) {
+                    for (type in TRACKED_HEIGHTMAPS) {
+                        chunk.getOrCreateHeightmapUnprimed(type)
+                            .update(localX, pos.y, localZ, change.newState)
                     }
-                }
 
-                for ((secPos, data) in sectionUpdates) {
-                    try {
-                        val localPositions = data.first
-                        val section = data.second
-                        if (localPositions.isEmpty()) continue
+                    level.chunkSource.lightEngine.checkBlock(pos)
+                    level.sendBlockUpdated(pos, oldState, change.newState, 2)
 
-                        val packet = ClientboundSectionBlocksUpdatePacket(secPos, localPositions, section)
-                        level.chunkSource.chunkMap.getPlayers(secPos.chunk(), false).forEach { player ->
-                            player.connection.send(packet)
-                        }
-                    } catch (_: Exception) {
+                    if (oldState.block !== change.newState.block) {
+                        changedPositions.add(pos)
                     }
-                }
-
-                for ((posLong, causeInfo) in notifySet) {
-                    try {
-                        val notifyPos = BlockPos.of(posLong)
-                        val (fromPos, fromState) = causeInfo
-                        level.neighborChanged(notifyPos, fromState.block, fromPos)
-                    } catch (_: Exception) {
-                    }
+                } catch (e: Exception) {
+                    println("Failed to write block at ${change.pos}: ${e.message}")
                 }
             }
 
+            if (changedPositions.isNotEmpty()) {
+                cleanupUnsupported(changedPositions)
+            }
+
+
             delay(1.milliseconds)
+        }
+    }
+
+    private fun cleanupUnsupported(seeds: Collection<BlockPos>) {
+        val visited = HashSet<Long>()
+        val queue = ArrayDeque<BlockPos>()
+        for (p in seeds) {
+            for (dir in Direction.entries) {
+                val n = p.relative(dir)
+                if (visited.add(n.asLong())) queue.add(n)
+            }
+        }
+
+        var guard = 0
+        while (queue.isNotEmpty() && guard++ < 20_000) {
+            val pos = queue.removeFirst()
+            val state = level.getBlockState(pos) // anche questa già forza il caricamento internamente
+            if (state.isAir || !state.fluidState.isEmpty) continue
+
+            val survives = try { state.canSurvive(level, pos) } catch (_: Exception) { true }
+            if (survives) continue
+
+            try {
+                val chunk = level.getChunkAt(pos)
+                val sectionIndex = chunk.getSectionIndex(pos.y)
+                if (sectionIndex < 0 || sectionIndex >= chunk.sections.size) continue
+                val section = chunk.sections[sectionIndex]
+
+                val localX = pos.x and 15
+                val localY = pos.y and 15
+                val localZ = pos.z and 15
+
+                section.setBlockState(localX, localY, localZ, Blocks.AIR.defaultBlockState(), false)
+                chunk.isUnsaved = true
+                for (type in TRACKED_HEIGHTMAPS) {
+                    chunk.getOrCreateHeightmapUnprimed(type).update(localX, pos.y, localZ, Blocks.AIR.defaultBlockState())
+                }
+                level.chunkSource.lightEngine.checkBlock(pos)
+                level.sendBlockUpdated(pos, state, Blocks.AIR.defaultBlockState(), 2)
+            } catch (_: Exception) {
+                continue
+            }
+
+            for (dir in Direction.entries) {
+                val n = pos.relative(dir)
+                if (visited.add(n.asLong())) queue.add(n)
+            }
         }
     }
 

@@ -21,7 +21,7 @@ data class TransformationRule(
         explosionPower: Float,
         random: Random,
         x: Int = 0,
-        z: Int = 0,
         y: Int = 0,
+        z: Int = 0,
     ): BlockState = outcome.transform(state, explosionPower, random, x, z, y)
 }

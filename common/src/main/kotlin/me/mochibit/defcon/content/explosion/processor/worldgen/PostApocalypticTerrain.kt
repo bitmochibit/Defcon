@@ -1,23 +1,18 @@
 package me.mochibit.defcon.content.explosion.processor.worldgen
 
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import me.mochibit.defcon.content.explosion.processor.TreeBurnCore
 import me.mochibit.defcon.content.explosion.processor.WorldgenTreeBurner
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
 import me.mochibit.defcon.explosion.processor.Shockwave
 import net.minecraft.core.BlockPos
-import net.minecraft.tags.BiomeTags
 import net.minecraft.util.RandomSource
 import net.minecraft.world.level.WorldGenLevel
-import net.minecraft.world.level.biome.Biomes
 import net.minecraft.world.level.block.Blocks
-import net.minecraft.world.level.block.FlowerBlock
 import net.minecraft.world.level.chunk.ChunkAccess
 import net.minecraft.world.level.levelgen.Heightmap
 import kotlin.math.atan2
 import kotlin.math.sin
 import kotlin.math.sqrt
-import kotlin.math.pow
 import kotlin.random.Random
 
 object PostApocalypticTerrain {
@@ -37,6 +32,8 @@ object PostApocalypticTerrain {
         val random = RandomSource.create(chunkPos.toLong())
         val transformer = MaterialTransformer(random = Random(chunkPos.toLong() xor 0x5DEECE66DL))
         val seaLevel = level.seaLevel
+
+        val trunkExtentCache = HashMap<Long, IntRange>()
 
         for (x in 0 until 16) {
             for (z in 0 until 16) {
@@ -76,25 +73,18 @@ object PostApocalypticTerrain {
 
                     when {
                         state.isAir -> {}
-//
-//                        block in TreeBurnCore.LOG_BLOCKS || block in TreeBurnCore.WOOD_BLOCKS -> {
-//                            WorldgenTreeBurner.burnTree(
-//                                level = level,
-//                                trunkOrAnyLogPos = pos,
-//                                zoneCenterX = zone.centerX,
-//                                zoneCenterZ = zone.centerZ,
-//                                explosionPower = explosionPower,
-//                            )
-//                        }
-//                        block in TreeBurnCore.LEAF_BLOCKS -> {
-//                            chunk.setBlockState(pos, Blocks.AIR.defaultBlockState(), false)
-//                        }
-//
-//
-//                        state.`is`(Blocks.WATER) -> {}
+                        TreeBurnCore.isTreeBlockType(block) -> {
+                            WorldgenTreeBurner.burnColumnBlock(
+                                level, pos, state,
+                                zone.centerX, zone.centerZ,
+                                explosionPower, trunkExtentCache,
+                            )
+                        }
+
+                        state.`is`(Blocks.WATER) -> {}
 
                         else -> {
-                            val transformed = transformer.transformMaterial(state, explosionPower, worldX, worldZ, y)
+                            val transformed = transformer.transformMaterial(state, explosionPower, worldX, y, worldZ)
                             if (transformed !== state) {
                                 if (random.nextFloat() < explosionPower) {
                                     chunk.setBlockState(pos, transformed, false)

@@ -5,7 +5,7 @@ import kotlin.random.Random
 
 sealed class TransformationOutcome {
     abstract fun transform(
-        state: BlockState,
+        currentState: BlockState,
         explosionPower: Float,
         random: Random,
         x: Int = 0,
@@ -14,57 +14,57 @@ sealed class TransformationOutcome {
     ): BlockState
 
     data class ToMaterial(
-        val state: BlockState,
+        val targetState: BlockState,
     ) : TransformationOutcome() {
 
         override fun transform(
-            state: BlockState,
+            currentState: BlockState,
             explosionPower: Float,
             random: Random,
             x: Int,
             z: Int,
             y: Int,
-        ): BlockState = state
+        ): BlockState = this.targetState
     }
 
     data class ToRandomMaterial(
-        val stateList: Set<BlockState>,
+        val targetStateList: Set<BlockState>,
     ) : TransformationOutcome() {
 
         override fun transform(
-            state: BlockState,
+            currentState: BlockState,
             explosionPower: Float,
             random: Random,
             x: Int,
             z: Int,
             y: Int,
-        ): BlockState = stateList.random(random)
+        ): BlockState = targetStateList.random(random)
     }
 
     data class ToPalette(
-        val palette: MaterialPalette,
+        val targetPalette: MaterialPalette,
     ) : TransformationOutcome() {
         override fun transform(
-            state: BlockState,
+            currentState: BlockState,
             explosionPower: Float,
             random: Random,
             x: Int,
             z: Int,
             y: Int,
-        ): BlockState = palette.getRandom()
+        ): BlockState = targetPalette.getRandom()
     }
 
     data class ToPaletteWithNoise(
-        val palette: MaterialPalette,
+        val targetPalette: MaterialPalette,
     ) : TransformationOutcome() {
         override fun transform(
-            state: BlockState,
+            currentState: BlockState,
             explosionPower: Float,
             random: Random,
             x: Int,
             z: Int,
             y: Int,
-        ): BlockState = palette.getWithNoise(x, z, y)
+        ): BlockState = targetPalette.getWithNoise(x, z, y)
     }
 
     data class ChanceOutcome(
@@ -73,7 +73,7 @@ sealed class TransformationOutcome {
         val falseOutcome: TransformationOutcome,
     ) : TransformationOutcome() {
         override fun transform(
-            state: BlockState,
+            currentState: BlockState,
             explosionPower: Float,
             random: Random,
             x: Int,
@@ -81,9 +81,9 @@ sealed class TransformationOutcome {
             y: Int,
         ): BlockState =
             if (random.nextFloat() < chance) {
-                trueOutcome.transform(state, explosionPower, random, x, z, y)
+                trueOutcome.transform(currentState, explosionPower, random, x, z, y)
             } else {
-                falseOutcome.transform(state, explosionPower, random, x, z, y)
+                falseOutcome.transform(currentState, explosionPower, random, x, z, y)
             }
     }
 
@@ -93,28 +93,28 @@ sealed class TransformationOutcome {
         val falseOutcome: TransformationOutcome,
     ) : TransformationOutcome() {
         override fun transform(
-            state: BlockState,
+            currentState: BlockState,
             explosionPower: Float,
             random: Random,
             x: Int,
             z: Int,
             y: Int,
         ): BlockState =
-            if (condition(state, explosionPower)) {
-                trueOutcome.transform(state, explosionPower, random, x, z, y)
+            if (condition(currentState, explosionPower)) {
+                trueOutcome.transform(currentState, explosionPower, random, x, z, y)
             } else {
-                falseOutcome.transform(state, explosionPower, random, x, z, y)
+                falseOutcome.transform(currentState, explosionPower, random, x, z, y)
             }
     }
 
     data object NoTransformation : TransformationOutcome() {
         override fun transform(
-            state: BlockState,
+            currentState: BlockState,
             explosionPower: Float,
             random: Random,
             x: Int,
             z: Int,
             y: Int,
-        ): BlockState = state
+        ): BlockState = currentState
     }
 }
