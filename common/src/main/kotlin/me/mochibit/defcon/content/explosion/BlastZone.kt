@@ -1,7 +1,6 @@
-package me.mochibit.defcon.content.explosion.processor.worldgen
+package me.mochibit.defcon.content.explosion
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet
-import me.mochibit.defcon.content.explosion.processor.TreeBurner
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
@@ -9,7 +8,6 @@ import net.minecraft.nbt.Tag
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.saveddata.SavedData
-import kotlin.math.pow
 
 data class BlastZone(
     val centerX: Int,

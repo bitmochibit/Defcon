@@ -1,20 +1,15 @@
 package me.mochibit.defcon.foundation.util
 
-import it.unimi.dsi.fastutil.shorts.ShortArraySet
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
 import me.mochibit.defcon.foundation.async.withMainContext
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
-import net.minecraft.core.SectionPos
-import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket
 import net.minecraft.resources.ResourceKey
-import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.level.chunk.LevelChunkSection
 import net.minecraft.world.level.levelgen.Heightmap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -68,7 +63,7 @@ class BlockChanger private constructor(
                 workerScope.launch(Dispatchers.Default) {
                     val batch = ArrayList<BlockChange>(batchSize)
 
-                    while (processingActive.get() || !blockChannel.isEmpty) {
+                    while (processingActive.get()) {
                         var collected = 0
                         val startTime = System.currentTimeMillis()
 
@@ -161,7 +156,7 @@ class BlockChanger private constructor(
         var guard = 0
         while (queue.isNotEmpty() && guard++ < 20_000) {
             val pos = queue.removeFirst()
-            val state = level.getBlockState(pos) // anche questa già forza il caricamento internamente
+            val state = level.getBlockState(pos)
             if (state.isAir || !state.fluidState.isEmpty) continue
 
             val survives = try { state.canSurvive(level, pos) } catch (_: Exception) { true }

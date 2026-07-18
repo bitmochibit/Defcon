@@ -1,6 +1,7 @@
 plugins {
     id 'multiloader-common'
     id 'net.neoforged.moddev'
+    id "org.jetbrains.kotlin.kapt"
 }
 
 neoForge {
@@ -27,8 +28,8 @@ dependencies {
     compileOnly "org.jetbrains.kotlinx:kotlinx-coroutines-core:${kotlinx_coroutines_version}"
     compileOnly "org.jetbrains.kotlinx:kotlinx-serialization-core:${kotlinx_serialization_version}"
     compileOnly "org.jetbrains.kotlinx:kotlinx-serialization-json:${kotlinx_serialization_version}"
-    compileOnly 'io.github.classgraph:classgraph:4.8.179'
     compileOnly "org.jetbrains.kotlin:kotlin-reflect:2.2.20"
+    testImplementation 'org.jetbrains.kotlin:kotlin-test'
 }
 
 configurations {
@@ -50,5 +51,8 @@ artifacts {
     commonJava sourceSets.main.java.sourceDirectories.singleFile
     commonResources sourceSets.main.resources.sourceDirectories.singleFile
     commonKotlin file("src/main/kotlin")
+}
+repositories {
+    mavenCentral()
 }
 

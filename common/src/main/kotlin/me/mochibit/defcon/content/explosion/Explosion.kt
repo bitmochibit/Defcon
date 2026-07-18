@@ -1,22 +1,20 @@
-package me.mochibit.defcon.explosions
+package me.mochibit.defcon.content.explosion
 
 import kotlinx.coroutines.*
-import me.mochibit.defcon.content.explosion.effects.NuclearExplosionEffect
 import me.mochibit.defcon.content.explosion.effects.NuclearExplosionParams
 import me.mochibit.defcon.content.explosion.processor.Crater
-import me.mochibit.defcon.content.explosion.processor.worldgen.BlastZone
-import me.mochibit.defcon.content.explosion.processor.worldgen.BlastZoneSavedData
 import me.mochibit.defcon.explosion.processor.Shockwave
 import me.mochibit.defcon.foundation.async.ClientCoroutineScope
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
-import me.mochibit.defcon.foundation.extension.inTicks
 import me.mochibit.defcon.foundation.network.packet.ExplosionEffectStartPacket
+import me.mochibit.defcon.foundation.registry.ModDamageSources
 import me.mochibit.defcon.foundation.registry.ModPackets
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.phys.AABB
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.logging.Level
 import kotlin.time.Duration.Companion.minutes
 
 enum class ExplosionScope { SERVER, CLIENT }
@@ -123,7 +121,13 @@ class NuclearExplosion(
 //                ).process()
 //            },
             ExplosionScope.SERVER to {
-//                killPlayersInCrater(center, config)
+                val entities = level.getEntities(null, AABB(epicenter).inflate(100.0, 50.0, 100.0))
+                val vaporized = ModDamageSources.vaporized(level)
+                entities.forEach { entity ->
+                    if (entity is Player && (entity.isCreative || entity.isSpectator)) return@forEach
+                    entity.hurt(vaporized, Float.MAX_VALUE)
+                }
+
                 val crater = Crater(
                     this.serverLevel,
                     epicenter,

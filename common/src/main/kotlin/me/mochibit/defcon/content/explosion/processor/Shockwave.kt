@@ -4,25 +4,15 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import me.mochibit.defcon.content.explosion.processor.TreeBurnCore
-import me.mochibit.defcon.content.explosion.processor.TreeBurner
-import me.mochibit.defcon.content.explosion.processor.core.ColumnCarveContext
-import me.mochibit.defcon.content.explosion.processor.core.ColumnCarver
-import me.mochibit.defcon.content.explosion.processor.core.RuntimeColumnCarveContext
-import me.mochibit.defcon.content.explosion.processor.transformer.MaterialCategories
+import me.mochibit.defcon.content.explosion.processor.carver.ColumnCarver
+import me.mochibit.defcon.content.explosion.processor.carver.RuntimeColumnCarveContext
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
-import me.mochibit.defcon.content.explosion.processor.worldgen.BlastZoneSavedData
+import me.mochibit.defcon.content.explosion.BlastZoneSavedData
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
-import me.mochibit.defcon.foundation.extension.getBlockState
-import me.mochibit.defcon.foundation.util.BlockChanger
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.level.LightLayer
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.level.chunk.LevelChunk
-import net.minecraft.world.level.chunk.status.ChunkStatus
 import net.minecraft.world.level.levelgen.Heightmap
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.pow
 import kotlin.random.Random
 
@@ -69,21 +59,18 @@ class Shockwave(
     private val worldMaxHeight = level.maxBuildHeight
     private val seaLevelMinus3 = worldSeaLevel - 3
 
-    @OptIn(ExperimentalCoroutinesApi::class)
+    private val runtimeCtx = RuntimeColumnCarveContext(level, center)
+
+
     fun explode(): Job =
         ShockwaveScope.launch(Dispatchers.IO) {
             try {
-                println("Shockwave starting from crater edge (radius $radiusStart) to $shockwaveRadius")
                 val effectiveShockwaveRange = (shockwaveRadius - radiusStart).toFloat()
 
 
                 var blocksProcessed = 0
 
                 for (currentRadius in radiusStart..shockwaveRadius) {
-                    if ((currentRadius - radiusStart) % 50 == 0) {
-                        println("Processing shockwave radius: $currentRadius/$shockwaveRadius (blocks processed: $blocksProcessed)")
-                    }
-
                     val distanceFromCraterEdge = (currentRadius - radiusStart).toFloat()
                     val radiusProgress = distanceFromCraterEdge / effectiveShockwaveRange
                     val power = calculateShockwavePower(radiusProgress)
@@ -112,7 +99,6 @@ class Shockwave(
             }
         }
 
-    private val runtimeCtx = RuntimeColumnCarveContext(level, center)
 
     private fun processBlock(
         blockLocation: BlockPos,
@@ -136,39 +122,6 @@ class Shockwave(
             firstBlockState = firstBlockState,
             ctx = runtimeCtx,
         )
-    }
-
-    @Suppress("NOTHING_TO_INLINE")
-    private inline fun generateTerrainNoise(
-        x: Int,
-        y: Int,
-        z: Int,
-        strength: Float,
-    ): Float {
-        val seed = ((x * 374761393L + y * 668265263L + z * 1274126177L) and 0x7FFFFFFF).toInt()
-        val random = Random(seed)
-
-        val noise1 = (random.nextDouble() - 0.5).toFloat()
-        val noise2 = ((random.nextDouble() - 0.5) * 0.5).toFloat()
-        val noise3 = ((random.nextDouble() - 0.5) * 0.25).toFloat()
-
-        return ((noise1 + noise2 + noise3) * 1.143f * strength).coerceIn(-1.0f, 1.0f)
-    }
-
-    private suspend fun isHeuristicallyWallBlock(
-        x: Int,
-        y: Int,
-        z: Int,
-    ): Boolean {
-        val east = level.getBlockState(x + 1, y, z).isAir
-        val west = level.getBlockState(x - 1, y, z).isAir
-        if (east && west) return true
-
-        val south = level.getBlockState(x, y, z + 1).isAir
-        if ((east || west) && south) return true
-
-        val north = level.getBlockState(x, y, z - 1).isAir
-        return ((east || west) && north) || (south && north)
     }
 
     private fun generateShockwaveCircleBresenham(radius: Int): Flow<BlockPos> =
@@ -200,7 +153,7 @@ class Shockwave(
             }
         }
 
-    private suspend fun cleanup() {
+    private fun cleanup() {
         println("Shockwave completed")
     }
 }

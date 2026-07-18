@@ -10,7 +10,9 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import me.mochibit.defcon.foundation.async.ModDispatchers
 import me.mochibit.defcon.foundation.particles.ParticleSpawner
+import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
+import net.minecraft.world.entity.vehicle.Minecart
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -39,6 +41,7 @@ abstract class ParticleVisualEffect<T : EffectParams>(
             try {
                 withTimeout(params.effectDuration) {
                     while (isActive) {
+                        if(Minecraft.getInstance().isPaused) continue
                         val now = System.currentTimeMillis()
                         val dt = ((now - lastTickMillis) / 1000f).coerceAtLeast(0f)
                         lastTickMillis = now

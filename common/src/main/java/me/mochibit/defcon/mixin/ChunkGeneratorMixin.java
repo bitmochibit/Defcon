@@ -1,18 +1,15 @@
 package me.mochibit.defcon.mixin;
 
 
-import me.mochibit.defcon.content.explosion.processor.worldgen.BlastZone;
-import me.mochibit.defcon.content.explosion.processor.worldgen.BlastZoneSavedData;
-import me.mochibit.defcon.content.explosion.processor.worldgen.PostApocalypticTerrain;
+import me.mochibit.defcon.content.explosion.BlastZone;
+import me.mochibit.defcon.content.explosion.BlastZoneSavedData;
+import me.mochibit.defcon.content.explosion.processor.PostApocalypticTerrain;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.WorldGenRegion;
-import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.ChunkPos;
 
 import net.minecraft.world.level.chunk.ChunkGenerator;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -48,3 +45,4 @@ public abstract class ChunkGeneratorMixin {
         }
     }
 }
+

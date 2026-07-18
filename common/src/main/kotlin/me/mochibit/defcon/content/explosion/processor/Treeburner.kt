@@ -1,20 +1,14 @@
 package me.mochibit.defcon.content.explosion.processor
 
+import it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet
-import me.mochibit.defcon.content.explosion.processor.core.ColumnCarveContext
-import me.mochibit.defcon.foundation.util.BlockChanger
+import me.mochibit.defcon.content.explosion.processor.carver.ColumnCarveContext
 import net.minecraft.core.BlockPos
-import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
-import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.level.Level
-import net.minecraft.world.level.WorldGenLevel
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import org.joml.Vector2f
-import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
@@ -156,25 +150,41 @@ object TreeBurnCore {
     }
 }
 
+
 /**
  * Runtime (post-worldgen) tree burning, driven by the shockwave processor.
  * Always resolves and consumes an entire connected tree at once: leaves are
- * always removed, trunks are always tilted and turned to basalt/blackstone.
+ * always removed, trunks are always tilted and turned to basalt/blackstone,
+ * unless the explosion is close enough to obliterate the tree entirely.
  */
 class TreeBurner(
     private val ctx: ColumnCarveContext,
     private val center: BlockPos,
+    /** Explosion power at/above which trees are removed entirely instead of being burnt/tilted. */
+    private val fullRemovalPowerThreshold: Double = 0.85,
+    /** Max change in tilt magnitude (in blocks) allowed between two vertically adjacent trunk blocks. */
+    private val maxTiltStepPerBlock: Double = 1.0,
 ) {
     private val processedTreeBlocks = LongOpenHashSet()
+
+    // Tracks the last tilt offset applied per trunk column (packed x,z), so the
+    // trunk bends gradually instead of jumping between independently computed offsets.
+    private val columnTiltOffset = Long2DoubleOpenHashMap().apply { defaultReturnValue(Double.NaN) }
 
     fun isPosProcessed(x: Int, y: Int, z: Int) = processedTreeBlocks.contains(PackedPos(x, y, z).packed)
 
     fun isTreeBlock(x: Int, y: Int, z: Int): Boolean = TreeBurnCore.isTreeBlockType(ctx.getState(x, y, z).block)
 
     fun processTreeBlockAt(x: Int, y: Int, z: Int, explosionPower: Double, trunkTopY: Int?, trunkBaseY: Int?) {
-        if (!processedTreeBlocks.add(PackedPos(x,y,z).packed)) return
+        if (!processedTreeBlocks.add(PackedPos(x, y, z).packed)) return
         val state = ctx.getState(x, y, z)
         val block = state.block
+
+        // Very close to the blast center: obliterate the whole tree, no burnt remnants.
+        if (explosionPower >= fullRemovalPowerThreshold) {
+            ctx.setState(x, y, z, Blocks.AIR.defaultBlockState())
+            return
+        }
 
         if (block in TreeBurnCore.LEAF_BLOCKS) {
             ctx.setState(x, y, z, Blocks.AIR.defaultBlockState())
@@ -184,11 +194,39 @@ class TreeBurner(
         val top = trunkTopY ?: y
         val base = trunkBaseY ?: y
         val heightRange = (top - base).coerceAtLeast(1)
-        val tilt = TreeBurnCore.calculateTiltFactor(y, base, heightRange, explosionPower)
+        val rawTilt = TreeBurnCore.calculateTiltFactor(y, base, heightRange, explosionPower)
+        val tilt = steppedTilt(x, z, y, base, rawTilt)
         val burnt = TreeBurnCore.burntReplacementFor(block).defaultBlockState()
         val direction = shockwaveDirectionFrom(x, z)
         applyTiltedTrunk(x, y, z, tilt, direction, burnt)
     }
+
+    /**
+     * Clamps the tilt so it only ever changes by [maxTiltStepPerBlock] relative to the
+     * previously processed block in the same trunk column. Columns are always scanned
+     * top-to-bottom (see ColumnCarver), so this makes the trunk bend gradually instead
+     * of jumping between independently computed offsets, and guarantees the block
+     * touching the ground (y == base) stays fixed.
+     */
+    private fun steppedTilt(x: Int, z: Int, y: Int, base: Int, rawTilt: Double): Double {
+        val key = packColumn(x, z)
+        if (y <= base) {
+            columnTiltOffset.remove(key)
+            return 0.0
+        }
+
+        val previous = columnTiltOffset.get(key)
+        val stepped = if (previous.isNaN()) {
+            rawTilt
+        } else {
+            val delta = (rawTilt - previous).coerceIn(-maxTiltStepPerBlock, maxTiltStepPerBlock)
+            previous + delta
+        }
+        columnTiltOffset.put(key, stepped)
+        return stepped
+    }
+
+    private fun packColumn(x: Int, z: Int): Long = (x.toLong() shl 32) or (z.toLong() and 0xFFFFFFFFL)
 
     fun findLocalTrunkBase(x: Int, y: Int, z: Int): Int =
         TreeBurnCore.findTrunkBaseY(x, y, z) { x, y, z -> ctx.getState(x, y, z) }

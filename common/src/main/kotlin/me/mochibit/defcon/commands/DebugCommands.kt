@@ -2,7 +2,7 @@ package me.mochibit.defcon.commands
 
 import com.mojang.brigadier.CommandDispatcher
 import me.mochibit.defcon.commands.DefconCommands.registerCommand
-import me.mochibit.defcon.explosions.NuclearExplosion
+import me.mochibit.defcon.content.explosion.NuclearExplosion
 import me.mochibit.defcon.foundation.info
 import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack

@@ -1,6 +1,7 @@
 package me.mochibit.defcon
 
 import me.mochibit.defcon.DefconMod.MOD_ID
+import me.mochibit.defcon.foundation.data.DataGenerators.provideLang
 import me.mochibit.defcon.foundation.info
 import me.mochibit.defcon.foundation.registry.CommonRegistry
 import me.mochibit.defcon.foundation.registry.NeoforgeModPackets
@@ -44,12 +45,15 @@ class NeoforgeModEntryPoint(
         }
 
         subtypes?.forEach {
-            it.info()
+//            it.info()
         }
 
         DefconMod.commonSetup {
-            registerEventListeners(this@NeoforgeModEntryPoint.modEventBus)
+//            registerEventListeners(this@NeoforgeModEntryPoint.modEventBus)
+            // For now since using the default registrate do not register event listeners, in future if a new subtype is created this is required!
         }
+
+        provideLang()
 
         autoRegister<NeoforgeRegistry>()
         ModEventBus.addListener(NeoforgeModPackets::registerPayloads)

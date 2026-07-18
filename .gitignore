@@ -118,3 +118,4 @@ run/
 /neoforge/build/
 /common/build/
 /buildSrc/build/
+/neoforge/src/generated/

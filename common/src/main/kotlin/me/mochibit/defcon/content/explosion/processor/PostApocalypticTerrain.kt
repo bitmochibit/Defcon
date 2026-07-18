@@ -1,18 +1,13 @@
-package me.mochibit.defcon.content.explosion.processor.worldgen
+package me.mochibit.defcon.content.explosion.processor
 
-import me.mochibit.defcon.content.explosion.processor.TreeBurnCore
-import me.mochibit.defcon.content.explosion.processor.core.ColumnCarveContext
-import me.mochibit.defcon.content.explosion.processor.core.ColumnCarver
-import me.mochibit.defcon.content.explosion.processor.core.WorldGenColumnCarveContext
+import me.mochibit.defcon.content.explosion.BlastZone
+import me.mochibit.defcon.content.explosion.processor.carver.ColumnCarver
+import me.mochibit.defcon.content.explosion.processor.carver.WorldGenColumnCarveContext
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
 import me.mochibit.defcon.explosion.processor.Shockwave
-import me.mochibit.defcon.foundation.async.launchOnServer
 import net.minecraft.core.BlockPos
-import net.minecraft.world.level.LightLayer
 import net.minecraft.world.level.WorldGenLevel
-import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.ChunkAccess
-import net.minecraft.world.level.levelgen.Heightmap
 import kotlin.math.sqrt
 import kotlin.random.Random
 

@@ -3,11 +3,13 @@ plugins {
     id 'net.neoforged.moddev'
 }
 
+def commonProject = project(':common')
+
 neoForge {
     version = neoforge_version
     validateAccessTransformers = true
     // Automatically enable neoforge AccessTransformers if the file exists
-    def at = project(':common').file('src/main/resources/META-INF/accesstransformer.cfg')
+    def at = commonProject.file('src/main/resources/META-INF/accesstransformer.cfg')
     if (at.exists()) {
         accessTransformers.add(at.absolutePath)
     }
@@ -25,6 +27,17 @@ neoForge {
         }
         data {
             data()
+            programArgument '--mod'
+            programArgument "${mod_id}"
+            programArgument "--all"
+            programArgument '--output'
+            programArgument file('src/generated/resources').absolutePath
+            programArgument '--existing'
+            programArgument file('src/main/resources').absolutePath
+            programArgument '--existing'
+            programArgument commonProject.file('src/main/resources').absolutePath
+
+
         }
         server {
             server()
@@ -44,13 +57,6 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:${kotlinx_coroutines_version}"
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-core:${kotlinx_serialization_version}"
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:${kotlinx_serialization_version}"
-    jarJar(implementation("io.github.classgraph:classgraph:4.8.179")) {
-        version {
-            strictly '[4.8.179,5)'
-            prefer '4.8.179'
-        }
-    }
-    additionalRuntimeClasspath 'io.github.classgraph:classgraph:4.8.179'
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }

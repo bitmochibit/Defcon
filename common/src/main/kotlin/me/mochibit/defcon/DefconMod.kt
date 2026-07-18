@@ -1,7 +1,6 @@
 package me.mochibit.defcon
 
 import com.tterrag.registrate.Registrate
-import io.github.classgraph.ClassGraph
 import me.mochibit.defcon.foundation.async.ModDispatchers
 import me.mochibit.defcon.foundation.err
 import me.mochibit.defcon.foundation.info
