@@ -11,6 +11,7 @@ import net.minecraft.world.item.crafting.RecipeHolder
 import net.minecraft.world.item.crafting.RecipeInput
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelAccessor
+import net.minecraft.world.level.chunk.ChunkAccess
 import java.util.Optional
 import java.util.function.Supplier
 
@@ -40,6 +41,7 @@ object CommonEvents {
         override val side: LogicalSide,
     ) : ClientProxyEvent,
         ServerProxyEvent
+
 
     data class LevelUnloadEvent(
         val levelAccess: LevelAccessor,

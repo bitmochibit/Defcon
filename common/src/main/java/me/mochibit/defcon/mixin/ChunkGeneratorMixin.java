@@ -29,20 +29,7 @@ public abstract class ChunkGeneratorMixin {
             CallbackInfo ci
     ) {
 
-        ServerLevel serverLevel = level.getLevel();
-        ChunkPos chunkPos = chunk.getPos();
 
-        BlastZone blastZone = BlastZoneSavedData.get(serverLevel)
-                .zoneForChunk(
-                        chunkPos.x,
-                        chunkPos.z,
-                        zone -> PostApocalypticTerrain.INSTANCE.maxFeatherMargin(zone.getRadius())
-                );
-
-        if (blastZone != null) {
-            BlastZoneSavedData.get(serverLevel).markChunkWorldgenProcessed(chunkPos.x, chunkPos.z);
-            PostApocalypticTerrain.INSTANCE.apply(level, chunk, blastZone);
-        }
     }
 }
 

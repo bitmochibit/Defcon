@@ -1,11 +1,13 @@
 package me.mochibit.defcon.foundation.extension
 
+import kotlinx.coroutines.delay
 import net.minecraft.CrashReport
 import net.minecraft.CrashReportCategory
 import net.minecraft.CrashReportDetail
 import net.minecraft.ReportedException
 import net.minecraft.core.BlockPos
 import net.minecraft.core.SectionPos
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LightLayer
 import net.minecraft.world.level.block.Blocks
@@ -13,6 +15,7 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.LevelChunk
 import net.minecraft.world.level.chunk.status.ChunkStatus
 import net.minecraft.world.level.lighting.LightEngine
+import kotlin.time.Duration.Companion.milliseconds
 
 fun Level.getBlockState(x: Int, y: Int, z: Int): BlockState {
     if (this.isOutsideBuildHeight(y)) {
@@ -44,3 +47,8 @@ fun LevelChunk.getBlockState(x: Int, y: Int, z: Int): BlockState {
     }
 }
 
+suspend fun ServerLevel.awaitUnpaused(pollIntervalMs: Long = 100) {
+    while (tickRateManager().isFrozen) {
+        delay(pollIntervalMs.milliseconds)
+    }
+}

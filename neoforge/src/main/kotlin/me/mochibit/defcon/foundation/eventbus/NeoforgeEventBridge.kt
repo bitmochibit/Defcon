@@ -9,6 +9,7 @@ import net.neoforged.neoforge.event.GameShuttingDownEvent
 import net.neoforged.neoforge.event.RegisterCommandsEvent
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent
 import net.neoforged.neoforge.event.entity.player.PlayerEvent
+import net.neoforged.neoforge.event.level.ChunkEvent
 import net.neoforged.neoforge.event.level.LevelEvent
 import net.neoforged.neoforge.event.server.ServerStartedEvent
 import net.neoforged.neoforge.event.server.ServerStoppedEvent
@@ -56,6 +57,7 @@ object NeoforgeEventBridge : CommonEventBridge<Event>() {
                     side,
                 )
             }
+
         on<LevelEvent.Unload>()
             .registerBoth { side -> CommonEvents.LevelUnloadEvent(level, side) }
         on<GameShuttingDownEvent>()

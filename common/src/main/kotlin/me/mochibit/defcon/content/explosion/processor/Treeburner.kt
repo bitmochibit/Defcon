@@ -87,6 +87,8 @@ object TreeBurnCore {
         }
     }
 
+    fun isLeafBlockType(block: Block): Boolean = block in LEAF_BLOCKS
+
     fun isTreeBlockType(block: Block): Boolean = block in TREE_BLOCKS
 
     fun burntReplacementFor(block: Block): Block = BURNT_REPLACEMENTS[block] ?: Blocks.POLISHED_BASALT
@@ -174,6 +176,8 @@ class TreeBurner(
     fun isPosProcessed(x: Int, y: Int, z: Int) = processedTreeBlocks.contains(PackedPos(x, y, z).packed)
 
     fun isTreeBlock(x: Int, y: Int, z: Int): Boolean = TreeBurnCore.isTreeBlockType(ctx.getState(x, y, z).block)
+
+    fun isLeafBlock(x: Int, y: Int, z: Int): Boolean = TreeBurnCore.isLeafBlockType(ctx.getState(x, y, z).block)
 
     fun processTreeBlockAt(x: Int, y: Int, z: Int, explosionPower: Double, trunkTopY: Int?, trunkBaseY: Int?) {
         if (!processedTreeBlocks.add(PackedPos(x, y, z).packed)) return

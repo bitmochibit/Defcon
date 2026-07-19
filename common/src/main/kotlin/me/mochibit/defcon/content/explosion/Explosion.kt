@@ -6,6 +6,7 @@ import me.mochibit.defcon.content.explosion.processor.Crater
 import me.mochibit.defcon.explosion.processor.Shockwave
 import me.mochibit.defcon.foundation.async.ClientCoroutineScope
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
+import me.mochibit.defcon.foundation.async.withMainContext
 import me.mochibit.defcon.foundation.network.packet.ExplosionEffectStartPacket
 import me.mochibit.defcon.foundation.registry.ModDamageSources
 import me.mochibit.defcon.foundation.registry.ModPackets
@@ -123,9 +124,11 @@ class NuclearExplosion(
             ExplosionScope.SERVER to {
                 val entities = level.getEntities(null, AABB(epicenter).inflate(100.0, 50.0, 100.0))
                 val vaporized = ModDamageSources.vaporized(level)
-                entities.forEach { entity ->
-                    if (entity is Player && (entity.isCreative || entity.isSpectator)) return@forEach
-                    entity.hurt(vaporized, Float.MAX_VALUE)
+                withMainContext {
+                    entities.forEach { entity ->
+                        if (entity is Player && (entity.isCreative || entity.isSpectator)) return@forEach
+                        entity.hurt(vaporized, Float.MAX_VALUE)
+                    }
                 }
 
                 val crater = Crater(
@@ -140,13 +143,13 @@ class NuclearExplosion(
                 val shockwaveRadius = 1000
                 val shockwaveHeight = 200
 
-                BlastZoneSavedData.get(this.serverLevel).addZone(
-                    BlastZone(epicenter.x, epicenter.y, epicenter.z, shockwaveRadius, radiusStart, shockwaveHeight)
-                )
+                val zone = BlastZone(explosionUUID, epicenter.x, epicenter.y, epicenter.z, shockwaveRadius, radiusStart, shockwaveHeight)
+                BlastZoneSavedData.get(this.serverLevel).addZone(zone)
 
                 crater.create()
 
                 Shockwave(
+                    explosionUUID,
                     this.serverLevel,
                     epicenter,
                     radiusStart,

@@ -1,7 +1,9 @@
 package me.mochibit.defcon
 
 import me.mochibit.defcon.DefconMod.MOD_ID
+import me.mochibit.defcon.content.explosion.processor.PostApocalypticTerrain
 import me.mochibit.defcon.foundation.data.DataGenerators.provideLang
+import me.mochibit.defcon.foundation.eventbus.LogicalSide
 import me.mochibit.defcon.foundation.info
 import me.mochibit.defcon.foundation.registry.CommonRegistry
 import me.mochibit.defcon.foundation.registry.NeoforgeModPackets
@@ -12,8 +14,11 @@ import net.neoforged.fml.ModList
 import net.neoforged.fml.ModLoadingContext
 import net.neoforged.fml.common.Mod
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
+import net.neoforged.neoforge.common.NeoForge
+import net.neoforged.neoforge.event.level.ChunkEvent
 import net.neoforged.neoforge.registries.RegisterEvent
 import org.objectweb.asm.Type
+import thedarkcolour.kotlinforforge.neoforge.forge.MOD_BUS
 import kotlin.jvm.java
 
 @Mod(MOD_ID)

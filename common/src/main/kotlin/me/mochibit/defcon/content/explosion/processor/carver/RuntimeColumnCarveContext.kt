@@ -32,9 +32,11 @@ data class RuntimeColumnCarveContext(private val level: ServerLevel, private val
         x: Int,
         y: Int,
         z: Int
-    ): BlockState = getState(x,y,z)
+    ): BlockState = getState(x, y, z)
 
     override fun isTreeBlock(x: Int, y: Int, z: Int): Boolean = treeBurner.isTreeBlock(x, y, z)
+
+    override fun isLeafBlock(x: Int, y: Int, z: Int): Boolean = treeBurner.isLeafBlock(x, y, z)
 
     override fun isLogOrWood(state: BlockState): Boolean {
         val block = state.block

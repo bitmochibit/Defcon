@@ -9,10 +9,12 @@ import me.mochibit.defcon.content.explosion.processor.carver.RuntimeColumnCarveC
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
 import me.mochibit.defcon.content.explosion.BlastZoneSavedData
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
+import me.mochibit.defcon.foundation.extension.awaitUnpaused
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.levelgen.Heightmap
+import java.util.UUID
 import kotlin.math.pow
 import kotlin.random.Random
 
@@ -22,6 +24,7 @@ private object ShockwaveScope : CoroutineScope {
 }
 
 class Shockwave(
+    val explosionId: UUID,
     private val level: ServerLevel,
     private val center: BlockPos,
     private val radiusStart: Int,
@@ -78,10 +81,11 @@ class Shockwave(
                     generateShockwaveCircleBresenham(currentRadius)
                         .flowOn(Dispatchers.IO)
                         .collect { pos ->
+                            level.awaitUnpaused()
                             val chunkX = pos.x shr 4
                             val chunkZ = pos.z shr 4
 
-                            if (BlastZoneSavedData.get(level).isChunkWorldgenProcessed(chunkX, chunkZ)) return@collect
+                            if (BlastZoneSavedData.get(level).isChunkWorldgenProcessed(explosionId, chunkX, chunkZ)) return@collect
                             if (!level.hasChunk(chunkX, chunkZ)) return@collect
                             blocksProcessed++
 

@@ -1,8 +1,10 @@
 package me.mochibit.defcon
 
 import com.tterrag.registrate.Registrate
+import me.mochibit.defcon.content.explosion.processor.PostApocalypticTerrain
 import me.mochibit.defcon.foundation.async.ModDispatchers
 import me.mochibit.defcon.foundation.err
+import me.mochibit.defcon.foundation.eventbus.EventBus
 import me.mochibit.defcon.foundation.info
 import me.mochibit.defcon.foundation.registry.CommonRegistry
 import me.mochibit.defcon.foundation.registry.PreFreezeCommonRegistry
@@ -34,13 +36,16 @@ object DefconMod {
             return "Common was already initialized".err()
         }
 
-
         _registrate = Registrate.create(MOD_ID)
             .defaultCreativeTab(null as ResourceKey<CreativeModeTab>?)
         initialized = true
 
         _registrate.registrateConfiguration()
+
+        PostApocalypticTerrain.setupEvents() // TODO: auto register
         ModDispatchers.setupEvents()
+
+        //TODO: move this to autoregistration
         autoRegister<CommonRegistry>()
     }
 }

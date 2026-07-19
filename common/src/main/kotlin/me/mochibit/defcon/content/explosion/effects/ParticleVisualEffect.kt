@@ -2,17 +2,14 @@ package me.mochibit.defcon.content.explosion.effects
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import me.mochibit.defcon.foundation.async.ModDispatchers
 import me.mochibit.defcon.foundation.particles.ParticleSpawner
 import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
-import net.minecraft.world.entity.vehicle.Minecart
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -22,7 +19,6 @@ sealed interface EffectParams {
     val effectDuration: Duration
 }
 
-
 abstract class ParticleVisualEffect<T : EffectParams>(
     protected val params: T,
     protected val particleSpawner: ParticleSpawner,
@@ -31,26 +27,34 @@ abstract class ParticleVisualEffect<T : EffectParams>(
     private var lifecycleLoop: Job? = null
     private var lastTickMillis = 0L
 
+    private fun isGamePaused(): Boolean =
+        Minecraft.getInstance().isPaused
 
     fun start() {
         if (lifecycleLoop?.isActive == true) return
         lastTickMillis = System.currentTimeMillis()
 
+        val totalActiveMillis = params.effectDuration.inWholeMilliseconds
+        var elapsedActiveMillis = 0L
+
         lifecycleLoop = scope.launch(ModDispatchers.Client()) {
             onStart()
             try {
-                withTimeout(params.effectDuration) {
-                    while (isActive) {
-                        if(Minecraft.getInstance().isPaused) continue
-                        val now = System.currentTimeMillis()
-                        val dt = ((now - lastTickMillis) / 1000f).coerceAtLeast(0f)
-                        lastTickMillis = now
-
-                        onStep(dt)
+                while (isActive && elapsedActiveMillis < totalActiveMillis) {
+                    if (isGamePaused()) {
+                        lastTickMillis = System.currentTimeMillis()
                         delay(50.milliseconds)
+                        continue
                     }
+
+                    val now = System.currentTimeMillis()
+                    val dt = ((now - lastTickMillis) / 1000f).coerceAtLeast(0f)
+                    lastTickMillis = now
+                    elapsedActiveMillis += (dt * 1000f).toLong()
+
+                    onStep(dt)
+                    delay(50.milliseconds)
                 }
-            } catch (e: TimeoutCancellationException) {
             } finally {
                 onStop()
             }
@@ -71,11 +75,7 @@ abstract class ParticleVisualEffect<T : EffectParams>(
         }
     }
 
-
     protected abstract fun onStart()
-
     protected abstract fun onStop()
-
     protected abstract fun onStep(deltaTime: Float)
 }
-

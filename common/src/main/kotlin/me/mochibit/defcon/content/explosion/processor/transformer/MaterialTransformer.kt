@@ -226,15 +226,6 @@ class MaterialTransformer(
 
                 add(
                     TransformationRule(
-                        name = "Dirt/Grass Transformation",
-                        priority = 50,
-                        condition = TransformationCondition.MaterialSet(DIRT_GRASS_MATERIALS),
-                        outcome = TransformationOutcome.ToRandomMaterial(DESTROYED_DIRT_MATERIALS),
-                    ),
-                )
-
-                add(
-                    TransformationRule(
                         name = "Default Block Destruction",
                         priority = 0,
                         condition = TransformationCondition.MaterialCategory { true },

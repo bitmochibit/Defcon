@@ -1,16 +1,26 @@
 package me.mochibit.defcon.foundation.util
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet
+import it.unimi.dsi.fastutil.shorts.ShortOpenHashSet
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
 import me.mochibit.defcon.foundation.async.withMainContext
+import me.mochibit.defcon.foundation.extension.awaitUnpaused
+import me.mochibit.defcon.foundation.warn
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.core.SectionPos
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket
 import net.minecraft.resources.ResourceKey
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ThreadedLevelLightEngine
+import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.level.levelgen.Heightmap
+import net.minecraft.world.level.chunk.ChunkAccess
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -22,20 +32,13 @@ private data class BlockChange(
     val updateBlock: Boolean,
 )
 
-private val TRACKED_HEIGHTMAPS = arrayOf(
-    Heightmap.Types.MOTION_BLOCKING,
-    Heightmap.Types.WORLD_SURFACE,
-)
-
 class BlockChanger private constructor(
     private val level: Level,
 ) {
-
     private val workerScope =
         CoroutineScope(ServerCoroutineScope.coroutineContext + SupervisorJob(ServerCoroutineScope.coroutineContext[Job]))
 
-    private val workerCount = 1
-    private val batchSize = 10000
+    private val batchSize = 30000
     private val batchTimeoutMs = 50L
 
     private val processingActive = AtomicBoolean(false)
@@ -43,6 +46,9 @@ class BlockChanger private constructor(
 
     private lateinit var blockChannel: Channel<BlockChange>
     private var processingJobs = mutableListOf<Job>()
+
+    private val changedPositionsThisSession = LongOpenHashSet()
+    private val dirtyChunksThisSession = LongOpenHashSet()
 
     init {
         initializeChannel()
@@ -55,56 +61,69 @@ class BlockChanger private constructor(
 
     private fun startProcessing() {
         if (!processingActive.compareAndSet(false, true)) return
-
         processingJobs.clear()
 
-        repeat(workerCount) {
-            val job =
-                workerScope.launch(Dispatchers.Default) {
-                    val batch = ArrayList<BlockChange>(batchSize)
+        val job = workerScope.launch(Dispatchers.Default) {
+            val batch = ArrayList<BlockChange>(batchSize)
+            try {
+                while (processingActive.get()) {
+                    if (level is ServerLevel) level.awaitUnpaused()
 
-                    while (processingActive.get()) {
-                        var collected = 0
-                        val startTime = System.currentTimeMillis()
-
-                        while (collected < batchSize &&
-                            (System.currentTimeMillis() - startTime) < batchTimeoutMs
-                        ) {
-                            val change = blockChannel.tryReceive().getOrNull() ?: break
-                            batch.add(change)
-                            pendingChanges.decrementAndGet()
-                            collected++
-                        }
-
-                        if (batch.isNotEmpty()) {
-                            applyBatchOptimized(batch.toList())
-                            batch.clear()
-                        } else {
-                            delay(5.milliseconds)
-                        }
+                    var collected = 0
+                    val startTime = System.currentTimeMillis()
+                    while (collected < batchSize && (System.currentTimeMillis() - startTime) < batchTimeoutMs) {
+                        val change = blockChannel.tryReceive().getOrNull() ?: break
+                        batch.add(change)
+                        pendingChanges.decrementAndGet()
+                        collected++
                     }
 
                     if (batch.isNotEmpty()) {
-                        applyBatchOptimized(batch.toList())
+                        val byChunk = groupByChunk(batch)
+                        withMainContext {
+                            applyGroupedBatch(byChunk)
+                        }
+                        batch.clear()
+                    } else {
+                        delay(5.milliseconds)
                     }
                 }
-            processingJobs.add(job)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                "BlockChanger worker died unexpectedly, will self-heal on next change ${e}".warn()
+            } finally {
+                processingActive.set(false)
+            }
         }
+        processingJobs.add(job)
     }
 
+    private fun groupByChunk(batch: List<BlockChange>): Long2ObjectOpenHashMap<MutableList<BlockChange>> {
+        val byChunk = Long2ObjectOpenHashMap<MutableList<BlockChange>>()
+        for (change in batch) {
+            val key = ChunkPos.asLong(change.pos.x shr 4, change.pos.z shr 4)
+            byChunk.getOrPut(key) { mutableListOf() }.add(change)
+        }
+        return byChunk
+    }
 
-    private suspend fun applyBatchOptimized(batch: List<BlockChange>) {
-        val blocksPerTick = 5000
+    private fun applyGroupedBatch(byChunk: Long2ObjectOpenHashMap<MutableList<BlockChange>>) {
+        var failures = 0
+        val lightEngine = level.chunkSource.lightEngine as? ThreadedLevelLightEngine
+        for ((chunkKey, changes) in byChunk) {
+            try {
+                val chunkX = ChunkPos.getX(chunkKey)
+                val chunkZ = ChunkPos.getZ(chunkKey)
+                val chunk = level.getChunk(chunkX, chunkZ)
+                var chunkChanged = false
 
-        for (chunkBatch in batch.chunked(blocksPerTick)) {
-            withMainContext {
-                val changedPositions = ArrayList<BlockPos>(chunkBatch.size)
-                for (change in chunkBatch) {
+                val dirtyBySection = HashMap<Int, ShortOpenHashSet>()
+                val deferredUpdates = ArrayList<BlockChange>()
+
+                for (change in changes) {
                     try {
                         val pos = change.pos
-
-                        val chunk = level.getChunkAt(pos)
-
                         val sectionIndex = chunk.getSectionIndex(pos.y)
                         if (sectionIndex < 0 || sectionIndex >= chunk.sections.size) continue
                         val section = chunk.sections[sectionIndex]
@@ -116,31 +135,66 @@ class BlockChanger private constructor(
                         val oldState = section.getBlockState(localX, localY, localZ)
                         if (oldState == change.newState) continue
 
-                        section.setBlockState(localX, localY, localZ, change.newState, false)
-                        chunk.isUnsaved = true
+                        if (change.updateBlock) {
 
-                        for (type in TRACKED_HEIGHTMAPS) {
-                            chunk.getOrCreateHeightmapUnprimed(type)
-                                .update(localX, pos.y, localZ, change.newState)
+                            deferredUpdates.add(change)
+                            continue
                         }
 
-                        level.chunkSource.lightEngine.checkBlock(pos)
-                        level.sendBlockUpdated(pos, oldState, change.newState, 2)
+                        section.setBlockState(localX, localY, localZ, change.newState, false)
+
+                        val packedLocal = ((localX shl 8) or (localZ shl 4) or localY).toShort()
+                        dirtyBySection.getOrPut(sectionIndex) { ShortOpenHashSet() }.add(packedLocal)
 
                         if (oldState.block !== change.newState.block) {
-                            changedPositions.add(pos)
+                            changedPositionsThisSession.add(pos.asLong())
                         }
+                        chunkChanged = true
                     } catch (e: Exception) {
-                        println("Failed to write block at ${change.pos}: ${e.message}")
+                        failures++
+                        "BlockChanger: block write failed at ${change.pos}: ${e}".warn()
                     }
                 }
 
-                if (changedPositions.isNotEmpty()) {
-                    cleanupUnsupported(changedPositions)
+                if (dirtyBySection.isNotEmpty()) {
+                    val trackingPlayers = (level as ServerLevel).chunkSource.chunkMap.getPlayers(ChunkPos(chunkX, chunkZ), false)
+                    if (trackingPlayers.isNotEmpty()) {
+                        for ((sectionIndex, positions) in dirtyBySection) {
+                            val sectionY = chunk.minSection + sectionIndex
+                            val sectionPos = SectionPos.of(chunkX, sectionY, chunkZ)
+                            val section = chunk.sections[sectionIndex]
+                            val packet = ClientboundSectionBlocksUpdatePacket(sectionPos, positions, section)
+                            trackingPlayers.forEach { it.connection.send(packet) }
+                        }
+                    }
                 }
+
+                for (change in deferredUpdates) {
+                    try {
+                        val oldState = level.getBlockState(change.pos)
+                        if (oldState == change.newState) continue
+                        level.setBlock(change.pos, change.newState, 3)
+                        if (oldState.block !== change.newState.block) {
+                            changedPositionsThisSession.add(change.pos.asLong())
+                        }
+                        chunkChanged = true
+                    } catch (e: Exception) {
+                        failures++
+                        "BlockChanger: setBlock failed at ${change.pos}: ${e}".warn()
+                    }
+                }
+
+                if (chunkChanged) {
+                    chunk.isUnsaved = true
+                    dirtyChunksThisSession.add(chunkKey)
+                    lightEngine?.lightChunk(chunk, false)
+                }
+            } catch (e: Exception) {
+                failures += changes.size
+                "BlockChanger: intero chunk $chunkKey fallito: ${e}".warn()
             }
-            delay(1.milliseconds)
         }
+        if (failures > 0) "BlockChanger: $failures block writes failed in this batch".warn()
     }
 
     private fun cleanupUnsupported(seeds: Collection<BlockPos>) {
@@ -159,7 +213,11 @@ class BlockChanger private constructor(
             val state = level.getBlockState(pos)
             if (state.isAir || !state.fluidState.isEmpty) continue
 
-            val survives = try { state.canSurvive(level, pos) } catch (_: Exception) { true }
+            val survives = try {
+                state.canSurvive(level, pos)
+            } catch (_: Exception) {
+                true
+            }
             if (survives) continue
 
             try {
@@ -174,9 +232,6 @@ class BlockChanger private constructor(
 
                 section.setBlockState(localX, localY, localZ, Blocks.AIR.defaultBlockState(), false)
                 chunk.isUnsaved = true
-                for (type in TRACKED_HEIGHTMAPS) {
-                    chunk.getOrCreateHeightmapUnprimed(type).update(localX, pos.y, localZ, Blocks.AIR.defaultBlockState())
-                }
                 level.chunkSource.lightEngine.checkBlock(pos)
                 level.sendBlockUpdated(pos, state, Blocks.AIR.defaultBlockState(), 2)
             } catch (_: Exception) {
@@ -198,7 +253,6 @@ class BlockChanger private constructor(
         updateBlock: Boolean = false,
     ) {
         val change = BlockChange(BlockPos(x, y, z), newState, updateBlock)
-
         pendingChanges.incrementAndGet()
         blockChannel.trySend(change)
 
@@ -216,7 +270,6 @@ class BlockChanger private constructor(
 
     fun shutdown() {
         processingActive.set(false)
-
         workerScope.launch(Dispatchers.IO) {
             processingJobs.joinAll()
             processingJobs.clear()
