@@ -2,6 +2,7 @@ package me.mochibit.defcon.content.explosion.processor
 
 import kotlinx.coroutines.coroutineScope
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialCategories
+import me.mochibit.defcon.foundation.async.withMainContext
 import me.mochibit.defcon.foundation.extension.awaitUnpaused
 import me.mochibit.defcon.foundation.extension.getBlockState
 import me.mochibit.defcon.foundation.util.BlockChanger
@@ -161,7 +162,7 @@ class Crater(
         }
 
 
-    private suspend fun generateCrater() = coroutineScope {
+    private suspend fun generateCrater() {
         val maxRadius = radiusX + debrisRimWidth
         val maxNormSq = (1.0 + debrisRimWidth.toDouble() / radiusX).pow(2)
 
@@ -173,23 +174,25 @@ class Crater(
         var cellCounter = 0
         for (cx in minChunkX..maxChunkX) {
             for (cz in minChunkZ..maxChunkZ) {
-                val chunk = level.getChunk(cx, cz)
+                withMainContext {
+                    val chunk = level.getChunk(cx, cz)
 
-                val xRange = maxOf(cx shl 4, centerX - maxRadius)..minOf((cx shl 4) + 15, centerX + maxRadius)
-                val zRange = maxOf(cz shl 4, centerZ - maxRadius)..minOf((cz shl 4) + 15, centerZ + maxRadius)
+                    val xRange = maxOf(cx shl 4, centerX - maxRadius)..minOf((cx shl 4) + 15, centerX + maxRadius)
+                    val zRange = maxOf(cz shl 4, centerZ - maxRadius)..minOf((cz shl 4) + 15, centerZ + maxRadius)
 
-                for (x in xRange) for (z in zRange) {
-                    cellCounter++
-                    if (cellCounter % 64 == 0) level.awaitUnpaused()
+                    for (x in xRange) for (z in zRange) {
+                        cellCounter++
 
-                    val dx = x - centerX
-                    val dz = z - centerZ
-                    val normalizedDistance = (dx.toDouble() / radiusX).pow(2) + (dz.toDouble() / radiusZ).pow(2)
-                    if (normalizedDistance > maxNormSq) continue
+                        val dx = x - centerX
+                        val dz = z - centerZ
+                        val normalizedDistance = (dx.toDouble() / radiusX).pow(2) + (dz.toDouble() / radiusZ).pow(2)
+                        if (normalizedDistance > maxNormSq) continue
 
-                    val point = calculateCraterPoint(dx, dz, chunk) ?: continue
-                    if (point.isDebrisRim) processDebrisRim(point, chunk) else processCraterFloor(point, chunk)
+                        val point = calculateCraterPoint(dx, dz, chunk) ?: continue
+                        if (point.isDebrisRim) processDebrisRim(point, chunk) else processCraterFloor(point, chunk)
+                    }
                 }
+                level.awaitUnpaused()
             }
         }
     }

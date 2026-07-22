@@ -6,8 +6,12 @@ import it.unimi.dsi.fastutil.shorts.ShortSet
 import me.mochibit.defcon.content.explosion.processor.PackedPos
 import me.mochibit.defcon.content.explosion.processor.TreeBurnCore
 import me.mochibit.defcon.content.explosion.processor.TreeBurner
+import me.mochibit.defcon.foundation.async.modLaunch
+import me.mochibit.defcon.foundation.extension.getBlockState
+import me.mochibit.defcon.foundation.extension.setBlockState
 import net.minecraft.core.BlockPos
 import net.minecraft.core.SectionPos
+import net.minecraft.network.protocol.game.ClientboundLightUpdatePacket
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ThreadedLevelLightEngine
@@ -15,10 +19,12 @@ import net.minecraft.world.level.LightLayer
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.ChunkAccess
+import net.minecraft.world.level.chunk.LevelChunk
+import java.util.concurrent.ConcurrentHashMap
 
 data class WorldGenColumnCarveContext(
     private val level: ServerLevel,
-    val chunk: ChunkAccess,
+    val chunk: LevelChunk,
     private val center: BlockPos
 ) : ColumnCarveContext {
     private val lightPos = BlockPos.MutableBlockPos()
@@ -27,21 +33,19 @@ data class WorldGenColumnCarveContext(
 
     private val originalCache = Long2ObjectOpenHashMap<BlockState>()
 
-    private val dirtySections = HashMap<Int, ShortSet>()
+    private val dirtySections = ConcurrentHashMap<Int, ShortSet>()
 
     override fun getState(x: Int, y: Int, z: Int): BlockState {
-        blockPos.set(x, y, z)
-        return level.getBlockState(blockPos)
+        return chunk.getBlockState(x,y,z)
     }
 
     override fun setState(x: Int, y: Int, z: Int, state: BlockState, updateBlock: Boolean) {
         val inChunk = (x shr 4) == chunk.pos.x && (z shr 4) == chunk.pos.z
         if (!inChunk) return
-        blockPos.set(x, y, z)
-
-        val oldState = chunk.getBlockState(blockPos)
+        val oldState = chunk.getBlockState(x,y,z)
         if (oldState == state) return
 
+        blockPos.set(x,y,z)
         chunk.setBlockState(blockPos, state, true)
 
         val sectionIndex = chunk.getSectionIndex(y)
@@ -60,8 +64,7 @@ data class WorldGenColumnCarveContext(
         if (!inChunk) return Blocks.STONE.defaultBlockState()
         val key = PackedPos(x, y, z).packed
         return originalCache.getOrPut(key) {
-            blockPos.set(x, y, z)
-            level.getBlockState(blockPos)
+            chunk.getBlockState(x,y,z)
         }
     }
 
@@ -91,13 +94,25 @@ data class WorldGenColumnCarveContext(
 
     fun flushClientUpdates() {
         if (dirtySections.isEmpty()) return
+        modLaunch {
+            val lightEngine = level.chunkSource.lightEngine
+            lightEngine.tryScheduleUpdate()
+
+            lightEngine.waitForPendingTasks(chunk.pos.x, chunk.pos.z).thenRun {
+                level.server.execute {
+                    sendPackets()
+                }
+            }
+        }
+    }
+
+    private fun sendPackets() {
         val chunkPos = chunk.pos
         val trackingPlayers = level.chunkSource.chunkMap.getPlayers(chunkPos, false)
         if (trackingPlayers.isEmpty()) {
             dirtySections.clear()
             return
         }
-
         for ((sectionIndex, positions) in dirtySections) {
             if (positions.isEmpty()) continue
             val sectionY = chunk.minSection + sectionIndex
@@ -106,13 +121,10 @@ data class WorldGenColumnCarveContext(
             val packet = ClientboundSectionBlocksUpdatePacket(sectionPos, positions, section)
             trackingPlayers.forEach { it.connection.send(packet) }
         }
-        dirtySections.clear()
-    }
 
-    fun finalizeLighting() {
-        val lightEngine = level.chunkSource.lightEngine
-        if (lightEngine is ThreadedLevelLightEngine) {
-            lightEngine.lightChunk(chunk, false)
-        }
+        val lightPacket = ClientboundLightUpdatePacket(chunkPos, level.chunkSource.lightEngine, null, null)
+        trackingPlayers.forEach { it.connection.send(lightPacket) }
+
+        dirtySections.clear()
     }
 }

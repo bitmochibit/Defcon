@@ -3,6 +3,7 @@ package me.mochibit.defcon.content.explosion
 import kotlinx.coroutines.*
 import me.mochibit.defcon.content.explosion.effects.NuclearExplosionParams
 import me.mochibit.defcon.content.explosion.processor.Crater
+import me.mochibit.defcon.content.explosion.processor.PostApocalypticTerrain
 import me.mochibit.defcon.explosion.processor.Shockwave
 import me.mochibit.defcon.foundation.async.ClientCoroutineScope
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
@@ -143,8 +144,9 @@ class NuclearExplosion(
                 val shockwaveRadius = 1000
                 val shockwaveHeight = 200
 
+                val zoneSave = BlastZoneSavedData.get(this.serverLevel)
                 val zone = BlastZone(explosionUUID, epicenter.x, epicenter.y, epicenter.z, shockwaveRadius, radiusStart, shockwaveHeight)
-                BlastZoneSavedData.get(this.serverLevel).addZone(zone)
+                zoneSave.addZone(zone)
 
                 crater.create()
 
