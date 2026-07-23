@@ -1,5 +1,6 @@
 package me.mochibit.defcon.explosion.processor
 
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -14,6 +15,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.chunk.status.ChunkStatus
 import net.minecraft.world.level.levelgen.Heightmap
 import java.util.UUID
 import kotlin.math.pow
@@ -66,6 +68,8 @@ class Shockwave(
 
     private val runtimeCtx = RuntimeColumnCarveContext(level, center)
 
+    private val touchedChunks = LongOpenHashSet()
+
 
     fun explode(): Job =
         ShockwaveScope.launch(Dispatchers.IO) {
@@ -86,14 +90,13 @@ class Shockwave(
                             level.awaitUnpaused()
                             val chunkX = pos.x shr 4
                             val chunkZ = pos.z shr 4
-
                             if (BlastZoneSavedData.get(level).isChunkWorldgenProcessed(explosionId, chunkX, chunkZ)) return@collect
                             if (!level.chunkSource.isPositionTicking(ChunkPos.asLong(pos))) return@collect
-                            blocksProcessed++
-
                             val highestY = level.getHeight(Heightmap.Types.WORLD_SURFACE, pos.x, pos.z)
                             val loc = BlockPos(pos.x, highestY, pos.z)
                             processBlock(loc, power, level.getBlockState(loc))
+                            touchedChunks.add(ChunkPos.asLong(chunkX, chunkZ))
+                            blocksProcessed++
                         }
 
                 }
@@ -101,6 +104,7 @@ class Shockwave(
                 println("ERROR in Shockwave: ${e.message}")
                 e.printStackTrace()
             } finally {
+                markProcessedChunks()
                 cleanup()
             }
         }
@@ -128,6 +132,15 @@ class Shockwave(
             firstBlockState = firstBlockState,
             ctx = runtimeCtx,
         )
+    }
+
+    private fun markProcessedChunks() {
+        val savedData = BlastZoneSavedData.get(level)
+        val it = touchedChunks.iterator()
+        while (it.hasNext()) {
+            val key = it.nextLong()
+            savedData.markChunkWorldgenProcessed(explosionId, ChunkPos.getX(key), ChunkPos.getZ(key))
+        }
     }
 
     private fun generateShockwaveCircleBresenham(radius: Int): Flow<BlockPos> =

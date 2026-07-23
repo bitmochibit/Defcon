@@ -10,6 +10,8 @@ import net.minecraft.commands.Commands
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.world.level.levelgen.Heightmap
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraft.world.phys.HitResult
 
 
 sealed interface CommandEntry {
@@ -41,15 +43,26 @@ object DefconCommands : CommandEntry {
         dispatcher.register(
             Commands.literal("defcon").requires { it.hasPermission(2) }
                 .then(
-                Commands.literal("nuke")
-                    .executes { ctx ->
-                    val source = ctx.source
-                    val pos = BlockPos.containing(source.position)
+                    Commands.literal("nuke")
+                        .executes { ctx ->
+                            val source = ctx.source
+                            val player = source.playerOrException
+                            val level = source.level
 
-                    NuclearExplosion(source.level, pos).trigger()
-                    source.sendSuccess({ Component.literal("Triggered nuclear explosion at $pos") }, true)
-                    1
-                }).then(
+                            val hitResult = player.pick(600.0, 0.0f, false)
+
+                            val pos = if (hitResult.type == HitResult.Type.BLOCK) {
+                                (hitResult as BlockHitResult).blockPos
+                            } else {
+                                BlockPos.containing(player.position())
+                            }
+
+                            NuclearExplosion(level, pos).trigger()
+                            source.sendSuccess({ Component.literal("Triggered nuclear explosion at $pos") }, true)
+                            1
+                        }
+                )
+                .then(
                     Commands.literal("heightMapValues").executes { ctx ->
                         val source = ctx.source
                         val pos = BlockPos.containing(source.position)

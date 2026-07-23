@@ -1,6 +1,8 @@
 package me.mochibit.defcon.content.explosion.processor
 
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import kotlinx.coroutines.coroutineScope
+import me.mochibit.defcon.content.explosion.BlastZoneSavedData
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialCategories
 import me.mochibit.defcon.foundation.async.withMainContext
 import me.mochibit.defcon.foundation.extension.awaitUnpaused
@@ -8,10 +10,12 @@ import me.mochibit.defcon.foundation.extension.getBlockState
 import me.mochibit.defcon.foundation.util.BlockChanger
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.ChunkAccess
 import net.minecraft.world.level.levelgen.Heightmap
+import java.util.UUID
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -23,8 +27,10 @@ class Crater(
     private val radiusY: Int,
     private val radiusZ: Int,
     val collapseHeight: Int = 200,
+    private val zoneId: UUID,
 ) {
     private val blockChanger by lazy { BlockChanger.getInstance(level) }
+    private val touchedChunks = LongOpenHashSet()
 
     private val centerX = center.x
     private val centerY = center.y
@@ -73,6 +79,7 @@ class Crater(
     suspend fun create() {
         generateCrater()
         blockChanger.flush()
+        markProcessedChunks()
         println("Crater creation completed")
     }
 
@@ -101,6 +108,15 @@ class Crater(
             }
         }
         seaLevel
+    }
+
+    private fun markProcessedChunks() {
+        val savedData = BlastZoneSavedData.get(level)
+        val it = touchedChunks.iterator()
+        while (it.hasNext()) {
+            val key = it.nextLong()
+            savedData.markChunkWorldgenProcessed(zoneId, ChunkPos.getX(key), ChunkPos.getZ(key))
+        }
     }
 
     private suspend fun calculateCraterPoint(
@@ -174,11 +190,14 @@ class Crater(
         var cellCounter = 0
         for (cx in minChunkX..maxChunkX) {
             for (cz in minChunkZ..maxChunkZ) {
+                touchedChunks.add(ChunkPos.asLong(cx, cz))
                 withMainContext {
                     val chunk = level.getChunk(cx, cz)
 
                     val xRange = maxOf(cx shl 4, centerX - maxRadius)..minOf((cx shl 4) + 15, centerX + maxRadius)
                     val zRange = maxOf(cz shl 4, centerZ - maxRadius)..minOf((cz shl 4) + 15, centerZ + maxRadius)
+
+
 
                     for (x in xRange) for (z in zRange) {
                         cellCounter++

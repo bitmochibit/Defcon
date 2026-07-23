@@ -17,6 +17,7 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.phys.AABB
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.exp
 import kotlin.time.Duration.Companion.minutes
 
 enum class ExplosionScope { SERVER, CLIENT }
@@ -137,7 +138,8 @@ class NuclearExplosion(
                     epicenter,
                     100,
                     50,
-                    100
+                    100,
+                    zoneId = explosionUUID
                 )
 
                 val radiusStart = 100 + crater.debrisRimWidth

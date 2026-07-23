@@ -79,7 +79,7 @@ class BlastZoneSavedData : SavedData() {
             val closestZ = zone.centerZ.coerceIn(minZ, maxZ)
             val dx = (closestX - zone.centerX).toDouble()
             val dz = (closestZ - zone.centerZ).toDouble()
-            val effectiveRadius = zone.radius
+            val effectiveRadius = zone.radius - zone.radiusStart
             dx * dx + dz * dz <= effectiveRadius * effectiveRadius
         }
     }
