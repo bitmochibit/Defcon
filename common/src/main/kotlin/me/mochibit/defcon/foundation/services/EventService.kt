@@ -1,5 +1,6 @@
 package me.mochibit.defcon.foundation.services
 
+import net.minecraft.world.entity.Entity
 import net.minecraft.world.level.LevelAccessor
 import net.minecraft.world.level.chunk.ChunkAccess
 
@@ -10,6 +11,10 @@ interface EventService {
 
     fun onLevelTick(
         listener: (level: LevelAccessor) -> Unit
+    )
+
+    fun onEntityTick(
+        listener: (entity: Entity) -> Unit
     )
 }
 

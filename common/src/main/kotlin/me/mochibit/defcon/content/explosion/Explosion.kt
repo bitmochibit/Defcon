@@ -3,7 +3,7 @@ package me.mochibit.defcon.content.explosion
 import kotlinx.coroutines.*
 import me.mochibit.defcon.content.explosion.effects.NuclearExplosionParams
 import me.mochibit.defcon.content.explosion.processor.Crater
-import me.mochibit.defcon.content.explosion.processor.PostApocalypticTerrain
+import me.mochibit.defcon.content.explosion.processor.EntityDamageShockwave
 import me.mochibit.defcon.explosion.processor.Shockwave
 import me.mochibit.defcon.foundation.async.ClientCoroutineScope
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
@@ -15,9 +15,9 @@ import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.Vec3
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.exp
 import kotlin.time.Duration.Companion.minutes
 
 enum class ExplosionScope { SERVER, CLIENT }
@@ -117,12 +117,19 @@ class NuclearExplosion(
 //            scheduleRadiationDelayed(center, config)
 //        }
         parallel(
-//            ExplosionScope.SERVER to {
-//                EntityShockwave(
-//                    center, config.shockwaveConfig.baseHeight, config.craterConfig.baseRadius / 6,
-//                    config.shockwaveConfig.baseRadius, config.craterConfig.baseRadius / 6, 50f,
-//                ).process()
-//            },
+            ExplosionScope.SERVER to {
+                EntityDamageShockwave(
+                    level = level,
+                    center = Vec3(epicenter.x.toDouble(), epicenter.y.toDouble(), epicenter.z.toDouble()),
+                    shockwaveHeight = 200,
+                    shockwaveGroundPenetration = 20,
+                    shockwaveRadius = 1000,
+                    initialRadius = 100,
+                    shockwaveSpeed = 50f,
+                    baseDamage = 80.0,
+                    damageSource = ModDamageSources.blasted(level)
+                ).process()
+            },
             ExplosionScope.SERVER to {
                 withMainContext {
                 val entities = level.getEntities(null, AABB(epicenter).inflate(100.0, 50.0, 100.0))

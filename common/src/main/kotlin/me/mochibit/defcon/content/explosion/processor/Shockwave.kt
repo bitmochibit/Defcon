@@ -5,13 +5,17 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.toList
 import me.mochibit.defcon.content.explosion.BlastActor
 import me.mochibit.defcon.content.explosion.processor.carver.ColumnCarver
 import me.mochibit.defcon.content.explosion.processor.carver.RuntimeColumnCarveContext
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
 import me.mochibit.defcon.content.explosion.BlastZoneSavedData
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
+import me.mochibit.defcon.foundation.async.withMainContext
+import me.mochibit.defcon.foundation.err
 import me.mochibit.defcon.foundation.extension.awaitUnpaused
+import me.mochibit.defcon.foundation.extension.getBlockState
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.ChunkPos
@@ -77,32 +81,36 @@ class Shockwave(
             try {
                 val effectiveShockwaveRange = (shockwaveRadius - radiusStart).toFloat()
 
-
-                var blocksProcessed = 0
-
                 for (currentRadius in radiusStart..shockwaveRadius) {
                     val distanceFromCraterEdge = (currentRadius - radiusStart).toFloat()
                     val radiusProgress = distanceFromCraterEdge / effectiveShockwaveRange
                     val power = calculateShockwavePower(radiusProgress)
 
-                    generateShockwaveCircleBresenham(currentRadius)
+                    val ringPositions = generateShockwaveCircleBresenham(currentRadius)
                         .flowOn(Dispatchers.IO)
-                        .collect { pos ->
-                            level.awaitUnpaused()
+                        .toList()
+
+                    val savedData = BlastZoneSavedData.get(level)
+                    val loadedPositions = withMainContext {
+                        ringPositions.filter { pos ->
                             val chunkX = pos.x shr 4
                             val chunkZ = pos.z shr 4
-                            if (BlastZoneSavedData.get(level).isChunkWorldgenProcessed(explosionId, BlastActor.WORLDGEN, chunkX, chunkZ)) return@collect
-                            if (!level.chunkSource.isPositionTicking(ChunkPos.asLong(pos))) return@collect
-                            val highestY = level.getHeight(Heightmap.Types.WORLD_SURFACE, pos.x, pos.z)
-                            val loc = BlockPos(pos.x, highestY, pos.z)
-                            processBlock(loc, power, level.getBlockState(loc))
-                            touchedChunks.add(ChunkPos.asLong(chunkX, chunkZ))
-                            blocksProcessed++
+                            !savedData.isChunkWorldgenProcessed(explosionId, BlastActor.WORLDGEN, chunkX, chunkZ) &&
+                                    level.chunkSource.isPositionTicking(ChunkPos.asLong(pos))
                         }
+                    }
 
+                    for (pos in loadedPositions) {
+                        level.awaitUnpaused()
+                        val chunkX = pos.x shr 4
+                        val chunkZ = pos.z shr 4
+                        val highestY = level.getHeight(Heightmap.Types.WORLD_SURFACE, pos.x, pos.z)
+                        processBlock(pos.x, highestY, pos.z, power, level.getBlockState(pos.x, highestY, pos.z))
+                        touchedChunks.add(ChunkPos.asLong(chunkX, chunkZ))
+                    }
                 }
             } catch (e: Exception) {
-                println("ERROR in Shockwave: ${e.message}")
+                "ERROR in Shockwave: ${e.message}".err()
                 e.printStackTrace()
             } finally {
                 markProcessedChunks()
@@ -112,14 +120,10 @@ class Shockwave(
 
 
     private fun processBlock(
-        blockLocation: BlockPos,
+        x: Int, y: Int, z: Int,
         power: Float, // power: 1.0 = max destruction (crater edge), 0.0 = min destruction (far from center)
         firstBlockState: BlockState,
     ) {
-        val x = blockLocation.x
-        val y = blockLocation.y
-        val z = blockLocation.z
-
         val randomOffset = Random.nextInt(1, 6)
         val convertToAirMinY = (worldSeaLevel + randomOffset) + (shockwaveHeight * 0.5f * (1.0f - power)).toInt()
 

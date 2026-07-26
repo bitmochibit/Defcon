@@ -28,6 +28,7 @@ object ModDamageTypes {
 
 object ModDamageSources {
     fun vaporized(level: LevelReader) = source(ModDamageTypes.VAPORIZED, level)
+    fun blasted(level: LevelReader) = source(ModDamageTypes.BLASTED, level)
 
 
     private fun source(key: ResourceKey<DamageType>, level: LevelReader): DamageSource {

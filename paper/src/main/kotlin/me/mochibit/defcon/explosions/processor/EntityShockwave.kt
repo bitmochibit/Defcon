@@ -376,7 +376,7 @@ class EntityShockwave(
     }
 
     /**
-     * Data class for chunk coordinates (unchanged)
+     * Data class for chunk coordinates
      */
     private data class ChunkCoordinate(val x: Int, val z: Int)
 }

@@ -2,6 +2,7 @@ package me.mochibit.defcon.content.explosion.processor
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.suspendCancellableCoroutine
 import me.mochibit.defcon.content.explosion.BlastActor
 import me.mochibit.defcon.content.explosion.BlastZoneSavedData
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialCategories
@@ -12,16 +13,23 @@ import me.mochibit.defcon.foundation.info
 import me.mochibit.defcon.foundation.util.BlockChanger
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.TicketType
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.ChunkAccess
+import net.minecraft.world.level.chunk.status.ChunkStatus
 import net.minecraft.world.level.levelgen.Heightmap
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
+//TODO: URGENT, refactor this to work like the shockwave, some kind of carver strategy (unifying the framework) that processes directly only loaded chunks, otherwise
+// the chunk gen is used
 class Crater(
     private val level: ServerLevel,
     private val center: BlockPos,
@@ -30,7 +38,44 @@ class Crater(
     private val radiusZ: Int,
     val collapseHeight: Int = 200,
     private val zoneId: UUID,
+    val debrisRimWidth: Int = (radiusX * 0.3).toInt().coerceAtLeast(5)
 ) {
+    companion object {
+        private val CRATER_TICKET: TicketType<ChunkPos> =
+            TicketType.create("defcon_crater", Comparator.comparingLong(ChunkPos::toLong))
+    }
+
+    private fun craterChunkPositions(): List<ChunkPos> {
+        val maxRadius = radiusX + debrisRimWidth
+        val minChunkX = (centerX - maxRadius) shr 4
+        val maxChunkX = (centerX + maxRadius) shr 4
+        val minChunkZ = (centerZ - maxRadius) shr 4
+        val maxChunkZ = (centerZ + maxRadius) shr 4
+
+        val positions = ArrayList<ChunkPos>((maxChunkX - minChunkX + 1) * (maxChunkZ - minChunkZ + 1))
+        for (cx in minChunkX..maxChunkX) for (cz in minChunkZ..maxChunkZ) positions.add(ChunkPos(cx, cz))
+        return positions
+    }
+
+    private suspend fun acquireCraterChunks(positions: List<ChunkPos>) = withMainContext {
+        positions.forEach { pos -> level.setChunkForced(pos.x, pos.z, true) }
+    }
+
+    private suspend fun releaseCraterChunks(positions: List<ChunkPos>) = withMainContext {
+        positions.forEach { pos -> level.setChunkForced(pos.x, pos.z, false) }
+    }
+    private suspend fun awaitCraterChunksLoaded(positions: List<ChunkPos>) {
+        val remaining = positions.toMutableList()
+        while (remaining.isNotEmpty()) {
+            withMainContext {
+                remaining.removeAll { pos -> level.chunkSource.getChunkNow(pos.x, pos.z) != null }
+            }
+            if (remaining.isNotEmpty()) level.awaitUnpaused()
+        }
+    }
+
+
+
     private val blockChanger by lazy { BlockChanger.getInstance(level) }
     private val touchedChunks = LongOpenHashSet()
 
@@ -39,7 +84,6 @@ class Crater(
     private val centerZ = center.z
 
     private val seaLevel = level.seaLevel
-    val debrisRimWidth = (radiusX * 0.3).toInt().coerceAtLeast(5)
 
     private val bounds =
         CraterBounds(
@@ -79,9 +123,16 @@ class Crater(
     )
 
     suspend fun create() {
-        generateCrater()
-        blockChanger.flush()
-        markProcessedChunks()
+        val chunkPositions = craterChunkPositions()
+        acquireCraterChunks(chunkPositions)
+        try {
+            awaitCraterChunksLoaded(chunkPositions)
+            generateCrater()
+            blockChanger.flush()
+            markProcessedChunks()
+        } finally {
+            releaseCraterChunks(chunkPositions)
+        }
         "Crater creation completed".info()
     }
 
@@ -189,21 +240,15 @@ class Crater(
         val minChunkZ = (centerZ - maxRadius) shr 4
         val maxChunkZ = (centerZ + maxRadius) shr 4
 
-        var cellCounter = 0
         for (cx in minChunkX..maxChunkX) {
             for (cz in minChunkZ..maxChunkZ) {
-                touchedChunks.add(ChunkPos.asLong(cx, cz))
-                withMainContext {
-                    val chunk = level.getChunk(cx, cz)
+                val wasProcessed = withMainContext {
+                    val chunk = level.chunkSource.getChunkNow(cx, cz) ?: return@withMainContext false
 
                     val xRange = maxOf(cx shl 4, centerX - maxRadius)..minOf((cx shl 4) + 15, centerX + maxRadius)
                     val zRange = maxOf(cz shl 4, centerZ - maxRadius)..minOf((cz shl 4) + 15, centerZ + maxRadius)
 
-
-
                     for (x in xRange) for (z in zRange) {
-                        cellCounter++
-
                         val dx = x - centerX
                         val dz = z - centerZ
                         val normalizedDistance = (dx.toDouble() / radiusX).pow(2) + (dz.toDouble() / radiusZ).pow(2)
@@ -212,7 +257,10 @@ class Crater(
                         val point = calculateCraterPoint(dx, dz, chunk) ?: continue
                         if (point.isDebrisRim) processDebrisRim(point, chunk) else processCraterFloor(point, chunk)
                     }
+                    true
                 }
+
+                if (wasProcessed) touchedChunks.add(ChunkPos.asLong(cx, cz))
                 level.awaitUnpaused()
             }
         }
