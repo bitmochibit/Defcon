@@ -200,11 +200,11 @@ object ColumnCarver {
 
     @Suppress("NOTHING_TO_INLINE")
     private inline fun generateTerrainNoise(x: Int, y: Int, z: Int, strength: Float): Float {
-        val seed = ((x * 374761393L + y * 668265263L + z * 1274126177L) and 0x7FFFFFFF).toInt()
-        val random = Random(seed)
-        val noise1 = (random.nextDouble() - 0.5).toFloat()
-        val noise2 = ((random.nextDouble() - 0.5) * 0.5).toFloat()
-        val noise3 = ((random.nextDouble() - 0.5) * 0.25).toFloat()
-        return ((noise1 + noise2 + noise3) * 1.143f * strength).coerceIn(-1.0f, 1.0f)
+        var h = x * 374761393 + y * 668265263 + z * 1274126177
+        h = (h xor (h ushr 15)) * -2048144789
+        h = (h xor (h ushr 13)) * -1028477387
+        h = h xor (h ushr 16)
+        val normalized = (h and 0x7FFFFFFF) / Int.MAX_VALUE.toFloat() - 0.5f
+        return (normalized * 1.143f * strength).coerceIn(-1f, 1f)
     }
 }

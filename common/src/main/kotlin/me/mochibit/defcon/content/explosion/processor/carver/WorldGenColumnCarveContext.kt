@@ -49,7 +49,7 @@ data class WorldGenColumnCarveContext(
         originalStateAt(x, y, z)
 
         blockPos.set(x,y,z)
-        chunk.setBlockState(blockPos, state, true, triggerOnPlace = true)
+        chunk.setBlockState(blockPos, state, false, triggerOnPlace = updateBlock)
 
         val sectionIndex = chunk.getSectionIndex(y)
         if (sectionIndex < 0 || sectionIndex >= chunk.sections.size) return
