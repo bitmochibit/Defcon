@@ -3,6 +3,8 @@ package me.mochibit.defcon.content.explosion.processor.carver
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.shorts.ShortOpenHashSet
 import it.unimi.dsi.fastutil.shorts.ShortSet
+import me.mochibit.defcon.content.explosion.BlastActor
+import me.mochibit.defcon.content.explosion.BlastZoneSavedData
 import me.mochibit.defcon.content.explosion.processor.PackedPos
 import me.mochibit.defcon.content.explosion.processor.TreeBurnCore
 import me.mochibit.defcon.content.explosion.processor.TreeBurner
@@ -14,12 +16,11 @@ import net.minecraft.core.SectionPos
 import net.minecraft.network.protocol.game.ClientboundLightUpdatePacket
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.server.level.ThreadedLevelLightEngine
 import net.minecraft.world.level.LightLayer
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.level.chunk.ChunkAccess
 import net.minecraft.world.level.chunk.LevelChunk
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 data class WorldGenColumnCarveContext(
@@ -45,8 +46,10 @@ data class WorldGenColumnCarveContext(
         val oldState = chunk.getBlockState(x,y,z)
         if (oldState == state) return
 
+        originalStateAt(x, y, z)
+
         blockPos.set(x,y,z)
-        chunk.setBlockState(blockPos, state, true)
+        chunk.setBlockState(blockPos, state, true, triggerOnPlace = true)
 
         val sectionIndex = chunk.getSectionIndex(y)
         if (sectionIndex < 0 || sectionIndex >= chunk.sections.size) return
@@ -77,6 +80,10 @@ data class WorldGenColumnCarveContext(
 
     override fun isLeafBlock(x: Int, y: Int, z: Int): Boolean = treeBurner.isLeafBlock(x, y, z)
 
+    override fun isColumnTreeLike(x: Int, y: Int, z: Int): Boolean =
+        TreeBurnCore.isColumnTreeLike(x, y, z, getState = ::getState)
+
+
     override fun isLogOrWood(state: BlockState): Boolean {
         val block = state.block
         return block in TreeBurnCore.LOG_BLOCKS || block in TreeBurnCore.WOOD_BLOCKS
@@ -91,6 +98,10 @@ data class WorldGenColumnCarveContext(
 
     override fun isPosAlreadyBurnedByTree(x: Int, y: Int, z: Int): Boolean =
         treeBurner.isPosProcessed(x, y, z)
+
+    override fun markChunkProcessedWhenFlushed(zoneId: UUID, chunkX: Int, chunkZ: Int) {
+        BlastZoneSavedData.get(level).markChunkWorldgenProcessed(zoneId, BlastActor.WORLDGEN, chunkX, chunkZ)
+    }
 
     fun flushClientUpdates() {
         if (dirtySections.isEmpty()) return

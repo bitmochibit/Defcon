@@ -1,5 +1,7 @@
 package me.mochibit.defcon.content.explosion.processor.carver
 
+import me.mochibit.defcon.content.explosion.BlastActor
+import me.mochibit.defcon.content.explosion.BlastZoneSavedData
 import me.mochibit.defcon.content.explosion.processor.TreeBurnCore
 import me.mochibit.defcon.content.explosion.processor.TreeBurner
 import me.mochibit.defcon.foundation.extension.getBlockState
@@ -8,8 +10,13 @@ import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.LightLayer
 import net.minecraft.world.level.block.state.BlockState
+import java.util.*
 
-data class RuntimeColumnCarveContext(private val level: ServerLevel, private val center: BlockPos) :
+data class RuntimeColumnCarveContext(
+    private val level: ServerLevel,
+    private val center: BlockPos,
+    private val actor: BlastActor
+) :
     ColumnCarveContext {
     private val blockChanger = BlockChanger.getInstance(level)
     private val lightPos = BlockPos.MutableBlockPos()
@@ -34,6 +41,9 @@ data class RuntimeColumnCarveContext(private val level: ServerLevel, private val
         z: Int
     ): BlockState = getState(x, y, z)
 
+    override fun isColumnTreeLike(x: Int, y: Int, z: Int): Boolean =
+        TreeBurnCore.isColumnTreeLike(x, y, z, getState = ::getState)
+
     override fun isTreeBlock(x: Int, y: Int, z: Int): Boolean = treeBurner.isTreeBlock(x, y, z)
 
     override fun isLeafBlock(x: Int, y: Int, z: Int): Boolean = treeBurner.isLeafBlock(x, y, z)
@@ -52,4 +62,10 @@ data class RuntimeColumnCarveContext(private val level: ServerLevel, private val
 
     override fun isPosAlreadyBurnedByTree(x: Int, y: Int, z: Int): Boolean =
         treeBurner.isPosProcessed(x, y, z)
+
+    override fun markChunkProcessedWhenFlushed(zoneId: UUID, chunkX: Int, chunkZ: Int) {
+        blockChanger.onChunkFullyProcessed(chunkX, chunkZ) {
+            BlastZoneSavedData.get(level).markChunkWorldgenProcessed(zoneId, actor, chunkX, chunkZ)
+        }
+    }
 }

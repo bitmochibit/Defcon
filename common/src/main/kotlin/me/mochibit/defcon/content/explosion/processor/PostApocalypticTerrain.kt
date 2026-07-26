@@ -1,5 +1,6 @@
 package me.mochibit.defcon.content.explosion.processor
 
+import me.mochibit.defcon.content.explosion.BlastActor
 import me.mochibit.defcon.content.explosion.BlastZone
 import me.mochibit.defcon.content.explosion.BlastZoneSavedData
 import me.mochibit.defcon.content.explosion.processor.carver.ColumnCarver
@@ -65,9 +66,8 @@ object PostApocalypticTerrain : ModEventHandler {
                 )
             }
         }
-        savedData.markChunkWorldgenProcessed(zone.id, chunkPos.x, chunkPos.z)
+        chunkCtx.markChunkProcessedWhenFlushed(zone.id, chunkPos.x, chunkPos.z)
         chunkCtx.flushClientUpdates()
-
     }
 
     override fun setupEvents() {
@@ -94,7 +94,7 @@ object PostApocalypticTerrain : ModEventHandler {
                 val chunk = serverLevel.getChunk(chunkPos.x, chunkPos.z)
                 val savedData = BlastZoneSavedData.get(serverLevel)
                 savedData.zonesForChunk(chunkPos.x, chunkPos.z)
-                    .filterNot { savedData.isChunkWorldgenProcessed(it.id, chunkPos.x, chunkPos.z) }
+                    .filterNot { savedData.isChunkWorldgenProcessedByAnyActor(it.id, chunkPos.x, chunkPos.z) }
                     .forEach { zone -> apply(savedData, serverLevel, chunk, zone) }
                 pending.removeAt(i)
             }

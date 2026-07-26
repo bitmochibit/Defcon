@@ -2,11 +2,13 @@ package me.mochibit.defcon.content.explosion.processor
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import kotlinx.coroutines.coroutineScope
+import me.mochibit.defcon.content.explosion.BlastActor
 import me.mochibit.defcon.content.explosion.BlastZoneSavedData
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialCategories
 import me.mochibit.defcon.foundation.async.withMainContext
 import me.mochibit.defcon.foundation.extension.awaitUnpaused
 import me.mochibit.defcon.foundation.extension.getBlockState
+import me.mochibit.defcon.foundation.info
 import me.mochibit.defcon.foundation.util.BlockChanger
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
@@ -80,7 +82,7 @@ class Crater(
         generateCrater()
         blockChanger.flush()
         markProcessedChunks()
-        println("Crater creation completed")
+        "Crater creation completed".info()
     }
 
     private data class CraterPoint(
@@ -115,7 +117,7 @@ class Crater(
         val it = touchedChunks.iterator()
         while (it.hasNext()) {
             val key = it.nextLong()
-            savedData.markChunkWorldgenProcessed(zoneId, ChunkPos.getX(key), ChunkPos.getZ(key))
+            savedData.markChunkWorldgenProcessed(zoneId, BlastActor.CRATER, ChunkPos.getX(key), ChunkPos.getZ(key))
         }
     }
 

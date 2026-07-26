@@ -5,6 +5,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import me.mochibit.defcon.content.explosion.BlastActor
 import me.mochibit.defcon.content.explosion.processor.carver.ColumnCarver
 import me.mochibit.defcon.content.explosion.processor.carver.RuntimeColumnCarveContext
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
@@ -66,7 +67,7 @@ class Shockwave(
     private val worldMaxHeight = level.maxBuildHeight
     private val seaLevelMinus3 = worldSeaLevel - 3
 
-    private val runtimeCtx = RuntimeColumnCarveContext(level, center)
+    private val runtimeCtx = RuntimeColumnCarveContext(level, center, BlastActor.SHOCKWAVE)
 
     private val touchedChunks = LongOpenHashSet()
 
@@ -90,7 +91,7 @@ class Shockwave(
                             level.awaitUnpaused()
                             val chunkX = pos.x shr 4
                             val chunkZ = pos.z shr 4
-                            if (BlastZoneSavedData.get(level).isChunkWorldgenProcessed(explosionId, chunkX, chunkZ)) return@collect
+                            if (BlastZoneSavedData.get(level).isChunkWorldgenProcessed(explosionId, BlastActor.WORLDGEN, chunkX, chunkZ)) return@collect
                             if (!level.chunkSource.isPositionTicking(ChunkPos.asLong(pos))) return@collect
                             val highestY = level.getHeight(Heightmap.Types.WORLD_SURFACE, pos.x, pos.z)
                             val loc = BlockPos(pos.x, highestY, pos.z)
@@ -135,11 +136,10 @@ class Shockwave(
     }
 
     private fun markProcessedChunks() {
-        val savedData = BlastZoneSavedData.get(level)
         val it = touchedChunks.iterator()
         while (it.hasNext()) {
             val key = it.nextLong()
-            savedData.markChunkWorldgenProcessed(explosionId, ChunkPos.getX(key), ChunkPos.getZ(key))
+            runtimeCtx.markChunkProcessedWhenFlushed(explosionId, ChunkPos.getX(key), ChunkPos.getZ(key))
         }
     }
 

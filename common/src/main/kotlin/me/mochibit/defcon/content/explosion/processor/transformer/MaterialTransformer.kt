@@ -1,5 +1,6 @@
 package me.mochibit.defcon.content.explosion.processor.transformer
 
+import me.mochibit.defcon.content.explosion.processor.TreeBurnCore
 import me.mochibit.defcon.foundation.util.copyPropertiesTo
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
@@ -184,6 +185,15 @@ class MaterialTransformer(
 
                 add(
                     TransformationRule(
+                        name = "Vines removal",
+                        priority = 70,
+                        condition = TransformationCondition.MaterialSet(MaterialCategories.VINES),
+                        outcome = TransformationOutcome.ToMaterial(Blocks.AIR.defaultBlockState()),
+                    ),
+                )
+
+                add(
+                    TransformationRule(
                         name = "Plant Destruction - High Power",
                         priority = 60,
                         condition = TransformationCondition.PowerThreshold(
@@ -205,9 +215,19 @@ class MaterialTransformer(
 
                 add(
                     TransformationRule(
+                        name = "Leaves Destruction",
+                        priority = 60,
+                        condition = TransformationCondition.BlockSet(TreeBurnCore.LEAF_BLOCKS),
+                        outcome = TransformationOutcome.ToMaterial(Blocks.AIR.defaultBlockState()),
+                    ),
+                )
+
+
+                add(
+                    TransformationRule(
                         name = "Terrain Transformation with Noise",
                         priority = 55,
-                        condition = TransformationCondition.MaterialSet(MaterialCategories.TERRAIN_BLOCKS),
+                        condition = TransformationCondition.MaterialSet(MaterialCategories.DIRTY_TERRAIN_BLOCKS),
                         outcome =
                             TransformationOutcome.ToPaletteWithNoise(
                                 MaterialPalette(
@@ -216,7 +236,6 @@ class MaterialTransformer(
                                             MaterialPaletteEntry(Blocks.COARSE_DIRT.defaultBlockState(), 4),
                                             MaterialPaletteEntry(Blocks.MUD.defaultBlockState(), 2),
                                             MaterialPaletteEntry(Blocks.MUDDY_MANGROVE_ROOTS.defaultBlockState(), 1),
-                                            MaterialPaletteEntry(Blocks.GRAVEL.defaultBlockState(), 3),
                                         ),
                                     noiseScale = 0.05f,
                                 ),

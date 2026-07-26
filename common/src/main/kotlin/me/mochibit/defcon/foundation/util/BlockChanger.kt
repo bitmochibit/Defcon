@@ -4,28 +4,20 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import it.unimi.dsi.fastutil.shorts.ShortOpenHashSet
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
-import me.mochibit.defcon.foundation.async.ServerCoroutineScope
-import me.mochibit.defcon.foundation.extension.awaitUnpaused
 import me.mochibit.defcon.foundation.services.eventService
 import me.mochibit.defcon.foundation.warn
 import net.minecraft.core.BlockPos
-import net.minecraft.core.Direction
 import net.minecraft.core.SectionPos
-import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.server.level.ThreadedLevelLightEngine
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelAccessor
-import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -40,6 +32,10 @@ class BlockChanger private constructor(
 ) {
     private val pendingByChunk = ConcurrentHashMap<Long, ConcurrentLinkedQueue<BlockChange>>()
     private val pendingCount = AtomicLong(0)
+
+    private val pendingCountByChunk = ConcurrentHashMap<Long, AtomicInteger>()
+    private val chunkCompletionListeners = ConcurrentHashMap<Long, ConcurrentLinkedQueue<() -> Unit>>()
+    private val completionLock = Any()
 
     var blocksPerTick: Int = 5000
         set(value) { field = value.coerceAtLeast(1) }
@@ -56,8 +52,33 @@ class BlockChanger private constructor(
         pendingByChunk.computeIfAbsent(key) { ConcurrentLinkedQueue() }
             .add(BlockChange(BlockPos(x, y, z), newState, updateBlock))
         pendingCount.incrementAndGet()
+        pendingCountByChunk.computeIfAbsent(key) { AtomicInteger(0) }.incrementAndGet()
     }
 
+    fun onChunkFullyProcessed(chunkX: Int, chunkZ: Int, listener: () -> Unit) {
+        val key = ChunkPos.asLong(chunkX, chunkZ)
+        synchronized(completionLock) {
+            val counter = pendingCountByChunk[key]
+            if (counter == null || counter.get() <= 0) {
+                listener()
+                return
+            }
+            chunkCompletionListeners.computeIfAbsent(key) { ConcurrentLinkedQueue() }.add(listener)
+        }
+    }
+
+    private fun onChunkItemProcessed(chunkKey: Long) {
+        val counter = pendingCountByChunk[chunkKey] ?: return
+        if (counter.decrementAndGet() > 0) return
+
+        val listenersToFire = synchronized(completionLock) {
+            val current = pendingCountByChunk[chunkKey]
+            if (current == null || current.get() > 0) return@synchronized null
+            pendingCountByChunk.remove(chunkKey)
+            chunkCompletionListeners.remove(chunkKey)
+        }
+        listenersToFire?.forEach { it() }
+    }
 
     private fun pumpPendingWork() {
         if (pendingByChunk.isEmpty()) return
@@ -87,12 +108,12 @@ class BlockChanger private constructor(
                 pendingCount.decrementAndGet()
                 takenFromThisChunk++
 
-                try {
-                    if (change.updateBlock) {
-                        deferredUpdates.add(change)
-                        continue
-                    }
+                if (change.updateBlock) {
+                    deferredUpdates.add(change)
+                    continue
+                }
 
+                try {
                     mutablePos.set(change.pos)
                     val oldState = chunk.getBlockState(mutablePos)
                     if (oldState == change.newState) continue
@@ -114,6 +135,8 @@ class BlockChanger private constructor(
                     chunkChanged = true
                 } catch (e: Exception) {
                     "BlockChanger: block write failed at ${change.pos}: ${e}".warn()
+                } finally {
+                    onChunkItemProcessed(chunkKey)
                 }
             }
 
@@ -141,6 +164,8 @@ class BlockChanger private constructor(
                     chunkChanged = true
                 } catch (e: Exception) {
                     "BlockChanger: setBlock failed at ${change.pos}: ${e}".warn()
+                } finally {
+                    onChunkItemProcessed(chunkKey)
                 }
             }
 

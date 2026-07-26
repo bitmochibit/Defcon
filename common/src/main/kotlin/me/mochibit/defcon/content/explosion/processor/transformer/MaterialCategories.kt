@@ -5,13 +5,10 @@ import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.tags.BlockTags
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.BushBlock
-import net.minecraft.world.level.block.CropBlock
-import net.minecraft.world.level.block.FlowerBlock
 import net.minecraft.world.level.block.GrassBlock
-import net.minecraft.world.level.block.SaplingBlock
-import net.minecraft.world.level.block.TallGrassBlock
 import net.minecraft.world.level.block.VineBlock
 import net.minecraft.world.level.block.state.BlockState
+import kotlin.lazy
 
 object MaterialCategories {
     val INDESTRUCTIBLE_BLOCKS: Set<BlockState> =
@@ -55,23 +52,50 @@ object MaterialCategories {
             Blocks.SOUL_CAMPFIRE.defaultBlockState(),
         )
 
-    val TERRAIN_BLOCKS: Set<BlockState> =
+    // Terrain blocks
+    val DIRTY_TERRAIN_BLOCKS: Set<BlockState> by lazy {
+            buildSet {
+                addAll(
+                    BuiltInRegistries.BLOCK
+                    .filter{
+                        when (it) {
+                            is GrassBlock -> true
+                            else -> false
+                        }
+                    }
+                    .map { it.defaultBlockState() }
+                )
+                add(Blocks.DIRT.defaultBlockState())
+                add(Blocks.COARSE_DIRT.defaultBlockState())
+                add(Blocks.MYCELIUM.defaultBlockState())
+                add(Blocks.CLAY.defaultBlockState())
+                add(Blocks.MUD.defaultBlockState())
+                add(Blocks.MUDDY_MANGROVE_ROOTS.defaultBlockState())
+            }
+        }
+
+
+    val SANDY_TERRAIN_BLOCKS: Set<BlockState> by lazy {
         setOf(
-            Blocks.GRASS_BLOCK.defaultBlockState(),
-            Blocks.DIRT.defaultBlockState(),
-            Blocks.COARSE_DIRT.defaultBlockState(),
-            Blocks.MYCELIUM.defaultBlockState(),
             Blocks.SAND.defaultBlockState(),
             Blocks.RED_SAND.defaultBlockState(),
-            Blocks.GRAVEL.defaultBlockState(),
-            Blocks.CLAY.defaultBlockState(),
             Blocks.SOUL_SAND.defaultBlockState(),
             Blocks.SOUL_SOIL.defaultBlockState(),
-            Blocks.MUD.defaultBlockState(),
-            Blocks.MUDDY_MANGROVE_ROOTS.defaultBlockState(),
+        )
+    }
+
+    val STONY_TERRAIN_BLOCKS: Set<BlockState> by lazy {
+        setOf(
             Blocks.STONE.defaultBlockState(),
+            Blocks.GRAVEL.defaultBlockState(),
             Blocks.TERRACOTTA.defaultBlockState(),
         )
+    }
+
+    val TERRAIN_BLOCKS: Set<BlockState>
+        get() = DIRTY_TERRAIN_BLOCKS + SANDY_TERRAIN_BLOCKS + STONY_TERRAIN_BLOCKS
+
+
 
     val LIGHT_WEIGHT_BLOCKS: Set<BlockState> =
         setOf(
@@ -84,12 +108,27 @@ object MaterialCategories {
             Blocks.POWDER_SNOW.defaultBlockState(),
         )
 
+    val VINES: Set<BlockState> by lazy {
+        buildSet {
+            addAll(BuiltInRegistries.BLOCK
+                .filter{
+                    when (it) {
+                        is VineBlock -> true
+                        else -> false
+                    }
+                }
+                .map { it.defaultBlockState() }
+            )
+        }
+    }
+
+
     val PLANTS: Set<BlockState> by lazy {
         buildSet {
             addAll(BuiltInRegistries.BLOCK
                 .filter{
                     when (it) {
-                        is BushBlock, is VineBlock -> true
+                        is BushBlock -> true
                         else -> false
                     }
                 }

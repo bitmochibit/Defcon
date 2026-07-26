@@ -52,7 +52,13 @@ fun LevelChunk.getBlockState(x: Int, y: Int, z: Int): BlockState {
 }
 
 
-fun LevelChunk.setBlockState(pos: BlockPos, state: BlockState, isMoving: Boolean, locked: Boolean = false): BlockState? {
+fun LevelChunk.setBlockState(
+    pos: BlockPos,
+    state: BlockState,
+    isMoving: Boolean,
+    locked: Boolean = false,
+    triggerOnPlace: Boolean = true
+): BlockState? {
     val chunkAccessAccessor = this as ChunkAccessAccessor
     val levelChunkAccessor = this as LevelChunkAccessor
 
@@ -105,7 +111,7 @@ fun LevelChunk.setBlockState(pos: BlockPos, state: BlockState, isMoving: Boolean
         return null
     }
 
-    if (!level.isClientSide) {
+    if (!level.isClientSide && triggerOnPlace) {
         state.onPlace(level, pos, blockState, isMoving)
     }
 

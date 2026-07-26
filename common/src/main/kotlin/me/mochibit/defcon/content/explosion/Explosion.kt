@@ -124,9 +124,9 @@ class NuclearExplosion(
 //                ).process()
 //            },
             ExplosionScope.SERVER to {
+                withMainContext {
                 val entities = level.getEntities(null, AABB(epicenter).inflate(100.0, 50.0, 100.0))
                 val vaporized = ModDamageSources.vaporized(level)
-                withMainContext {
                     entities.forEach { entity ->
                         if (entity is Player && (entity.isCreative || entity.isSpectator)) return@forEach
                         entity.hurt(vaporized, Float.MAX_VALUE)
@@ -142,15 +142,13 @@ class NuclearExplosion(
                     zoneId = explosionUUID
                 )
 
-                val radiusStart = 100 + crater.debrisRimWidth
+                val radiusStart = 100 + crater.debrisRimWidth/2
                 val shockwaveRadius = 1000
                 val shockwaveHeight = 200
 
                 val zoneSave = BlastZoneSavedData.get(this.serverLevel)
                 val zone = BlastZone(explosionUUID, epicenter.x, epicenter.y, epicenter.z, shockwaveRadius, radiusStart, shockwaveHeight)
                 zoneSave.addZone(zone)
-
-                crater.create()
 
                 Shockwave(
                     explosionUUID,
@@ -159,7 +157,9 @@ class NuclearExplosion(
                     radiusStart,
                     shockwaveRadius,
                     shockwaveHeight = shockwaveHeight,
-                ).explode().join()
+                ).explode()
+
+                crater.create()
             },
         )
     }

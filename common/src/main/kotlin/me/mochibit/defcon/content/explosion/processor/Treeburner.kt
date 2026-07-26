@@ -97,15 +97,20 @@ object TreeBurnCore {
         val isEmpty: Boolean get() = logs.isEmpty()
     }
 
-    inline fun findTrunkBaseY(startX: Int, startY: Int, startZ: Int, maxSearch: Int = 40, getState: (x: Int, y: Int, z :Int) -> BlockState): Int {
+    inline fun findTrunkBaseY(
+        startX: Int, startY: Int, startZ: Int, maxSearch: Int = 40,
+        getState: (x: Int, y: Int, z: Int) -> BlockState,
+    ): Int {
         var posY = startY
         var lastLogY = startY
         repeat(maxSearch) {
-            val block = getState(startX, startY, startZ).block
+            val block = getState(startX, posY, startZ).block
             if (block in LOG_BLOCKS || block in WOOD_BLOCKS) {
                 lastLogY = posY
                 posY -= 1
-            } else return lastLogY
+            } else {
+                return lastLogY
+            }
         }
         return lastLogY
     }
@@ -146,9 +151,38 @@ object TreeBurnCore {
 
     /** 0.0 at the tree base, growing with height and explosion power - used to tilt trunks away from the blast. */
     fun calculateTiltFactor(blockY: Int, treeMinHeight: Int, heightRange: Int, explosionPower: Double): Double {
-        if (blockY == treeMinHeight) return 0.0
+        if (blockY <= treeMinHeight) return 0.0
         val heightFactor = (blockY - treeMinHeight).toDouble() / heightRange
         return heightFactor * explosionPower * 6.0
+    }
+
+    /**
+     * For identifying a column as a tree like structure, it would look for ordered leaf block -> log block, from up to down
+     */
+    inline fun isColumnTreeLike(
+        x: Int, y: Int, z: Int, maxSearch: Int = 40,
+        getState: (x: Int, y: Int, z: Int) -> BlockState,
+    ): Boolean {
+        var foundLeaf = false
+
+        for (offsetY in 0 until maxSearch) {
+            val block = getState(x, y - offsetY, z).block
+
+            when {
+                block in LEAF_BLOCKS -> {
+                    foundLeaf = true
+                }
+                block in LOG_BLOCKS || block in WOOD_BLOCKS -> {
+                    return foundLeaf
+                }
+                else -> {
+                    return false
+                }
+            }
+        }
+
+        // Abbiamo esaurito i tentativi (maxSearch) senza trovare un tronco
+        return false
     }
 }
 
@@ -184,12 +218,10 @@ class TreeBurner(
         val state = ctx.getState(x, y, z)
         val block = state.block
 
-        // Very close to the blast center: obliterate the whole tree, no burnt remnants.
         if (explosionPower >= fullRemovalPowerThreshold) {
             ctx.setState(x, y, z, Blocks.AIR.defaultBlockState())
             return
         }
-
         if (block in TreeBurnCore.LEAF_BLOCKS) {
             ctx.setState(x, y, z, Blocks.AIR.defaultBlockState())
             return
@@ -202,8 +234,9 @@ class TreeBurner(
         val tilt = steppedTilt(x, z, y, base, rawTilt)
         val burnt = TreeBurnCore.burntReplacementFor(block).defaultBlockState()
         val direction = shockwaveDirectionFrom(x, z)
-        applyTiltedTrunk(x, y, z, tilt, direction, burnt)
+        applyTiltedTrunk(x, y, z, base, tilt, direction, burnt)
     }
+
 
     /**
      * Clamps the tilt so it only ever changes by [maxTiltStepPerBlock] relative to the
@@ -242,15 +275,31 @@ class TreeBurner(
         return Vector2f(dx * invMag, dz * invMag)
     }
 
-    private fun applyTiltedTrunk(x: Int, y: Int, z: Int, tilt: Double, direction: Vector2f, burntState: BlockState) {
-        val newX = x + (direction.x * tilt).toInt()
-        val newZ = z + (direction.y * tilt).toInt()
-        if (tilt <= 0.0 || (newX == x && newZ == z)) {
+    private fun applyTiltedTrunk(x: Int, y: Int, z: Int, base: Int, tilt: Double, direction: Vector2f, burntState: BlockState) {
+        if (y <= base || tilt <= 0.0) {
             ctx.setState(x, y, z, burntState)
             return
         }
+
+        val newX = x + (direction.x * tilt).toInt()
+        val newZ = z + (direction.y * tilt).toInt()
+        if (newX == x && newZ == z) {
+            ctx.setState(x, y, z, burntState)
+            return
+        }
+
+        if (isSolidNonTreeGround(newX, y, newZ)) {
+            ctx.setState(x, y, z, burntState)
+            return
+        }
+
         ctx.setState(x, y, z, Blocks.AIR.defaultBlockState())
         ctx.setState(newX, y, newZ, burntState)
         processedTreeBlocks.add(PackedPos(newX, y, newZ).packed)
+    }
+
+    private fun isSolidNonTreeGround(x: Int, y: Int, z: Int): Boolean {
+        val state = ctx.getState(x, y, z)
+        return !state.isAir && !TreeBurnCore.isTreeBlockType(state.block)
     }
 }

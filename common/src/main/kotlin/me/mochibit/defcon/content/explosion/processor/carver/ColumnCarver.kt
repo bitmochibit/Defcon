@@ -1,9 +1,8 @@
 package me.mochibit.defcon.content.explosion.processor.carver
 
-import me.mochibit.defcon.content.explosion.processor.TreeBurnCore
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialCategories
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
-import me.mochibit.defcon.foundation.info
+import me.mochibit.defcon.foundation.util.roll
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.state.BlockState
 import kotlin.random.Random
@@ -21,36 +20,58 @@ object ColumnCarver {
         firstBlockState: BlockState,
         ctx: ColumnCarveContext,
     ) {
-        val terrainNoiseStrength = 0.3f + power * 0.4f
-        val baseTerrainBreakChance = 0.7f + power * 0.25f
-        val skylightThreshold = ((1.0f - power) * 12).toInt().coerceIn(2, 15)
+        val terrainNoiseStrength = power * 0.7f
+        val baseTerrainBreakChance = power * 0.95f
+
+        val spatialNoise = (generateTerrainNoise(x, 0, z, 1.0f) + 1.0f) * 0.5f
+        if (power < 0.3f && spatialNoise > (power / 0.3f)) {
+            return
+        }
 
         var consecutiveTerrainBlocks = 0
         var trunkTopY: Int? = null
         var trunkBaseY: Int? = null
+        var treeVerified: Boolean? = null
         var consecutiveAirBlocks = 0
         var consecutiveFluids = 0
         var consecutiveBlacklisted = 0
+        var wasProcessingTree = false
 
         for (currentY in topY downTo maxOf(seaLevelMinus3, worldMinHeight)) {
-            if (ctx.isPosAlreadyBurnedByTree(x, currentY, z)) {
-                continue
-            }
+            if (ctx.isPosAlreadyBurnedByTree(x, currentY, z)) continue
+
 
             val currentState = if (currentY == topY) firstBlockState else ctx.getState(x, currentY, z)
 
+
             if (ctx.isTreeBlock(x, currentY, z)) {
-                val block = currentState.block
-                if (trunkTopY == null && (block in TreeBurnCore.LOG_BLOCKS || block in TreeBurnCore.WOOD_BLOCKS)) {
-                    trunkTopY = currentY
-                    trunkBaseY = ctx.findLocalTrunkBase(x, currentY, z)
+                if (treeVerified == null) {
+                    treeVerified = ctx.isColumnTreeLike(x, currentY, z)
                 }
-                ctx.burnTreeBlock(x, currentY, z, power.toDouble(), trunkTopY, trunkBaseY)
-                consecutiveTerrainBlocks = 0
-                consecutiveAirBlocks = 0
-                consecutiveFluids = 0
-                consecutiveBlacklisted = 0
-                continue
+
+                if (treeVerified == true) {
+                    if (trunkTopY == null && ctx.isLogOrWood(currentState)) {
+                        trunkTopY = currentY
+                        trunkBaseY = ctx.findLocalTrunkBase(x, currentY, z)
+                    }
+                    ctx.burnTreeBlock(x, currentY, z, power.toDouble(), trunkTopY, trunkBaseY)
+                    wasProcessingTree = true
+                    consecutiveTerrainBlocks = 0
+                    consecutiveAirBlocks = 0
+                    consecutiveFluids = 0
+                    consecutiveBlacklisted = 0
+                    continue
+                }
+            }
+
+            if (wasProcessingTree) {
+                wasProcessingTree = false
+                if (!currentState.isAir && currentState.fluidState.isEmpty
+                    && currentState in MaterialCategories.TERRAIN_BLOCKS
+                ) {
+                    ctx.setState(x, currentY, z, Blocks.ROOTED_DIRT.defaultBlockState())
+                    continue
+                }
             }
 
 
@@ -86,92 +107,32 @@ object ColumnCarver {
             val isTerrainBlock = currentState in MaterialCategories.TERRAIN_BLOCKS
             val shouldConvertToAir = currentY > convertToAirMinY
 
-            if (isWallLike(x, currentY, z, ctx)) {
+            val isLeafOrVine = ctx.isLeafBlock(x, currentY, z) || currentState in MaterialCategories.VINES
+
+            if (!isLeafOrVine && isWallLike(x, currentY, z, ctx)) {
                 consecutiveTerrainBlocks = 0
+
+                if (shouldConvertToAir) {
+                    ctx.setState(x, currentY, z, Blocks.AIR.defaultBlockState(), updateBlock = false)
+                    continue
+                }
+
                 val skylightLevel = ctx.skylightAt(x, currentY, z)
+                val lightExposure = (skylightLevel.toFloat() / 15f).coerceIn(0f, 1f)
+                val breakChance = power * (0.1f + lightExposure * 0.8f)
 
-                when {
-                    currentY > seaLevelMinus3 -> {
-                        ctx.setState(
-                            x,
-                            currentY,
-                            z,
-                            Blocks.AIR.defaultBlockState(),
-                            updateBlock = false
-                        )
-                    }
-
-                    skylightLevel >= skylightThreshold -> {
-                        if (Random.nextDouble() > 0.3) {
-                            ctx.setState(
-                                x,
-                                currentY,
-                                z,
-                                Blocks.AIR.defaultBlockState(),
-                                updateBlock = false
-                            )
-                        } else {
-                            val lightInfluence = skylightLevel * 0.02f
-                            val transformedBlock =
-                                materialTransformer.transformMaterial(
-                                    currentState,
-                                    1.0f - power + lightInfluence, x, currentY, z
-                                )
-                            ctx.setState(x, currentY, z, transformedBlock)
-                        }
-                    }
-
-                    else -> {
-                        val lightInfluence = skylightLevel * 0.01f
-                        val transformedBlock =
-                            materialTransformer.transformMaterial(
-                                currentState,
-                                1.0f - power + lightInfluence,
-                                x, currentY, z
-                            )
-                        ctx.setState(x, currentY, z, transformedBlock)
-                    }
+                if (breakChance.roll()) {
+                    ctx.setState(x, currentY, z, Blocks.AIR.defaultBlockState(), updateBlock = false)
+                } else if (shouldTransformMaterial(power)) {
+                    val transformedBlock = materialTransformer.transformMaterial(currentState, power, x, currentY, z)
+                    ctx.setState(x, currentY, z, transformedBlock)
                 }
                 continue
             }
 
             if (isTerrainBlock) {
                 if (++consecutiveTerrainBlocks >= 3) break
-
-                val heightFactor = (currentY - seaLevelMinus3).toFloat() / (topY - seaLevelMinus3).coerceAtLeast(1)
                 val noiseValue = generateTerrainNoise(x, currentY, z, terrainNoiseStrength)
-
-                if (consecutiveTerrainBlocks == 1) {
-                    val finalBreakChance = baseTerrainBreakChance + noiseValue - (heightFactor * 0.15f)
-                    val shouldBreakTerrain =
-                        shouldConvertToAir ||
-                                (Random.nextDouble() < finalBreakChance && currentY > seaLevelMinus3)
-
-                    if (shouldBreakTerrain) {
-                        ctx.setState(
-                            x,
-                            currentY,
-                            z,
-                            Blocks.AIR.defaultBlockState(),
-                            updateBlock = false
-                        )
-                        val adjacentNoise = generateTerrainNoise(x, currentY - 1, z, terrainNoiseStrength * 0.5f)
-                        if (adjacentNoise > 0.15f) {
-                            val belowState = ctx.getState(x, currentY - 1, z)
-                            if (belowState in MaterialCategories.TERRAIN_BLOCKS) {
-                                ctx.setState(
-                                    x,
-                                    currentY - 1,
-                                    z,
-                                    Blocks.AIR.defaultBlockState(),
-                                    updateBlock = false
-                                )
-                            }
-                        }
-                        continue
-                    }
-                }
-
 
                 val skylightLevel = ctx.skylightAt(x, currentY, z)
                 val noiseInfluence = noiseValue * 0.3f
@@ -179,7 +140,7 @@ object ColumnCarver {
                 val transformedBlock =
                     materialTransformer.transformMaterial(
                         currentState,
-                        1.0f - power + noiseInfluence + lightInfluence, x, currentY, z
+                        power + noiseInfluence + lightInfluence, x, currentY, z
                     )
                 ctx.setState(x, currentY, z, transformedBlock)
 
@@ -191,7 +152,7 @@ object ColumnCarver {
                     val transformedAbove =
                         materialTransformer.transformMaterial(
                             aboveState,
-                            1.0f - power + (aboveNoise * 0.2f) + aboveLightInfluence,
+                            power + (aboveNoise * 0.2f) + aboveLightInfluence,
                             x, currentY + 1, z
                         )
                     ctx.setState(x, currentY + 1, z, transformedAbove)
@@ -214,7 +175,7 @@ object ColumnCarver {
                     val transformedBlock =
                         materialTransformer.transformMaterial(
                             currentState,
-                            1.0f - power + (blockNoise * 0.2f) + lightInfluence,
+                            power + (blockNoise * 0.2f) + lightInfluence,
                             x, currentY, z
                         )
                     ctx.setState(x, currentY, z, transformedBlock, updateBlock = false)
@@ -234,6 +195,8 @@ object ColumnCarver {
         val north = ctx.originalStateAt(x, y, z - 1).isAir
         return ((east || west) && north) || (south && north)
     }
+
+    private fun shouldTransformMaterial(power: Float): Boolean = Random.nextFloat() < power
 
     @Suppress("NOTHING_TO_INLINE")
     private inline fun generateTerrainNoise(x: Int, y: Int, z: Int, strength: Float): Float {

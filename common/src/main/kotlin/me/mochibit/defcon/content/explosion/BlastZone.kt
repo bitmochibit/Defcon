@@ -8,6 +8,7 @@ import net.minecraft.nbt.Tag
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.saveddata.SavedData
+import java.util.EnumMap
 import java.util.UUID
 
 data class BlastZone(
@@ -19,9 +20,12 @@ data class BlastZone(
     val radiusStart: Int = 0,
     val shockwaveHeight: Int = 200,
 )
+
+enum class BlastActor { CRATER, SHOCKWAVE, WORLDGEN }
+
 class BlastZoneSavedData : SavedData() {
     val zones = mutableListOf<BlastZone>()
-    private val worldgenProcessedChunks = HashMap<UUID, LongOpenHashSet>()
+    private val worldgenProcessedChunks = HashMap<UUID, EnumMap<BlastActor, LongOpenHashSet>>()
     private val pendingWorldgenChunks = HashMap<UUID, LongOpenHashSet>()
 
     private val lock = Any()
@@ -29,7 +33,7 @@ class BlastZoneSavedData : SavedData() {
     fun addZone(zone: BlastZone) {
         synchronized(lock) {
             zones.add(zone)
-            worldgenProcessedChunks.getOrPut(zone.id) { LongOpenHashSet() }
+            worldgenProcessedChunks.getOrPut(zone.id) { EnumMap(BlastActor::class.java) }
             pendingWorldgenChunks.getOrPut(zone.id) { LongOpenHashSet() }
         }
         setDirty()
@@ -37,25 +41,34 @@ class BlastZoneSavedData : SavedData() {
 
     fun markChunkPending(zoneId: UUID, chunkX: Int, chunkZ: Int) {
         synchronized(lock) {
-            if (!isChunkWorldgenProcessed(zoneId, chunkX, chunkZ)) {
+            if (!isChunkWorldgenProcessedByAnyActor(zoneId, chunkX, chunkZ)) {
                 pendingWorldgenChunks.getOrPut(zoneId) { LongOpenHashSet() }
                     .add(ChunkPos.asLong(chunkX, chunkZ))
             }
         }
     }
 
-    fun markChunkWorldgenProcessed(zoneId: UUID, chunkX: Int, chunkZ: Int) {
+    fun markChunkWorldgenProcessed(zoneId: UUID, actor: BlastActor, chunkX: Int, chunkZ: Int) {
         val key = ChunkPos.asLong(chunkX, chunkZ)
         synchronized(lock) {
             pendingWorldgenChunks[zoneId]?.remove(key)
-            worldgenProcessedChunks.getOrPut(zoneId) { LongOpenHashSet() }.add(key)
+            worldgenProcessedChunks
+                .getOrPut(zoneId) { EnumMap(BlastActor::class.java) }
+                .getOrPut(actor) { LongOpenHashSet() }
+                .add(key)
         }
         setDirty()
     }
 
-    fun isChunkWorldgenProcessed(zoneId: UUID, chunkX: Int, chunkZ: Int): Boolean =
+    fun isChunkWorldgenProcessed(zoneId: UUID, actor: BlastActor, chunkX: Int, chunkZ: Int): Boolean =
         synchronized(lock) {
-            worldgenProcessedChunks[zoneId]?.contains(ChunkPos.asLong(chunkX, chunkZ)) == true
+            worldgenProcessedChunks[zoneId]?.get(actor)?.contains(ChunkPos.asLong(chunkX, chunkZ)) == true
+        }
+
+    fun isChunkWorldgenProcessedByAnyActor(zoneId: UUID, chunkX: Int, chunkZ: Int): Boolean =
+        synchronized(lock) {
+            val key = ChunkPos.asLong(chunkX, chunkZ)
+            worldgenProcessedChunks[zoneId]?.values?.any { it.contains(key) } == true
         }
 
     fun pendingChunkSnapshot(zoneId: UUID): LongArray =
@@ -67,10 +80,7 @@ class BlastZoneSavedData : SavedData() {
 
     fun zoneSnapshot(): List<BlastZone> = synchronized(lock) { zones.toList() }
 
-    fun zonesForChunk(
-        chunkX: Int,
-        chunkZ: Int,
-    ): List<BlastZone> {
+    fun zonesForChunk(chunkX: Int, chunkZ: Int): List<BlastZone> {
         val minX = chunkX shl 4; val minZ = chunkZ shl 4
         val maxX = minX + 15; val maxZ = minZ + 15
         val snapshot = synchronized(lock) { zones.toList() }
@@ -79,14 +89,15 @@ class BlastZoneSavedData : SavedData() {
             val closestZ = zone.centerZ.coerceIn(minZ, maxZ)
             val dx = (closestX - zone.centerX).toDouble()
             val dz = (closestZ - zone.centerZ).toDouble()
-            val effectiveRadius = zone.radius - zone.radiusStart
-            dx * dx + dz * dz <= effectiveRadius * effectiveRadius
+            dx * dx + dz * dz <= zone.radius.toDouble() * zone.radius
         }
     }
 
     override fun save(tag: CompoundTag, registries: HolderLookup.Provider): CompoundTag {
         val zonesSnapshot = synchronized(lock) { zones.toList() }
-        val processedSnapshot = synchronized(lock) { worldgenProcessedChunks.mapValues { it.value.toLongArray() } }
+        val processedSnapshot = synchronized(lock) {
+            worldgenProcessedChunks.mapValues { (_, byActor) -> byActor.mapValues { it.value.toLongArray() } }
+        }
         val pendingSnapshot = synchronized(lock) { pendingWorldgenChunks.mapValues { it.value.toLongArray() } }
 
         val list = ListTag()
@@ -100,7 +111,9 @@ class BlastZoneSavedData : SavedData() {
             zoneTag.putInt("rs", zone.radiusStart)
             zoneTag.putInt("h", zone.shockwaveHeight)
 
-            processedSnapshot[zone.id]?.let { zoneTag.putLongArray("processed_chunks", it) }
+            processedSnapshot[zone.id]?.forEach { (actor, array) ->
+                zoneTag.putLongArray("processed_chunks_${actor.name}", array)
+            }
             pendingSnapshot[zone.id]?.let { zoneTag.putLongArray("pending_chunks", it) }
 
             list.add(zoneTag)
@@ -119,7 +132,6 @@ class BlastZoneSavedData : SavedData() {
 
             for (i in list.indices) {
                 val zoneTag = list.getCompound(i)
-
                 val id = if (zoneTag.hasUUID("id")) zoneTag.getUUID("id") else UUID.randomUUID()
 
                 val zone = BlastZone(
@@ -133,11 +145,16 @@ class BlastZoneSavedData : SavedData() {
                 )
                 data.zones.add(zone)
 
-                val processed = LongOpenHashSet()
-                if (zoneTag.contains("processed_chunks")) {
-                    processed.addAll(zoneTag.getLongArray("processed_chunks").asList())
+                val byActor = EnumMap<BlastActor, LongOpenHashSet>(BlastActor::class.java)
+                for (actor in BlastActor.entries) {
+                    val setKey = "processed_chunks_${actor.name}"
+                    val set = LongOpenHashSet()
+                    if (zoneTag.contains(setKey)) {
+                        set.addAll(zoneTag.getLongArray(setKey).asList())
+                    }
+                    byActor[actor] = set
                 }
-                data.worldgenProcessedChunks[id] = processed
+                data.worldgenProcessedChunks[id] = byActor
 
                 val pending = LongOpenHashSet()
                 if (zoneTag.contains("pending_chunks")) {
