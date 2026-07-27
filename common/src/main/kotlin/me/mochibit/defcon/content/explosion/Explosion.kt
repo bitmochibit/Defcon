@@ -119,6 +119,7 @@ class NuclearExplosion(
         parallel(
             ExplosionScope.SERVER to {
                 EntityDamageShockwave(
+                    explosionUUID = explosionUUID,
                     level = level,
                     center = Vec3(epicenter.x.toDouble(), epicenter.y.toDouble(), epicenter.z.toDouble()),
                     shockwaveHeight = 200,

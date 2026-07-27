@@ -1,7 +1,5 @@
 package me.mochibit.defcon.foundation.services
 
-import me.mochibit.defcon.ModEventBus
-import me.mochibit.defcon.foundation.eventbus.TickEvents
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.level.LevelAccessor
 import net.minecraft.world.level.chunk.ChunkAccess
@@ -29,3 +27,4 @@ class NeoforgeEventService: EventService {
         }
     }
 }
+

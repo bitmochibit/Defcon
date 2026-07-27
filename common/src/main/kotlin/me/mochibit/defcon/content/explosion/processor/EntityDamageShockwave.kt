@@ -1,7 +1,9 @@
 package me.mochibit.defcon.content.explosion.processor
 
 import kotlinx.coroutines.delay
+import me.mochibit.defcon.foundation.network.packet.ShockwaveReachEffectPacket
 import me.mochibit.defcon.foundation.services.eventService
+import me.mochibit.defcon.foundation.services.networkService
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
@@ -40,6 +42,7 @@ object ShockwaveRegistry {
  */
 class EntityDamageShockwave(
     private val level: ServerLevel,
+    val explosionUUID: UUID,
     val center: Vec3,
     val shockwaveHeight: Int,
     val shockwaveGroundPenetration: Int,
@@ -110,6 +113,7 @@ class EntityDamageShockwave(
 
         if (entity is ServerPlayer) {
             entity.connection.send(ClientboundSetEntityMotionPacket(entity))
+            networkService.sendToPlayer(entity,ShockwaveReachEffectPacket(explosionUUID.toString(), power, center) )
         }
     }
 

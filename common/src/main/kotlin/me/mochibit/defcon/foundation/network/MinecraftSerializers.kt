@@ -8,8 +8,10 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.contextual
+import me.mochibit.defcon.foundation.err
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.world.phys.Vec3
 
 object BlockPosSerializer : KSerializer<BlockPos> {
     override val descriptor: SerialDescriptor =
@@ -31,6 +33,30 @@ object BlockPosSerializer : KSerializer<BlockPos> {
             decoder.buf.readBlockPos()
         } else {
             BlockPos.of(decoder.decodeLong())
+        }
+}
+
+object Vec3Serializer : KSerializer<Vec3> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("net.minecraft.core.BlockPos", PrimitiveKind.LONG)
+
+    override fun serialize(
+        encoder: Encoder,
+        value: Vec3,
+    ) {
+        if (encoder is FriendlyByteBufEncoder) {
+            encoder.buf.writeVec3(value)
+        } else {
+            "Invalid encoder while writing a Vec3".err()
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): Vec3 =
+        if (decoder is FriendlyByteBufDecoder) {
+            decoder.buf.readVec3()
+        } else {
+            "Invalid decoder while reading a Vec3".err()
+            Vec3.ZERO
         }
 }
 
@@ -61,4 +87,5 @@ val MinecraftSerializersModule =
     SerializersModule {
         contextual(BlockPosSerializer)
         contextual(CompoundTagSerializer)
+        contextual(Vec3Serializer)
     }

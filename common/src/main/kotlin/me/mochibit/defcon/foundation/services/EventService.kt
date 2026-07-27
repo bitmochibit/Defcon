@@ -16,6 +16,8 @@ interface EventService {
     fun onEntityTick(
         listener: (entity: Entity) -> Unit
     )
+
 }
 
-val eventService: EventService by lazy { loadService<EventService>()}
+val eventService: EventService by lazy { loadService<EventService>() }
+

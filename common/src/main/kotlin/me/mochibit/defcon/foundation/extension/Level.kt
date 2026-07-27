@@ -19,6 +19,7 @@ import net.minecraft.world.level.chunk.LevelChunk
 import net.minecraft.world.level.chunk.LevelChunkSection
 import net.minecraft.world.level.levelgen.Heightmap
 import net.minecraft.world.level.lighting.LightEngine
+import net.minecraft.world.phys.Vec3
 import kotlin.time.Duration.Companion.milliseconds
 
 fun Level.getBlockState(x: Int, y: Int, z: Int): BlockState {
@@ -137,3 +138,6 @@ suspend fun ServerLevel.awaitUnpaused(pollIntervalMs: Long = 100) {
         delay(pollIntervalMs.milliseconds)
     }
 }
+
+fun BlockPos.toVec3(): Vec3 =
+    Vec3(this.x.toDouble(), this.y.toDouble(), this.z.toDouble())
