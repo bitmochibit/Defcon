@@ -23,12 +23,14 @@ fun handleParticleEffectStart(
     //    val remainingTicks = (effectDurationTicks - elapsedTicks).coerceAtLeast(0)
     //    if (remainingTicks <= 0) return
 
+        //todo this has to be unified somehow
         val spawner = clientParticleSpawner(clientLevel)
 
         val effect = EffectRegistry.build(params, spawner, ClientCoroutineScope)
 
 
         ClientVisualEffects.register(effectUuid, effect)
+        //todo kinematic way of skipping frames rather than this
     //    effect.fastForward(elapsedTicks)
         effect.start()
 

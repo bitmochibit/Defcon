@@ -125,8 +125,6 @@ class ParticleEmitter<T : EmitterShape>(
                 scale = template.scale,
                 speed = template.speed,
                 initialTemperature = temperature,
-                coolingRate = template.coolingRate,
-                ambientTemperature = template.ambientTemperature,
                 colorOverride = template.colorOverride,
                 baseLifetime = template.baseLifetime,
                 randomLifetime = template.randomLifetime,

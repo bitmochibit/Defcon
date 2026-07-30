@@ -13,6 +13,7 @@ import net.minecraft.network.codec.ByteBufCodecs
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.util.ExtraCodecs
 import org.joml.Vector3f
+import kotlin.math.sqrt
 
 // TEMPORARY
 object BlackbodyColor {
@@ -73,9 +74,14 @@ class ExplosionDustParticle(
 
     private fun currentTemperature(): Float {
         if (options.colorOverride != null) return Float.NaN
-        val ageSeconds = age / 20f
-        return (options.initialTemperature - options.coolingRate * ageSeconds)
-            .coerceAtLeast(options.ambientTemperature)
+        return when (val behavior = options.thermalBehavior) {
+            ThermalBehavior.Static -> options.initialTemperature
+            is ThermalBehavior.Cooling -> {
+                val ageSeconds = age / 20f
+                (options.initialTemperature - behavior.coolingRate * ageSeconds)
+                    .coerceAtLeast(behavior.ambientTemperature)
+            }
+        }
     }
 
     private fun applyColorForAge() {
@@ -94,7 +100,7 @@ class ExplosionDustParticle(
 
     private fun clampToMaxSpeed() {
         if (options.maxSpeed <= 0f) return
-        val speed = Math.sqrt(xd * xd + yd * yd + zd * zd)
+        val speed = sqrt(xd * xd + yd * yd + zd * zd)
         if (speed > options.maxSpeed) {
             val f = options.maxSpeed / speed
             xd *= f; yd *= f; zd *= f
@@ -121,19 +127,14 @@ class ExplosionDustParticle(
 class ExplosionDustParticleOptions(
     val scale: Float = 1.0f,
     val speed: Float = 1.0f,
-
     val initialTemperature: Float = 3000f,
-    val coolingRate: Float = 400f,
-    val ambientTemperature: Float = 0f,
+    val thermalBehavior: ThermalBehavior = ThermalBehavior.Static,
     val colorOverride: Vector3f? = null,
-
     val baseLifetime: Int = 40,
     val randomLifetime: Int = 20,
-
     val friction: Float = 0.95f,
     val gravity: Float = 0.0f,
     val maxSpeed: Float = 0.5f,
-
     val hasCollision: Boolean = true,
     val speedUpWhenYMotionIsBlocked: Boolean = true,
     val shrinkOverTime: Boolean = true,
@@ -142,34 +143,59 @@ class ExplosionDustParticleOptions(
     override fun getType(): ParticleType<ExplosionDustParticleOptions> = ModParticles.ExplosionDustParticle.get()
 
     companion object {
+        private val COOLING_CODEC: MapCodec<ThermalBehavior.Cooling> = RecordCodecBuilder.mapCodec { instance ->
+            instance.group(
+                Codec.FLOAT.fieldOf("cooling_rate").forGetter { it.coolingRate },
+                Codec.FLOAT.optionalFieldOf("ambient_temperature", 0f).forGetter { it.ambientTemperature }
+            ).apply(instance, ThermalBehavior::Cooling)
+        }
+
+        val THERMAL_BEHAVIOR_CODEC: Codec<ThermalBehavior> = Codec.STRING.dispatch(
+            { behavior -> if (behavior is ThermalBehavior.Cooling) "cooling" else "static" },
+            { key -> if (key == "cooling") COOLING_CODEC else MapCodec.unit(ThermalBehavior.Static) }
+        )
+
+        val THERMAL_BEHAVIOR_STREAM_CODEC = object : StreamCodec<RegistryFriendlyByteBuf, ThermalBehavior> {
+            override fun decode(buffer: RegistryFriendlyByteBuf): ThermalBehavior =
+                if (ByteBufCodecs.BOOL.decode(buffer))
+                    ThermalBehavior.Cooling(ByteBufCodecs.FLOAT.decode(buffer), ByteBufCodecs.FLOAT.decode(buffer))
+                else ThermalBehavior.Static
+
+            override fun encode(buffer: RegistryFriendlyByteBuf, value: ThermalBehavior) {
+                when (value) {
+                    ThermalBehavior.Static -> ByteBufCodecs.BOOL.encode(buffer, false)
+                    is ThermalBehavior.Cooling -> {
+                        ByteBufCodecs.BOOL.encode(buffer, true)
+                        ByteBufCodecs.FLOAT.encode(buffer, value.coolingRate)
+                        ByteBufCodecs.FLOAT.encode(buffer, value.ambientTemperature)
+                    }
+                }
+            }
+        }
+
         val CODEC: MapCodec<ExplosionDustParticleOptions> = RecordCodecBuilder.mapCodec { instance ->
             instance.group(
                 Codec.FLOAT.optionalFieldOf("scale", 1.0f).forGetter { it.scale },
                 Codec.FLOAT.optionalFieldOf("speed", 1.0f).forGetter { it.speed },
-
                 Codec.FLOAT.optionalFieldOf("initial_temperature", 3000f).forGetter { it.initialTemperature },
-                Codec.FLOAT.optionalFieldOf("cooling_rate", 400f).forGetter { it.coolingRate },
-                Codec.FLOAT.optionalFieldOf("ambient_temperature", 0f).forGetter { it.ambientTemperature },
+                THERMAL_BEHAVIOR_CODEC.optionalFieldOf("thermal_behavior", ThermalBehavior.Static)
+                    .forGetter { it.thermalBehavior },
                 ExtraCodecs.VECTOR3F.optionalFieldOf("color_override")
                     .forGetter { java.util.Optional.ofNullable(it.colorOverride) },
-
                 Codec.INT.optionalFieldOf("base_lifetime", 40).forGetter { it.baseLifetime },
                 Codec.INT.optionalFieldOf("random_lifetime", 20).forGetter { it.randomLifetime },
-
                 Codec.FLOAT.optionalFieldOf("friction", 0.95f).forGetter { it.friction },
                 Codec.FLOAT.optionalFieldOf("gravity", 0.0f).forGetter { it.gravity },
                 Codec.FLOAT.optionalFieldOf("max_speed", 0.5f).forGetter { it.maxSpeed },
-
                 Codec.BOOL.optionalFieldOf("has_collision", true).forGetter { it.hasCollision },
                 Codec.BOOL.optionalFieldOf("speed_up_when_y_motion_blocked", true)
                     .forGetter { it.speedUpWhenYMotionIsBlocked },
                 Codec.BOOL.optionalFieldOf("shrink_over_time", true).forGetter { it.shrinkOverTime }
-            ).apply(instance) { scale, speed, initTemp, cooling, ambient, colorOpt,
+            ).apply(instance) { scale, speed, initTemp, thermal, colorOpt,
                                 baseLife, randLife, fric, grav, maxSpd, collision, speedUp, shrink ->
                 ExplosionDustParticleOptions(
-                    scale = scale, speed = speed,
-                    initialTemperature = initTemp, coolingRate = cooling, ambientTemperature = ambient,
-                    colorOverride = colorOpt.orElse(null),
+                    scale = scale, speed = speed, initialTemperature = initTemp,
+                    thermalBehavior = thermal, colorOverride = colorOpt.orElse(null),
                     baseLifetime = baseLife, randomLifetime = randLife,
                     friction = fric, gravity = grav, maxSpeed = maxSpd,
                     hasCollision = collision, speedUpWhenYMotionIsBlocked = speedUp, shrinkOverTime = shrink
@@ -182,13 +208,11 @@ class ExplosionDustParticleOptions(
                 val scale = ByteBufCodecs.FLOAT.decode(buffer)
                 val speed = ByteBufCodecs.FLOAT.decode(buffer)
                 val initTemp = ByteBufCodecs.FLOAT.decode(buffer)
-                val cooling = ByteBufCodecs.FLOAT.decode(buffer)
-                val ambient = ByteBufCodecs.FLOAT.decode(buffer)
+                val thermal = THERMAL_BEHAVIOR_STREAM_CODEC.decode(buffer)
                 val hasColorOverride = ByteBufCodecs.BOOL.decode(buffer)
                 val colorOverride = if (hasColorOverride) ByteBufCodecs.VECTOR3F.decode(buffer) else null
                 return ExplosionDustParticleOptions(
-                    scale = scale, speed = speed,
-                    initialTemperature = initTemp, coolingRate = cooling, ambientTemperature = ambient,
+                    scale = scale, speed = speed, initialTemperature = initTemp, thermalBehavior = thermal,
                     colorOverride = colorOverride,
                     baseLifetime = ByteBufCodecs.INT.decode(buffer),
                     randomLifetime = ByteBufCodecs.INT.decode(buffer),
@@ -205,8 +229,7 @@ class ExplosionDustParticleOptions(
                 ByteBufCodecs.FLOAT.encode(buffer, value.scale)
                 ByteBufCodecs.FLOAT.encode(buffer, value.speed)
                 ByteBufCodecs.FLOAT.encode(buffer, value.initialTemperature)
-                ByteBufCodecs.FLOAT.encode(buffer, value.coolingRate)
-                ByteBufCodecs.FLOAT.encode(buffer, value.ambientTemperature)
+                THERMAL_BEHAVIOR_STREAM_CODEC.encode(buffer, value.thermalBehavior)
                 ByteBufCodecs.BOOL.encode(buffer, value.colorOverride != null)
                 value.colorOverride?.let { ByteBufCodecs.VECTOR3F.encode(buffer, it) }
                 ByteBufCodecs.INT.encode(buffer, value.baseLifetime)
