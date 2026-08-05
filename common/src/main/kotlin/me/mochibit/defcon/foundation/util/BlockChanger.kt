@@ -37,7 +37,7 @@ class BlockChanger private constructor(
     private val chunkCompletionListeners = ConcurrentHashMap<Long, ConcurrentLinkedQueue<() -> Unit>>()
     private val completionLock = Any()
 
-    var blocksPerTick: Int = 5000
+    var blocksPerTick: Int = 1000
         set(value) { field = value.coerceAtLeast(1) }
 
     private val changedPositionsThisSession = LongOpenHashSet()

@@ -4,7 +4,11 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
 import me.mochibit.defcon.content.explosion.BlastActor
+import me.mochibit.defcon.content.explosion.BlastZone
 import me.mochibit.defcon.content.explosion.BlastZoneSavedData
+import me.mochibit.defcon.content.explosion.processor.carver.CraterCarveContext
+import me.mochibit.defcon.content.explosion.processor.carver.CraterCarver
+import me.mochibit.defcon.content.explosion.processor.carver.RuntimeCraterCarveContext
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialCategories
 import me.mochibit.defcon.foundation.async.withMainContext
 import me.mochibit.defcon.foundation.extension.awaitUnpaused
@@ -28,139 +32,56 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
-//TODO: URGENT, refactor this to work like the shockwave, some kind of carver strategy (unifying the framework) that processes directly only loaded chunks, otherwise
-// the chunk gen is used
 class Crater(
     private val level: ServerLevel,
     private val center: BlockPos,
-    private val radiusX: Int,
-    private val radiusY: Int,
-    private val radiusZ: Int,
+    val radiusX: Int,
+    val radiusY: Int,
+    val radiusZ: Int,
     val collapseHeight: Int = 200,
     private val zoneId: UUID,
     val debrisRimWidth: Int = (radiusX * 0.3).toInt().coerceAtLeast(5)
 ) {
-    companion object {
-        private val CRATER_TICKET: TicketType<ChunkPos> =
-            TicketType.create("defcon_crater", Comparator.comparingLong(ChunkPos::toLong))
-    }
-
-    private fun craterChunkPositions(): List<ChunkPos> {
-        val maxRadius = radiusX + debrisRimWidth
-        val minChunkX = (centerX - maxRadius) shr 4
-        val maxChunkX = (centerX + maxRadius) shr 4
-        val minChunkZ = (centerZ - maxRadius) shr 4
-        val maxChunkZ = (centerZ + maxRadius) shr 4
-
-        val positions = ArrayList<ChunkPos>((maxChunkX - minChunkX + 1) * (maxChunkZ - minChunkZ + 1))
-        for (cx in minChunkX..maxChunkX) for (cz in minChunkZ..maxChunkZ) positions.add(ChunkPos(cx, cz))
-        return positions
-    }
-
-    private suspend fun acquireCraterChunks(positions: List<ChunkPos>) = withMainContext {
-        positions.forEach { pos -> level.setChunkForced(pos.x, pos.z, true) }
-    }
-
-    private suspend fun releaseCraterChunks(positions: List<ChunkPos>) = withMainContext {
-        positions.forEach { pos -> level.setChunkForced(pos.x, pos.z, false) }
-    }
-    private suspend fun awaitCraterChunksLoaded(positions: List<ChunkPos>) {
-        val remaining = positions.toMutableList()
-        while (remaining.isNotEmpty()) {
-            withMainContext {
-                remaining.removeAll { pos -> level.chunkSource.getChunkNow(pos.x, pos.z) != null }
-            }
-            if (remaining.isNotEmpty()) level.awaitUnpaused()
-        }
-    }
-
-
-
-    private val blockChanger by lazy { BlockChanger.getInstance(level) }
     private val touchedChunks = LongOpenHashSet()
-
-    private val centerX = center.x
-    private val centerY = center.y
-    private val centerZ = center.z
-
-    private val seaLevel = level.seaLevel
-
-    private val bounds =
-        CraterBounds(
-            minX = centerX - radiusX - debrisRimWidth,
-            maxX = centerX + radiusX + debrisRimWidth,
-            minZ = centerZ - radiusZ - debrisRimWidth,
-            maxZ = centerZ + radiusZ + debrisRimWidth,
-            minY = maxOf(centerY - radiusY, level.minBuildHeight),
-        )
-
-    private val scorchMaterials =
-        listOf(
-            Blocks.TUFF.defaultBlockState(),
-            Blocks.DEEPSLATE.defaultBlockState(),
-            Blocks.BASALT.defaultBlockState(),
-            Blocks.BLACKSTONE.defaultBlockState(),
-            Blocks.COAL_BLOCK.defaultBlockState(),
-            Blocks.BLACK_CONCRETE_POWDER.defaultBlockState(),
-            Blocks.BLACK_CONCRETE.defaultBlockState(),
-        )
-
-    private val debrisMaterials =
-        listOf(
-            Blocks.COARSE_DIRT.defaultBlockState(),
-            Blocks.GRAVEL.defaultBlockState(),
-            Blocks.COBBLESTONE.defaultBlockState(),
-            Blocks.ANDESITE.defaultBlockState(),
-            Blocks.STONE.defaultBlockState(),
-        )
-
-    private data class CraterBounds(
-        val minX: Int,
-        val maxX: Int,
-        val minZ: Int,
-        val maxZ: Int,
-        val minY: Int,
-    )
+    private val blockChanger by lazy { BlockChanger.getInstance(level) }
 
     suspend fun create() {
-        val chunkPositions = craterChunkPositions()
-        acquireCraterChunks(chunkPositions)
-        try {
-            awaitCraterChunksLoaded(chunkPositions)
-            generateCrater()
-            blockChanger.flush()
-            markProcessedChunks()
-        } finally {
-            releaseCraterChunks(chunkPositions)
+        val ctx = RuntimeCraterCarveContext(level, blockChanger)
+        val params = toCraterParams()
+
+        val maxRadius = radiusX + debrisRimWidth
+        withMainContext {
+            for (cx in (center.x - maxRadius shr 4)..(center.x + maxRadius shr 4)) {
+                for (cz in (center.z - maxRadius shr 4)..(center.z + maxRadius shr 4)) {
+                    if (!level.chunkSource.isPositionTicking(ChunkPos.asLong(cx, cz))) continue
+                    processChunkColumns(cx, cz, maxRadius, params, ctx)
+                    touchedChunks.add(ChunkPos.asLong(cx, cz))
+                }
+            }
         }
-        "Crater creation completed".info()
+        blockChanger.flush()
+        markProcessedChunks()
     }
 
-    private data class CraterPoint(
-        val x: Int,
-        val y: Int,
-        val z: Int,
-        val topY: Int,
-        val normalizedDistance: Double,
-        val isDebrisRim: Boolean,
-        val debrisHeight: Int,
-    )
+    private fun processChunkColumns(
+        cx: Int, cz: Int,
+        maxRadius: Int,
+        params: CraterCarver.Params,
+        ctx: CraterCarveContext,
+    ) {
+        val xRange = maxOf(cx shl 4, center.x - maxRadius)..minOf((cx shl 4) + 15, center.x + maxRadius)
+        val zRange = maxOf(cz shl 4, center.z - maxRadius)..minOf((cz shl 4) + 15, center.z + maxRadius)
 
-    private suspend fun findActualTerrainLevel(
-        x: Int, z: Int, startY: Int, chunk: ChunkAccess,
-    ): Int = coroutineScope {
-        val mutablePos = BlockPos.MutableBlockPos()
-        for (y in startY downTo level.minBuildHeight) {
-            val blockState = chunk.getBlockState(mutablePos.set(x, y, z))
+        val maxNormSq = (1.0 + debrisRimWidth.toDouble() / radiusX).pow(2)
 
-            if (blockState in MaterialCategories.TERRAIN_BLOCKS) {
-                return@coroutineScope y
-            }
-            if (blockState == Blocks.BEDROCK.defaultBlockState() || y < level.minBuildHeight + 5) {
-                return@coroutineScope seaLevel
-            }
+        for (x in xRange) for (z in zRange) {
+            val dx = x - center.x
+            val dz = z - center.z
+            val normalizedDistance = (dx.toDouble() / radiusX).pow(2) + (dz.toDouble() / radiusZ).pow(2)
+            if (normalizedDistance > maxNormSq) continue
+
+            CraterCarver.carveColumn(dx, dz, params, ctx)
         }
-        seaLevel
     }
 
     private fun markProcessedChunks() {
@@ -172,174 +93,14 @@ class Crater(
         }
     }
 
-    private suspend fun calculateCraterPoint(
-        dx: Int, dz: Int, chunk: ChunkAccess,
-    ): CraterPoint? = coroutineScope {
-        val x = centerX + dx
-        val z = centerZ + dz
-        val highestY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z)
-        val terrainY = findActualTerrainLevel(x, z, highestY, chunk)
-
-            val distSquared = dx * dx + dz * dz
-            val maxRadiusSquared = maxOf(radiusX * radiusX, radiusZ * radiusZ)
-            val normalizedDistance = sqrt(distSquared.toDouble() / maxRadiusSquared)
-
-            val debrisRimStart = 1.0
-            val debrisRimEnd = 1.0 + (debrisRimWidth.toDouble() / radiusX)
-
-            if (normalizedDistance > debrisRimEnd) {
-                return@coroutineScope null
-            }
-
-            if (normalizedDistance > debrisRimStart) {
-                val rimProgress = (normalizedDistance - debrisRimStart) / (debrisRimEnd - debrisRimStart)
-                val maxRimHeight = (radiusY * 0.25).toInt().coerceAtLeast(2).coerceAtMost(6)
-
-                val noise = wangNoise(x, 0, z)
-                val noiseVariation = (noise - 0.5) * 0.5
-
-                val baseRimHeight = (maxRimHeight * (1.0 - rimProgress * rimProgress)).toInt()
-                val variedRimHeight = (baseRimHeight * (1.0 + noiseVariation)).toInt().coerceAtLeast(0)
-
-                return@coroutineScope CraterPoint(
-                    x = x, y = terrainY, z = z,
-                    normalizedDistance = normalizedDistance,
-                    isDebrisRim = true,
-                    debrisHeight = variedRimHeight,
-                    topY = highestY
-                )
-            }
-
-            val heightAboveSeaLevel = maxOf(0, terrainY - seaLevel)
-            val depthFactor = distSquared.toDouble() / maxRadiusSquared
-            val baseDepth = (radiusY * (1.0 - sqrt(depthFactor))).toInt()
-
-            val terrainFactor = (heightAboveSeaLevel.toDouble() / radiusY.toDouble()).coerceIn(0.0, 1.0)
-            val adjustedDepth = (baseDepth * (0.8 + terrainFactor * 0.2)).toInt()
-
-            val craterFloorY = terrainY - adjustedDepth
-            val minFloorY = maxOf(bounds.minY, seaLevel - radiusY)
-            val finalY = craterFloorY.coerceAtLeast(minFloorY).coerceAtMost(level.maxBuildHeight - 1)
-
-            CraterPoint(
-                x = x, y = finalY, z = z,
-                normalizedDistance = normalizedDistance,
-                isDebrisRim = false,
-                debrisHeight = 0,
-                topY = highestY
-            )
-        }
+    private fun Crater.toCraterParams() = CraterCarver.Params(
+        centerX = center.x, centerY = center.y, centerZ = center.z,
+        radiusX = radiusX, radiusY = radiusY, radiusZ = radiusZ,
+        debrisRimWidth = debrisRimWidth, collapseHeight = collapseHeight,
+        seaLevel = level.seaLevel, minBuildHeight = level.minBuildHeight, maxBuildHeight = level.maxBuildHeight,
+    )
 
 
-    private suspend fun generateCrater() {
-        val maxRadius = radiusX + debrisRimWidth
-        val maxNormSq = (1.0 + debrisRimWidth.toDouble() / radiusX).pow(2)
-
-        val minChunkX = (centerX - maxRadius) shr 4
-        val maxChunkX = (centerX + maxRadius) shr 4
-        val minChunkZ = (centerZ - maxRadius) shr 4
-        val maxChunkZ = (centerZ + maxRadius) shr 4
-
-        for (cx in minChunkX..maxChunkX) {
-            for (cz in minChunkZ..maxChunkZ) {
-                val wasProcessed = withMainContext {
-                    val chunk = level.chunkSource.getChunkNow(cx, cz) ?: return@withMainContext false
-
-                    val xRange = maxOf(cx shl 4, centerX - maxRadius)..minOf((cx shl 4) + 15, centerX + maxRadius)
-                    val zRange = maxOf(cz shl 4, centerZ - maxRadius)..minOf((cz shl 4) + 15, centerZ + maxRadius)
-
-                    for (x in xRange) for (z in zRange) {
-                        val dx = x - centerX
-                        val dz = z - centerZ
-                        val normalizedDistance = (dx.toDouble() / radiusX).pow(2) + (dz.toDouble() / radiusZ).pow(2)
-                        if (normalizedDistance > maxNormSq) continue
-
-                        val point = calculateCraterPoint(dx, dz, chunk) ?: continue
-                        if (point.isDebrisRim) processDebrisRim(point, chunk) else processCraterFloor(point, chunk)
-                    }
-                    true
-                }
-
-                if (wasProcessed) touchedChunks.add(ChunkPos.asLong(cx, cz))
-                level.awaitUnpaused()
-            }
-        }
-    }
-
-    private suspend fun processCraterFloor(point: CraterPoint, chunk: ChunkAccess) {
-        applyFloorScorching(point)
-        clearToCraterFloor(point, chunk)
-    }
-
-    private suspend fun processDebrisRim(point: CraterPoint, chunk: ChunkAccess) =
-        coroutineScope {
-            val maxClearHeight = minOf(point.topY + 4, centerY + collapseHeight, level.maxBuildHeight - 1)
-            val mutablePos = BlockPos.MutableBlockPos()
-
-            for (y in maxClearHeight downTo (point.y + 1)) {
-                val blockType = chunk.getBlockState(mutablePos.set(point.x, y, point.z))
-                if (blockType.canBeRemoved() && !blockType.isAir) {
-                    blockChanger.addBlockChange(point.x, y, point.z, Blocks.AIR.defaultBlockState(), updateBlock = false)
-                }
-            }
-
-            val baseY = point.y
-            val targetHeight = baseY + point.debrisHeight
-            for (y in baseY + 1..targetHeight) {
-                val noise = wangNoise(point.x, y, point.z)
-                val materialIndex = ((noise * debrisMaterials.size).toInt()).coerceIn(debrisMaterials.indices)
-                blockChanger.addBlockChange(point.x, y, point.z, debrisMaterials[materialIndex], updateBlock = false)
-            }
-
-            if (point.debrisHeight > 0 && wangNoise(point.x, 0, point.z) > 0.4) {
-                val scorchMaterial = scorchMaterials.take(3).random()
-                blockChanger.addBlockChange(point.x, targetHeight, point.z, scorchMaterial, updateBlock = false)
-            }
-        }
-
-    private suspend fun applyFloorScorching(point: CraterPoint) =
-        coroutineScope {
-            val blockType = level.getBlockState(point.x, point.y, point.z)
-            if (!blockType.canBeScorched()) return@coroutineScope
-
-            val material = selectScorchMaterial(point.normalizedDistance, point.x, point.z)
-            blockChanger.addBlockChange(point.x, point.y, point.z, material, updateBlock = false)
-        }
-
-    private suspend fun clearToCraterFloor(point: CraterPoint, chunk: ChunkAccess) = coroutineScope {
-        val maxClearHeight = minOf(point.topY + 4, centerY + collapseHeight, level.maxBuildHeight - 1)
-        val mutablePos = BlockPos.MutableBlockPos()
-
-        for (y in maxClearHeight downTo (point.y + 1)) {
-            val blockType = chunk.getBlockState(mutablePos.set(point.x, y, point.z))
-            if (blockType.canBeRemoved() && !blockType.isAir) {
-                blockChanger.addBlockChange(point.x, y, point.z, Blocks.AIR.defaultBlockState(), updateBlock = false)
-            }
-        }
-    }
-
-    private fun selectScorchMaterial(
-        normalizedDistance: Double,
-        x: Int,
-        z: Int,
-    ): BlockState {
-        val clampedDistance = normalizedDistance.coerceIn(0.0, 1.0)
-        val noise = wangNoise(x, 0, z)
-        val distortion = (noise - 0.5) * 0.25
-        val finalDistance = (clampedDistance + distortion).coerceIn(0.0, 1.0)
-
-        val index =
-            ((1.0 - finalDistance) * (scorchMaterials.size - 1))
-                .roundToInt()
-                .coerceIn(scorchMaterials.indices)
-
-        return scorchMaterials[index]
-    }
-
-    private fun BlockState.canBeScorched(): Boolean =
-        !isAir && this !in MaterialCategories.LIQUID_MATERIALS && this !in MaterialCategories.INDESTRUCTIBLE_BLOCKS
-
-    private fun BlockState.canBeRemoved(): Boolean = canBeScorched() || this in MaterialCategories.LIQUID_MATERIALS
 }
 
 private fun wangNoise(x: Int, y: Int, z: Int): Double {

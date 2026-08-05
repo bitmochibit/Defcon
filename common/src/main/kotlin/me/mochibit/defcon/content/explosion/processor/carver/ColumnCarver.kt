@@ -21,7 +21,6 @@ object ColumnCarver {
         ctx: ColumnCarveContext,
     ) {
         val terrainNoiseStrength = power * 0.7f
-        val baseTerrainBreakChance = power * 0.95f
 
         val spatialNoise = (generateTerrainNoise(x, 0, z, 1.0f) + 1.0f) * 0.5f
         if (power < 0.3f && spatialNoise > (power / 0.3f)) {

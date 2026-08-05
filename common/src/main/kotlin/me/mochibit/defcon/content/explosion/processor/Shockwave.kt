@@ -81,6 +81,7 @@ class Shockwave(
             try {
                 val effectiveShockwaveRange = (shockwaveRadius - radiusStart).toFloat()
 
+                val savedData = BlastZoneSavedData.get(level)
                 for (currentRadius in radiusStart..shockwaveRadius) {
                     val distanceFromCraterEdge = (currentRadius - radiusStart).toFloat()
                     val radiusProgress = distanceFromCraterEdge / effectiveShockwaveRange
@@ -90,7 +91,6 @@ class Shockwave(
                         .flowOn(Dispatchers.IO)
                         .toList()
 
-                    val savedData = BlastZoneSavedData.get(level)
                     val loadedPositions = withMainContext {
                         ringPositions.filter { pos ->
                             val chunkX = pos.x shr 4

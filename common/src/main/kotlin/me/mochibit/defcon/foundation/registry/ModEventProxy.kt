@@ -6,7 +6,8 @@ import me.mochibit.defcon.foundation.services.PlatformService
 import me.mochibit.defcon.foundation.services.platformService
 import net.minecraft.core.Registry
 
-object ModEventProxy : CommonRegistry {
+@AutoRegister
+object ModEventProxy : Registrable {
     override fun register(registry: Registry<*>?) {
         "Registering mod event proxies...".info()
         val isClient = platformService isEnvironment PlatformService.Environment.CLIENT

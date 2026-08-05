@@ -1,6 +1,7 @@
 package me.mochibit.defcon.foundation.registry
 
 import me.mochibit.defcon.foundation.services.PlatformService
+import me.mochibit.defcon.foundation.services.classScanningService
 import me.mochibit.defcon.foundation.services.platformService
 import net.minecraft.core.Registry
 
@@ -22,37 +23,38 @@ interface Registrable {
     fun register(registry: Registry<*>? = null)
 }
 
-sealed interface PreFreezeCommonRegistry : Registrable
+enum class RegistryPhase {
+    PRE_FREEZE,
+    COMMON
+}
 
-sealed interface CommonRegistry : Registrable
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class AutoRegister(val phase: RegistryPhase = RegistryPhase.COMMON)
 
-/**
- * Generic auto-registration function utility that uses sealed classes to automatically register, and discover, Registrable implementations.
- *
- * Lower [Registrable.registrationOrder] values are registered first.
- *
- * Pass a sealed interface that extends [Registrable] as the type parameter to automatically register all of its object implementations.
- *
- * Place the marker in the same package as the implementations!!
- *
- * It is platform-agnostic
- */
-inline fun <reified AutoRegistrableMarker : Registrable> autoRegister(registry: Registry<*>? = null) {
-    if (!AutoRegistrableMarker::class.isSealed) {
-        throw IllegalArgumentException("The passed auto registrable marker must be a sealed interface")
+
+object AutoRegistrar {
+
+    fun registerAll(phase: RegistryPhase, registry: Registry<*>? = null) {
+        val platform = platformService
+
+        classScanningService.getClassesAnnotatedByWithData(AutoRegister::class.java)
+            .filter { (_, data) -> phaseOf(data) == phase }
+            .mapNotNull { (clazz, _) -> resolveInstance(clazz) as? Registrable }
+            .filter { it.targetEnvironment == null || it.targetEnvironment == platform.environment }
+            .sortedBy { it.registrationOrder }
+            .forEach { it.register(registry) }
     }
 
-    val platform = platformService
+    private fun phaseOf(annotationData: Map<String, Any>): RegistryPhase {
+        val raw = annotationData["phase"] as? Array<*> ?: return RegistryPhase.COMMON
+        val name = raw.getOrNull(1) as? String ?: return RegistryPhase.COMMON
+        return RegistryPhase.valueOf(name)
+    }
 
-    AutoRegistrableMarker::class
-        .sealedSubclasses
-        .filter { AutoRegistrableMarker::class.java.isAssignableFrom(it.java) }
-        .map { it.objectInstance as Registrable }
-        .filter { registrable ->
-            val envMatch =
-                registrable.targetEnvironment == null ||
-                        registrable.targetEnvironment == platform.environment
-            envMatch
-        }.sortedBy { it.registrationOrder }
-        .forEach { it.register(registry) }
+    private fun resolveInstance(clazz: Class<*>): Any? =
+        runCatching { clazz.getField("INSTANCE").get(null) }
+            .getOrElse {
+                runCatching { clazz.getDeclaredConstructor().newInstance() }.getOrNull()
+            }
 }

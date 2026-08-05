@@ -1,7 +1,5 @@
 package me.mochibit.defcon.foundation.services
 
-import java.nio.file.Path
-
 interface PlatformService {
     enum class Platform {
         NEOFORGE,
@@ -37,3 +35,4 @@ interface PlatformService {
 val platformService: PlatformService by lazy {
     loadService<PlatformService>()
 }
+

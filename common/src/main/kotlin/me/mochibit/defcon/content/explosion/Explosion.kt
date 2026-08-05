@@ -4,6 +4,7 @@ import kotlinx.coroutines.*
 import me.mochibit.defcon.content.explosion.effects.NuclearExplosionParams
 import me.mochibit.defcon.content.explosion.processor.Crater
 import me.mochibit.defcon.content.explosion.processor.EntityDamageShockwave
+import me.mochibit.defcon.content.explosion.processor.PostApocalypticTerrain
 import me.mochibit.defcon.explosion.processor.Shockwave
 import me.mochibit.defcon.foundation.async.ClientCoroutineScope
 import me.mochibit.defcon.foundation.async.ServerCoroutineScope
@@ -139,34 +140,34 @@ class NuclearExplosion(
                         if (entity is Player && (entity.isCreative || entity.isSpectator)) return@forEach
                         entity.hurt(vaporized, Float.MAX_VALUE)
                     }
+
                 }
 
                 val crater = Crater(
                     this.serverLevel,
                     epicenter,
-                    100,
-                    50,
-                    100,
-                    zoneId = explosionUUID
+                    radiusX = 100,
+                    radiusY = 50,
+                    radiusZ = 100,
+                    zoneId = explosionUUID,
                 )
 
-                val radiusStart = 100 + crater.debrisRimWidth/2
+                val radiusStart = 100 + crater.debrisRimWidth
                 val shockwaveRadius = 1000
                 val shockwaveHeight = 200
 
                 val zoneSave = BlastZoneSavedData.get(this.serverLevel)
-                val zone = BlastZone(explosionUUID, epicenter.x, epicenter.y, epicenter.z, shockwaveRadius, radiusStart, shockwaveHeight)
+                val zone = BlastZone(
+                    id = explosionUUID,
+                    centerX = epicenter.x, centerY = epicenter.y, centerZ = epicenter.z,
+                    shockwaveRadiusOuter = shockwaveRadius, shockwaveRadiusInner = radiusStart, shockwaveHeight = shockwaveHeight,
+                    craterRadiusX = crater.radiusX, craterRadiusY = crater.radiusY, craterRadiusZ = crater.radiusZ,
+                    craterDebrisRimWidth = crater.debrisRimWidth, craterCollapseHeight = crater.collapseHeight,
+                )
                 zoneSave.addZone(zone)
+                PostApocalypticTerrain.seedZone(this.serverLevel, zone)
 
-                Shockwave(
-                    explosionUUID,
-                    this.serverLevel,
-                    epicenter,
-                    radiusStart,
-                    shockwaveRadius,
-                    shockwaveHeight = shockwaveHeight,
-                ).explode()
-
+                Shockwave(explosionUUID, this.serverLevel, epicenter, radiusStart, shockwaveRadius, shockwaveHeight = shockwaveHeight).explode()
                 crater.create()
             },
         )

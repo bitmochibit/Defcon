@@ -7,7 +7,8 @@ import me.mochibit.defcon.foundation.services.networkService
 import net.minecraft.core.Registry
 import kotlin.reflect.KClass
 
-object ModPackets : CommonRegistry, NetworkService by networkService {
+@AutoRegister
+object ModPackets : Registrable, NetworkService by networkService {
     val packetClasses: List<KClass<out ModPacket>> =
         mutableListOf<KClass<out ModPacket>>().apply {
             fun collectSubclasses(kClass: KClass<out ModPacket>) {

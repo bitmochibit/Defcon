@@ -13,8 +13,8 @@ import net.minecraft.core.particles.ParticleType
 import net.minecraft.core.registries.Registries
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
-
-object ModParticles : CommonRegistry {
+@AutoRegister
+object ModParticles : Registrable {
     val ExplosionDustParticle = ModRegistrate.particle<ExplosionDustParticleOptions>(
         "explosion_particle",
         codecSupplier = { ExplosionDustParticleOptions.CODEC },

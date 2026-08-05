@@ -22,3 +22,4 @@ interface ColumnCarveContext {
     fun isPosAlreadyBurnedByTree(x: Int, y: Int, z: Int): Boolean
     fun markChunkProcessedWhenFlushed(zoneId: UUID, chunkX: Int, chunkZ: Int)
 }
+
