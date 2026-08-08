@@ -7,12 +7,12 @@ import me.mochibit.defcon.content.explosion.processor.carver.CraterCarver
 import me.mochibit.defcon.content.explosion.processor.carver.WorldGenColumnCarveContext
 import me.mochibit.defcon.content.explosion.processor.carver.WorldGenCraterCarveContext
 import me.mochibit.defcon.content.explosion.processor.transformer.MaterialTransformer
-import me.mochibit.defcon.explosion.processor.Shockwave
 import me.mochibit.defcon.foundation.eventbus.ModEventHandler
 import me.mochibit.defcon.foundation.services.eventService
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.ChunkPos
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.chunk.LevelChunk
 import net.minecraft.world.level.levelgen.Heightmap
 import kotlin.math.sqrt
@@ -20,9 +20,9 @@ import kotlin.random.Random
 
 object PostApocalypticTerrain : ModEventHandler {
     private val pending = ArrayDeque<Pair<ChunkPos, ServerLevel>>()
+    private const val TICK_BUDGET_NANOS = 3_000_000L
 
     fun apply(savedData: BlastZoneSavedData, level: ServerLevel, chunk: LevelChunk, zone: BlastZone) {
-
         val chunkPos = chunk.pos
         val chunkSeed = chunkPos.toLong() xor zone.id.leastSignificantBits xor 0x5DEECE66DL
         val transformer = MaterialTransformer(random = Random(chunkSeed))
@@ -31,7 +31,7 @@ object PostApocalypticTerrain : ModEventHandler {
 
         val chunkCtx = WorldGenColumnCarveContext(level, chunk, BlockPos(zone.centerX, zone.centerY, zone.centerZ))
         val effectiveShockwaveRange = (zone.shockwaveRadiusOuter - zone.shockwaveRadiusInner).toFloat()
-        val craterCtx = WorldGenCraterCarveContext(chunk)
+        val craterCtx = WorldGenCraterCarveContext(level, chunk)
         val craterParams = zone.toCraterParams(level)
 
         for (x in 0 until 16) {
@@ -74,6 +74,8 @@ object PostApocalypticTerrain : ModEventHandler {
         }
         chunkCtx.markChunkProcessedWhenFlushed(zone.id, chunkPos.x, chunkPos.z)
         chunkCtx.flushClientUpdates()
+
+        craterCtx.flushClientUpdates()
     }
 
     override fun setupEvents() {
@@ -85,26 +87,30 @@ object PostApocalypticTerrain : ModEventHandler {
         }
 
         eventService.onLevelTick { level ->
-            if (level !is ServerLevel) return@onLevelTick
-            var i = 0
-            while (i < pending.size) {
-                val (chunkPos, serverLevel) = pending[i]
-                if (!serverLevel.chunkSource.hasChunk(chunkPos.x, chunkPos.z)) {
-                    i++
-                    continue
-                }
-                if (!serverLevel.chunkSource.isPositionTicking(chunkPos.toLong())) {
-                    i++
-                    continue
-                }
-                val chunk = serverLevel.getChunk(chunkPos.x, chunkPos.z)
-                val savedData = BlastZoneSavedData.get(serverLevel)
-                savedData.zonesForChunk(chunkPos.x, chunkPos.z)
-                    .filterNot { savedData.isChunkWorldgenProcessedByAnyActor(it.id, chunkPos.x, chunkPos.z) }
-                    .forEach { zone -> apply(savedData, serverLevel, chunk, zone) }
-                pending.removeAt(i)
-            }
+            if (level !is ServerLevel || level.dimension() != Level.OVERWORLD) return@onLevelTick
+            drainPendingBudgeted()
+        }
+    }
 
+    private fun drainPendingBudgeted() {
+        val start = System.nanoTime()
+        var i = 0
+        while (i < pending.size) {
+            if (System.nanoTime() - start >= TICK_BUDGET_NANOS) break
+
+            val (chunkPos, serverLevel) = pending[i]
+            if (!serverLevel.chunkSource.hasChunk(chunkPos.x, chunkPos.z) ||
+                !serverLevel.chunkSource.isPositionTicking(chunkPos.toLong())
+            ) {
+                i++
+                continue
+            }
+            val chunk = serverLevel.getChunk(chunkPos.x, chunkPos.z)
+            val savedData = BlastZoneSavedData.get(serverLevel)
+            savedData.zonesForChunk(chunkPos.x, chunkPos.z)
+                .filterNot { savedData.isChunkWorldgenProcessedByAnyActor(it.id, chunkPos.x, chunkPos.z) }
+                .forEach { zone -> apply(savedData, serverLevel, chunk, zone) }
+            pending.removeAt(i)
         }
     }
 

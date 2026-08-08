@@ -181,13 +181,6 @@ class BlockChanger private constructor(
 
     private fun hasOutstandingWork(): Boolean = pendingCount.get() > 0
 
-    suspend fun flush() {
-        while (hasOutstandingWork()) {
-            delay(20.milliseconds)
-        }
-        delay(50.milliseconds)
-    }
-
     companion object {
         private val instances = ConcurrentHashMap<ResourceKey<Level>, BlockChanger>()
         private var listenerRegistered = false

@@ -1,4 +1,4 @@
-package me.mochibit.defcon.explosion.processor
+package me.mochibit.defcon.content.explosion.processor
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import kotlinx.coroutines.*
@@ -20,12 +20,10 @@ import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.level.chunk.status.ChunkStatus
 import net.minecraft.world.level.levelgen.Heightmap
 import java.util.UUID
 import kotlin.math.pow
 import kotlin.random.Random
-import kotlin.time.Duration.Companion.milliseconds
 
 
 private object ShockwaveScope : CoroutineScope {
@@ -87,7 +85,7 @@ class Shockwave(
                     val radiusProgress = distanceFromCraterEdge / effectiveShockwaveRange
                     val power = calculateShockwavePower(radiusProgress)
 
-                    val ringPositions = generateShockwaveCircleBresenham(currentRadius)
+                    val ringPositions = generateShockwaveCircle(currentRadius)
                         .flowOn(Dispatchers.IO)
                         .toList()
 
@@ -147,7 +145,7 @@ class Shockwave(
         }
     }
 
-    private fun generateShockwaveCircleBresenham(radius: Int): Flow<BlockPos> =
+    private fun generateShockwaveCircle(radius: Int): Flow<BlockPos> =
         flow {
             if (radius == 0) {
                 emit(BlockPos(centerX, worldMaxHeight, centerZ))
@@ -164,7 +162,7 @@ class Shockwave(
                 for (dz in -radius..radius) {
                     val distSq = dx * dx + dz * dz
 
-                    if (distSq > innerBound && distSq <= radiusSquared) {
+                    if (distSq in (innerBound + 1)..radiusSquared) {
                         val wx = centerX + dx
                         val wz = centerZ + dz
                         val key = (wx.toLong() shl 32) or (wz.toLong() and 0xFFFFFFFFL)
