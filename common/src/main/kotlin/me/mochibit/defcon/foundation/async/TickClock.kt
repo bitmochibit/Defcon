@@ -7,6 +7,9 @@ import net.minecraft.world.level.Level
 import java.util.PriorityQueue
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 
 object TickClock {
@@ -61,14 +64,14 @@ object TickClock {
 suspend fun awaitNextTick() = TickClock.awaitTicks(1)
 
 suspend fun <T> Iterator<T>.processTickBudgeted(
-    budgetNanos: Long = 3_000_000L,
+    budget: Duration = 3.milliseconds,
     ticksBetweenBatches: Int = 1,
     perItem: (T) -> Unit,
 ) {
     while (hasNext()) {
         withMainContext {
-            val batchStart = System.nanoTime()
-            while (hasNext() && System.nanoTime() - batchStart < budgetNanos) {
+            val batchStart = TimeSource.Monotonic.markNow()
+            while (hasNext() && batchStart.elapsedNow() < budget) {
                 perItem(next())
             }
         }
@@ -77,7 +80,7 @@ suspend fun <T> Iterator<T>.processTickBudgeted(
 }
 
 suspend fun <T> Sequence<T>.processTickBudgeted(
-    budgetNanos: Long = 3_000_000L,
+    budget: Duration = 3.milliseconds,
     ticksBetweenBatches: Int = 1,
     perItem: (T) -> Unit,
-) = iterator().processTickBudgeted(budgetNanos, ticksBetweenBatches, perItem)
+) = iterator().processTickBudgeted(budget, ticksBetweenBatches, perItem)

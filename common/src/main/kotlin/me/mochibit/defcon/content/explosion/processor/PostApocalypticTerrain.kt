@@ -17,10 +17,12 @@ import net.minecraft.world.level.chunk.LevelChunk
 import net.minecraft.world.level.levelgen.Heightmap
 import kotlin.math.sqrt
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 object PostApocalypticTerrain : ModEventHandler {
     private val pending = ArrayDeque<Pair<ChunkPos, ServerLevel>>()
-    private const val TICK_BUDGET_NANOS = 3_000_000L
+    private val TICK_BUDGET = 3.milliseconds
 
     fun apply(savedData: BlastZoneSavedData, level: ServerLevel, chunk: LevelChunk, zone: BlastZone) {
         val chunkPos = chunk.pos
@@ -93,10 +95,10 @@ object PostApocalypticTerrain : ModEventHandler {
     }
 
     private fun drainPendingBudgeted() {
-        val start = System.nanoTime()
+        val start = TimeSource.Monotonic.markNow()
         var i = 0
         while (i < pending.size) {
-            if (System.nanoTime() - start >= TICK_BUDGET_NANOS) break
+            if (start.elapsedNow() >= TICK_BUDGET) break
 
             val (chunkPos, serverLevel) = pending[i]
             if (!serverLevel.chunkSource.hasChunk(chunkPos.x, chunkPos.z) ||
